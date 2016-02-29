@@ -27,12 +27,13 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import warnings
 import inspect
 import os
 import sys
+import warnings
 
-from . import testcase, StrType
+from . import StrType
+from .._testing import testcase
 
 if sys.version_info[0] >= 3:
 	_typeType = type

@@ -19,16 +19,13 @@
 # SOFTWARE.
 
 """
-.. module:: run_unit_tests
-	:synopsis: Execute this file directly to run the unit tests.
+.. module:: run_pylint
+	:synopsis: Local pylint install, pretty much does exactly what the main pylint file does, but doing the same thing here
+			and invoking this file directly ensures we run with the right python version (2 or 3) so we can test both
 """
 
 from __future__ import unicode_literals, division, print_function
 
-
 if __name__ == "__main__":
-	import os
-	from csbuild._testing.run_unit_tests import RunTests
-
-	os.chdir(os.path.dirname(__file__))
-	RunTests()
+	from pylint import run_pylint
+	run_pylint()

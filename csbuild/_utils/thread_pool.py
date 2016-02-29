@@ -28,9 +28,9 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import threading
-import sys
 import functools
+import sys
+import threading
 if sys.version_info[0] >= 3:
 	import queue
 	from collections.abc import Callable
@@ -41,7 +41,8 @@ else:
 	# pylint: disable=import-error
 	from ._reraise_py2 import Reraise
 
-from . import testcase, log
+from . import log
+from .._testing import testcase
 from .decorators import TypeChecked
 
 class ThreadPool(object):

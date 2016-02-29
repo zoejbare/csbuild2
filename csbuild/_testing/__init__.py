@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,16 +19,11 @@
 # SOFTWARE.
 
 """
-.. module:: run_unit_tests
-	:synopsis: Execute this file directly to run the unit tests.
+.. package:: testing
+	:synopsis: Files related to testing csbuild
+
+.. moduleauthor:: Jaedyn K. Draper
 """
 
+# Required to keep lint happy.
 from __future__ import unicode_literals, division, print_function
-
-
-if __name__ == "__main__":
-	import os
-	from csbuild._testing.run_unit_tests import RunTests
-
-	os.chdir(os.path.dirname(__file__))
-	RunTests()
