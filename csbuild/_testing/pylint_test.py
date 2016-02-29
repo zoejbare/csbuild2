@@ -50,7 +50,10 @@ class TestPylint(testcase.TestCase):
 		pool = thread_pool.ThreadPool(multiprocessing.cpu_count(), callbackQueue, stopOnException=False)
 
 		env = dict(os.environ)
-		env['PYTHONPATH'] = os.pathsep.join(sys.path)
+		if sys.version_info[0] >= 3:
+			env['PYTHONPATH'] = os.pathsep.join(sys.path)
+		else:
+			env[b'PYTHONPATH'] = os.pathsep.join(sys.path)
 
 		fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 		out, err = fd.communicate()
