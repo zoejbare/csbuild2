@@ -49,7 +49,10 @@ class TestPylint(testcase.TestCase):
 		log.SetCallbackQueue(callbackQueue)
 		pool = thread_pool.ThreadPool(multiprocessing.cpu_count(), callbackQueue, stopOnException=False)
 
-		fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		env = dict(os.environ)
+		env['PYTHONPATH'] = os.pathsep.join(sys.path)
+
+		fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 		out, err = fd.communicate()
 		if err:
 			log.Error(err)
@@ -58,7 +61,7 @@ class TestPylint(testcase.TestCase):
 
 		def _runPylint(module):
 			log.Info("Linting module {}", module)
-			fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", module], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", module], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 			out, err = fd.communicate()
 			if err:
 				log.Error(err)

@@ -28,7 +28,10 @@ from __future__ import unicode_literals, division, print_function
 
 if __name__ == "__main__":
 	import os
-	from csbuild._testing.run_unit_tests import RunTests
+	import sys
 
+	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 	os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+	from csbuild._testing.run_unit_tests import RunTests
 	RunTests()
