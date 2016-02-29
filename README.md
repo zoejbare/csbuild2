@@ -1,7 +1,7 @@
 ## **Current test status:**
 
-**Test Suite**        | **Status**
-:-------------------: | :---------------------------------------------------------------------------------------------------------------------------: 
+**Test Suite**        | **Status** | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:-------------------: | :---------------------------------------------------------------------------------------------------------------------------:  | ---
 **Linux/Python2.7**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_UnitTests_Python2_Linux)/statusIcon)]()
 **Linux/Python3.5**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_UnitTests_Python3_Linux)/statusIcon)]()
 **Windows/Python2.7** | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_UnitTests_Python2_Windows)/statusIcon)]()
