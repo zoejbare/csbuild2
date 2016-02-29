@@ -201,7 +201,8 @@ class TestResult(unittest.TextTestResult):
 		:type test: TestCase
 		"""
 		super(TestResult, self).stopTest(test)
-		if test.__class__.__name__ != "ModuleImportFailure":
+		# Python 3.5 changed from ModuleImportFailure to _FailedTest...
+		if test.__class__.__name__ != "_FailedTest" and test.__class__.__name__ != "ModuleImportFailure":
 			self.testList[test] = time.time() - self.timer
 
 	def addError(self, test, err):
@@ -211,7 +212,9 @@ class TestResult(unittest.TextTestResult):
 		# But the unittest system doesn't know about that and will try to import them. If it does it'll give us
 		# this ModuleImportFailure. We have to detect this and selectively ignore it for those specific modules.
 		# But ONLY for those modules.
-		if test.__class__.__name__ == "ModuleImportFailure":
+
+		# Python 3.5 changed from ModuleImportFailure to _FailedTest...
+		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
 			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
 				return
 
@@ -223,7 +226,7 @@ class TestResult(unittest.TextTestResult):
 		# pylint: disable=protected-access
 
 		# See comment in addError above
-		if test.__class__.__name__ == "ModuleImportFailure":
+		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
 			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
 				return
 
