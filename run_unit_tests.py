@@ -30,5 +30,5 @@ if __name__ == "__main__":
 	import os
 	from csbuild._testing.run_unit_tests import RunTests
 
-	os.chdir(os.path.dirname(__file__))
+	os.chdir(os.path.dirname(os.path.abspath(__file__)))
 	RunTests()
