@@ -19,19 +19,10 @@
 # SOFTWARE.
 
 """
-.. module:: run_unit_tests
-	:synopsis: Execute this file directly to run the unit tests.
+.. package:: plugin
+	:synopsis: General-purpose plugin infrastructure
+
+.. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
-
-
-if __name__ == "__main__":
-	import os
-	import sys
-
-	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-	os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-	from csbuild._zz_testing.run_unit_tests import RunTests
-	RunTests()

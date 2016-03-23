@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,19 +19,13 @@
 # SOFTWARE.
 
 """
-.. module:: run_unit_tests
-	:synopsis: Execute this file directly to run the unit tests.
+.. package:: _zz_testing
+	:synopsis: Files related to testing csbuild
+
+.. moduleauthor:: Jaedyn K. Draper
 """
 
+# Required to keep lint happy.
 from __future__ import unicode_literals, division, print_function
 
-
-if __name__ == "__main__":
-	import os
-	import sys
-
-	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-	os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-	from csbuild._zz_testing.run_unit_tests import RunTests
-	RunTests()
+# Why _zz_testing? Because that name ensures the pylint test runs last in the test execution order.

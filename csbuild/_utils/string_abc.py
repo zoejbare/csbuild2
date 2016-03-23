@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Jaedyn K. Draper
+# Copyright (C) 2013 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,11 +19,24 @@
 # SOFTWARE.
 
 """
-.. package:: testing
-	:synopsis: Files related to testing csbuild
-
-.. moduleauthor:: Jaedyn K. Draper
+.. module:: string_abc
+	:synopsis: Provides an abstract base class to provide the same role as basestring in a python 2 and 3 compatible way
 """
 
-# Required to keep lint happy.
 from __future__ import unicode_literals, division, print_function
+
+import abc
+from . import StrType, BytesType
+from .decorators import MetaClass
+
+@MetaClass(abc.ABCMeta)
+class String(object):
+	"""
+	Abstract base class representing both str and bytes in python3, and both unicode and str in python 2.
+	"""
+	pass
+
+#pylint's not very intelligent about the @MetaClass decorator...
+
+String.register(StrType)  # pylint: disable=no-member
+String.register(BytesType)  # pylint: disable=no-member

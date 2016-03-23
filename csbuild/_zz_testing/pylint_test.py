@@ -30,6 +30,7 @@ import os
 import subprocess
 import sys
 import traceback
+import threading
 
 if sys.version_info[0] >= 3:
 	import queue
@@ -37,7 +38,8 @@ else:
 	import Queue as queue
 
 from . import testcase
-from .._utils import thread_pool, log
+from .._utils import thread_pool, log, PlatformString
+
 
 class TestPylint(testcase.TestCase):
 	"""Test to run pylint"""
@@ -50,26 +52,29 @@ class TestPylint(testcase.TestCase):
 		pool = thread_pool.ThreadPool(multiprocessing.cpu_count(), callbackQueue, stopOnException=False)
 
 		env = dict(os.environ)
-		if sys.version_info[0] >= 3:
-			env['PYTHONPATH'] = os.pathsep.join(sys.path)
-		else:
-			env[b'PYTHONPATH'] = os.pathsep.join(sys.path)
+		env[PlatformString('PYTHONPATH')] = os.pathsep.join(sys.path)
 
-		fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+		fd = subprocess.Popen([sys.executable, "csbuild/_zz_testing/run_pylint.py", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 		out, err = fd.communicate()
 		if err:
 			log.Error(err)
 		if out:
 			log.Info(out)
 
+		failedLints = set()
+		lock = threading.Lock()
+
 		def _runPylint(module):
 			log.Info("Linting module {}", module)
-			fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", module], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+			fd = subprocess.Popen([sys.executable, "csbuild/_zz_testing/run_pylint.py", module], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 			out, err = fd.communicate()
 			if err:
 				log.Error(err)
 			if out:
 				log.Error(out)
+			if fd.returncode != 0:
+				with lock:
+					failedLints.add(module)
 			self.assertEqual(0, fd.returncode)
 
 		class _sharedLocals(object):
@@ -82,7 +87,7 @@ class TestPylint(testcase.TestCase):
 			if _sharedLocals.count == _sharedLocals.done:
 				pool.Stop()
 
-		for root, _, files in os.walk(os.path.join(os.path.dirname(__file__))):
+		for root, _, files in os.walk("."):
 			for filename in files:
 				if filename.endswith(".py"):
 					if filename.endswith("_py3.py") and sys.version_info[0] != 3:
@@ -108,6 +113,12 @@ class TestPylint(testcase.TestCase):
 				errors = True
 
 		log.SetCallbackQueue(None)
+
+		if failedLints:
+			log.Error("The following modules failed to lint:")
+			for module in failedLints:
+				log.Error("\t{}", module)
+			self.fail("{} files failed to lint.".format(len(failedLints)))
 
 		if errors:
 			self.fail("Exceptions were thrown during the test")

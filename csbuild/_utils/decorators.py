@@ -33,7 +33,7 @@ import sys
 import warnings
 
 from . import StrType
-from .._testing import testcase
+from .._zz_testing import testcase
 
 if sys.version_info[0] >= 3:
 	_typeType = type
@@ -438,6 +438,19 @@ def Overload(**argtypes):
 			Overload.funcs[oldFunc.__name__] = [oldFunc]
 		return _wrap
 	return _wrapOuter
+
+
+def MetaClass(meta):
+	"""
+	Decorator to enable metaclasses in a way that's compliant with both python 2 and python 3
+	(and arguably nicer and more readable than both)
+
+	:param meta: Class to decorate
+	:type meta: any
+	"""
+	def _wrap(cls):
+		return meta(cls.__name__, cls.__bases__, dict(cls.__dict__))
+	return _wrap
 
 ### UNIT TESTS ###
 

@@ -42,7 +42,7 @@ else:
 	from ._reraise_py2 import Reraise
 
 from . import log
-from .._testing import testcase
+from .._zz_testing import testcase
 from .decorators import TypeChecked
 
 class ThreadPool(object):
@@ -134,6 +134,7 @@ class ThreadPool(object):
 			if task[1]:
 				self.callbackQueue.put(task[1], block=False)
 
+### Unit Tests ###
 
 class TestThreadPool(testcase.TestCase):
 	"""Test the thread pool"""

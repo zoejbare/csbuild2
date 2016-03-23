@@ -20,18 +20,25 @@
 
 """
 .. module:: run_unit_tests
-	:synopsis: Execute this file directly to run the unit tests.
+	:synopsis: Import this file and call RunTests() to run csbuild's unit tests.
+		Ensure cwd is one directory above the csbuild package. Do not execute directly, it will fail.
 """
 
 from __future__ import unicode_literals, division, print_function
 
+import sys
+import unittest
 
-if __name__ == "__main__":
-	import os
-	import sys
+from csbuild._utils import shared_globals, terminfo
+from csbuild._zz_testing import testcase
 
-	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-	os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-	from csbuild._zz_testing.run_unit_tests import RunTests
-	RunTests()
+def RunTests():
+	"""
+	Run all unit tests.
+	Must be executed with current working directory being a directory that contains the csbuild package.
+	"""
+	shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
+	tests = unittest.defaultTestLoader.discover("csbuild", "*.py", ".")
+	testRunner = testcase.TestRunner(stream=sys.stdout, verbosity=0)
+	testRunner.run(tests)

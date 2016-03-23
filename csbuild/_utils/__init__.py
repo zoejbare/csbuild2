@@ -32,6 +32,18 @@ import sys
 if sys.version_info[0] >= 3:
 	BytesType = bytes
 	StrType = str
+
+	def PlatformString(inputStr):
+		"""In the presence of unicode_literals, get an object that is type str in both python2 and python3."""
+		if isinstance(inputStr, str):
+			return inputStr
+		return inputStr.decode("UTF-8")
 else:
 	BytesType = str
 	StrType = unicode # pylint: disable=undefined-variable
+
+	def PlatformString(inputStr):
+		"""In the presence of unicode_literals, get an object that is type str in both python2 and python3."""
+		if isinstance(inputStr, str):
+			return inputStr
+		return inputStr.encode("UTF-8")
