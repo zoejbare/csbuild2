@@ -33,10 +33,13 @@ once that thread tries to use it. Long story short: Don't import modules within 
 from __future__ import unicode_literals, division, print_function
 
 import sys
+import imp
 
 from ._build.context_manager import ContextManager
 from ._build import project_plan
 
+from . import _build
+from ._utils import system
 from ._utils.string_abc import String
 from ._utils.decorators import TypeChecked
 
@@ -198,3 +201,16 @@ class Csbuild(object):
 			return False
 
 sys.modules["csbuild"] = Csbuild()
+
+if not hasattr(sys, "runningSphinx") and not hasattr(sys, "runningUnitTests"):
+	try:
+		#Regular sys.exit can't be called because we HAVE to reacquore the import lock at exit.
+		#We stored sys.exit earlier, now we overwrite it to call our wrapper.
+		sys.exit = system.Exit
+
+		_build.Run()
+		system.Exit(0)
+	except Exception as e:
+		if not imp.lock_held():
+			imp.acquire_lock()
+		raise

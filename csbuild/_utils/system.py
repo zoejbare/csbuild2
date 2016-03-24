@@ -19,17 +19,34 @@
 # SOFTWARE.
 
 """
-.. package:: _build
-	:synopsis: Logic related to actually running a build
+.. module:: system
+	:synopsis: functions with functionality analogous to the sys module, but specialized for csbuild
+
+.. moduleauthor:: Jaedyn K. Draper
 """
 
-# Import this stuff to appease pylint
 from __future__ import unicode_literals, division, print_function
 
-from .._utils import log
+import imp
+import os
+from . import log
 
-def Run():
+def Exit(code = 0):
 	"""
-	Run the build! This is the main entry point for csbuild.
+	Exit the build process early
+
+	:param code: Exit code to exit with
+	:type code: int
 	"""
-	log.Build("I'd run a build now if I could.")
+	log.Build("Cleaning up")
+
+	if not imp.lock_held():
+		imp.acquire_lock()
+
+	# TODO: Kill running subprocesses
+	# TODO: Exit events for plugins
+
+	# Die hard, we don't need python to clean up and we want to make sure this exits.
+	# sys.exit just throws an exception that can be caught. No catching allowed.
+	# pylint: disable=protected-access
+	os._exit( code )

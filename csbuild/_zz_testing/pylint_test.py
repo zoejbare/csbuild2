@@ -87,7 +87,7 @@ class TestPylint(testcase.TestCase):
 			if _sharedLocals.count == _sharedLocals.done:
 				pool.Stop()
 
-		for root, _, files in os.walk("."):
+		for root, _, files in os.walk("csbuild"):
 			for filename in files:
 				if filename.endswith(".py"):
 					if filename.endswith("_py3.py") and sys.version_info[0] != 3:
