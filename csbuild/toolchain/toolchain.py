@@ -30,6 +30,7 @@ from __future__ import unicode_literals, division, print_function
 from collections import Callable
 
 from . import Tool
+from .._utils import PlatformString
 from .._zz_testing import testcase
 
 def ToolchainFactory(*classes):
@@ -68,12 +69,15 @@ def ToolchainFactory(*classes):
 		# visible when performing member lookups
 		limit = set()
 
+		# List of inits that are already overloaded so we don't wrap them multiple times
+		overloadedInits = set()
+
 	# Replace each class's __init__ function with one that will prevent double-init
 	# and will ensure that _classTrackr.lastClass is set properly so that variables
 	# initialize with the correct visibility
 	def _setinit(base):
 		# Use a variable on the function to prevent us from wrapping this over and over
-		if not hasattr(base.__init__, "is_overloaded_init"):
+		if base.__init__ not in _classTrackr.overloadedInits:
 			oldinit = base.__init__
 
 			def _initwrap(self):
@@ -88,7 +92,7 @@ def ToolchainFactory(*classes):
 
 			# Replace existing init and set the memoization value
 			base.__init__ = _initwrap
-			base.__init__.is_overloaded_init = True
+			_classTrackr.overloadedInits.add(base.__init__)
 
 	# Collect a list of all the base classes
 	bases = set()
@@ -111,138 +115,135 @@ def ToolchainFactory(*classes):
 	classValues = {cls : {} for cls in set(classes) | bases}
 
 
-	# Set up a dynamically-created toolchain class that inherits from all the tool classes that were passed in
-	class Toolchain(*classes):
-		"""The actual toolchain class"""
-		def __init__(self):
-			# Initialize all dynamically created bases.
-			for cls in classes:
-				oldLastClass = _classTrackr.lastClass
-				_classTrackr.lastClass = cls
-				cls.__init__(self)
-				_classTrackr.lastClass = oldLastClass
-			_classTrackr.lastClass = None
+	def _init(self):
+		# Initialize all dynamically created bases.
+		for cls in classes:
+			oldLastClass = _classTrackr.lastClass
+			_classTrackr.lastClass = cls
+			cls.__init__(self)
+			_classTrackr.lastClass = oldLastClass
+		_classTrackr.lastClass = None
 
-		def __setattr__(self, name, val):
-			# Because public data is wrapped and combined, but private data is kept separate, classes should never
-			# try and SET public data. They should only set private data and provide a public accessor or property
-			# to retrieve it if necessary (though it's unlikely tools will ever need to provide data back
-			# to a makefile)
-			assert name.startswith("_"), "Tool instance attributes must start with an underscore"
+	def _setattr(_, name, val):
+		# Because public data is wrapped and combined, but private data is kept separate, classes should never
+		# try and SET public data. They should only set private data and provide a public accessor or property
+		# to retrieve it if necessary (though it's unlikely tools will ever need to provide data back
+		# to a makefile)
+		assert name.startswith("_"), "Tool instance attributes must start with an underscore"
 
-			# Likewise because we have to keep a clear separation of which data belongs to who, disallow
-			# access to this private data when we don't have a view of who owns it. We only have that view
-			# while executing a public method of a class.
+		# Likewise because we have to keep a clear separation of which data belongs to who, disallow
+		# access to this private data when we don't have a view of who owns it. We only have that view
+		# while executing a public method of a class.
+		assert _classTrackr.lastClass, "Cannot access private tool data from outside tool class"
+
+		cls = _classTrackr.lastClass
+
+		# Iterate all the base classes until we find one that's already set this value.
+		# If we don't find one that's set this value, this value is being initialized and should
+		# be placed within the scope of the class that's initializing it. That class and its children
+		# will then be able to see it, but its bases and siblings (classes that share a common base)
+		# will not.
+		for base in _classTrackr.lastClass.mro():
+			if base == Tool:
+				break
+			if name in classValues[base]:
+				cls = base
+		classValues[cls][name] = val
+
+	def _getattr(self, name):
+		if name == "Tool":
+			# Tool is a special function for toolchain.
+			# This function returns a LimitView class that limits operations
+			# to only affecting a specific tool or set of tools.
+			obj = self
+
+			# Create a class so that we can call methods on that class
+			class LimitView(object):
+				"""Represents a limited view into a toolchain"""
+				# The constructor takes the list of tools to limit to - i.e., toolchain.Tool(SomeClass, OtherClass)
+				def __init__(self, *tools):
+					self.tools = set(tools)
+
+				# When asked for an attribute, set the class tracker's limit set and then retrieve the attribute
+				# from the toolchain class (this class) that generated the LimitView. Resolution will be limited
+				# to the tools provided above.
+				def __getattr__(self, item):
+					def _limit(*args, **kwargs):
+						_classTrackr.limit = self.tools
+						getattr(obj, item)(*args, **kwargs)
+						_classTrackr.limit = set()
+					_limit.__name__ = item
+					return _limit
+			return LimitView
+
+		if name.startswith("_") and not name.startswith("__"):
+			# For private variables, as mentioned above, we have to know the scope we're looking in.
 			assert _classTrackr.lastClass, "Cannot access private tool data from outside tool class"
 
-			cls = _classTrackr.lastClass
-
-			# Iterate all the base classes until we find one that's already set this value.
-			# If we don't find one that's set this value, this value is being initialized and should
-			# be placed within the scope of the class that's initializing it. That class and its children
-			# will then be able to see it, but its bases and siblings (classes that share a common base)
-			# will not.
-			for base in _classTrackr.lastClass.mro():
-				if base == Tool:
+			# Iterate the class's mro looking for the first one that has this name present for it.
+			# This starts with the class itself and then goes through its bases
+			for cls in _classTrackr.lastClass.mro():
+				if cls == Tool:
 					break
-				if name in classValues[base]:
-					cls = base
-			classValues[cls][name] = val
+				if name in classValues[cls]:
+					return classValues[cls][name]
 
-		def __getattribute__(self, name):
-			if name == "Tool":
-				# Tool is a special function for toolchain.
-				# This function returns a LimitView class that limits operations
-				# to only affecting a specific tool or set of tools.
-				obj = self
+			# If we didn't find it there, then look for it on the class itself
+			# This is either a function, method, or static variable, not an instance variable.
+			# Would love to guarantee this is a function...
+			# But for some reason python lets you access statics through self, so whatever...
+			if hasattr(_classTrackr.lastClass, name):
+				val = getattr(_classTrackr.lastClass, name)
+				if isinstance(val, Callable):
+					def _runPrivateFunc(*args, **kwargs):
+						return val(self, *args, **kwargs)
+					return _runPrivateFunc
+				else:
+					return val
 
-				# Create a class so that we can call methods on that class
-				class LimitView(object):
-					"""Represents a limited view into a toolchain"""
-					# The constructor takes the list of tools to limit to - i.e., toolchain.Tool(SomeClass, OtherClass)
-					def __init__(self, *tools):
-						self.tools = set(tools)
+			# If we didn't find it, delegate to the normal attribute location method.
+			# For 99.9% of cases this means "throw an AttributeError" but we're letting
+			# python's internals do that
+			return object.__getattribute__(self, name)
+		else:
+			# For public variables we want to return a wrapper function that calls all
+			# matching functions. This should definitely be a function. If it's not a function,
+			# things will not work.
+			def _runMultiFunc(*args, **kwargs):
+				calledSomething = False
+				functions = {}
 
-					# When asked for an attribute, set the class tracker's limit set and then retrieve the attribute
-					# from the toolchain class (this class) that generated the LimitView. Resolution will be limited
-					# to the tools provided above.
-					def __getattr__(self, item):
-						def _limit(*args, **kwargs):
-							_classTrackr.limit = self.tools
-							getattr(obj, item)(*args, **kwargs)
-							_classTrackr.limit = set()
-						_limit.__name__ = item
-						return _limit
-				return LimitView
+				# Iterate through all classes and collect functions that match this name
+				# We'll keep a list of all the functions that match, but only call each matching
+				# function once. And when we call it we'll use the most base class we find that
+				# has it - which should be the one that defined it - and only call each one once
+				# (so if there are two subclasses of a base that base's functions won't get called twice)
+				for cls in classes:
+					if _classTrackr.limit and cls not in _classTrackr.limit:
+						continue
+					if hasattr(cls, name):
+						func = getattr(cls, name)
+						if func not in functions or issubclass(functions[func], cls):
+							functions[func] = cls
+						calledSomething = True
 
-			if name.startswith("_") and not name.startswith("__"):
-				# For private variables, as mentioned above, we have to know the scope we're looking in.
-				assert _classTrackr.lastClass, "Cannot access private tool data from outside tool class"
+				# Having collected all functions, iterate and call them
+				for func, cls in functions.items():
+					oldLastClass = _classTrackr.lastClass
+					_classTrackr.lastClass = cls
+					func(self, *args, **kwargs)
+					_classTrackr.lastClass = oldLastClass
 
-				# Iterate the class's mro looking for the first one that has this name present for it.
-				# This starts with the class itself and then goes through its bases
-				for cls in _classTrackr.lastClass.mro():
-					if cls == Tool:
-						break
-					if name in classValues[cls]:
-						return classValues[cls][name]
+				_classTrackr.lastClass = None
 
-				# If we didn't find it there, then look for it on the class itself
-				# This is either a function, method, or static variable, not an instance variable.
-				# Would love to guarantee this is a function...
-				# But for some reason python lets you access statics through self, so whatever...
-				if hasattr(_classTrackr.lastClass, name):
-					val = getattr(_classTrackr.lastClass, name)
-					if isinstance(val, Callable):
-						def _runPrivateFunc(*args, **kwargs):
-							return val(self, *args, **kwargs)
-						return _runPrivateFunc
-					else:
-						return val
+				# Finding one tool without this function present on it is not an error.
+				# However, if no tools had this function, that is an error - let python internals
+				# throw us an AttributeError
+				if not calledSomething:
+					return object.__getattribute__(self, name)
+			return _runMultiFunc
 
-				# If we didn't find it, delegate to the normal attribute location method.
-				# For 99.9% of cases this means "throw an AttributeError" but we're letting
-				# python's internals do that
-				return object.__getattribute__(self, name)
-			else:
-				# For public variables we want to return a wrapper function that calls all
-				# matching functions. This should definitely be a function. If it's not a function,
-				# things will not work.
-				def _runMultiFunc(*args, **kwargs):
-					calledSomething = False
-					functions = {}
-
-					# Iterate through all classes and collect functions that match this name
-					# We'll keep a list of all the functions that match, but only call each matching
-					# function once. And when we call it we'll use the most base class we find that
-					# has it - which should be the one that defined it - and only call each one once
-					# (so if there are two subclasses of a base that base's functions won't get called twice)
-					for cls in classes:
-						if _classTrackr.limit and cls not in _classTrackr.limit:
-							continue
-						if hasattr(cls, name):
-							func = getattr(cls, name)
-							if func not in functions or issubclass(functions[func], cls):
-								functions[func] = cls
-							calledSomething = True
-
-					# Having collected all functions, iterate and call them
-					for func, cls in functions.items():
-						oldLastClass = _classTrackr.lastClass
-						_classTrackr.lastClass = cls
-						func(self, *args, **kwargs)
-						_classTrackr.lastClass = oldLastClass
-
-					_classTrackr.lastClass = None
-
-					# Finding one tool without this function present on it is not an error.
-					# However, if no tools had this function, that is an error - let python internals
-					# throw us an AttributeError
-					if not calledSomething:
-						return object.__getattribute__(self, name)
-				return _runMultiFunc
-
-	return Toolchain()
+	return type(PlatformString("Toolchain"), classes, {"__init__":_init, "__setattr__":_setattr, "__getattribute__":_getattr})()
 
 
 class TestToolchainMixin(testcase.TestCase):
