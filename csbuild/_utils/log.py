@@ -49,7 +49,7 @@ def _writeLog(color, level, msg):
 		sys.stdout.flush()
 		terminfo.TermInfo.ResetColor()
 
-		split = re.split(R"(<&\w*>)(.*?)(<\/&>|$)", msg)
+		split = re.split(R"(<&\w*>)(.*?)(</&>|$)", msg)
 		for piece in split:
 			match = re.match(R"<&(\w*)>", piece)
 			if match:
@@ -67,7 +67,7 @@ def _writeLog(color, level, msg):
 	else:
 		sys.stdout.write("{}: ".format(level))
 
-		split = re.split(R"(<&\w*>)(.*?)(<\/&>|$)", msg)
+		split = re.split(R"(<&\w*>)(.*?)(</&>|$)", msg)
 		for piece in split:
 			match = re.match(R"<&(\w*)>", piece)
 			if match or piece == "</&>":

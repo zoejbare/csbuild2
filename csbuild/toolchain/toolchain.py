@@ -27,13 +27,27 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import contextlib
+import threading
+import sys
+import types
 from collections import Callable
 
-from . import Tool
-from .._utils import PlatformString
+from . import Tool as ToolClass
+from .._utils import PlatformString, ordered_set
+from .._utils.decorators import TypeChecked
+from .._utils.string_abc import String
 from .._zz_testing import testcase
 
-def ToolchainFactory(*classes):
+if sys.version_info[0] >= 3:
+	_typeType = type
+	_classType = type
+else:
+	# pylint: disable=invalid-name
+	_typeType = types.TypeType
+	_classType = types.ClassType
+
+class Toolchain(object):
 	"""
 	Creates a toolchain mixin class from the given list of classes.
 	This mixin class has the following special behaviors:
@@ -48,202 +62,382 @@ def ToolchainFactory(*classes):
 
 	:param classes: list of Tool classes
 	:type classes: class inherited from Tool
+	:param kwargs: Optional argument runInit to disable initialization so that static methods may be called
+		on platforms where full initialization may not work.
+	:type kwargs: runInit: bool
 	:return: generated Toolchain class
 	:rtype: Toolchain
 	"""
-	for cls in classes:
-		assert issubclass(cls, Tool), "Toolchains must be composed only of classes that inherit from Tool"
+	def __new__(cls, *classes, **kwargs):
+		for cls in classes:
+			assert issubclass(cls, ToolClass), "Toolchains must be composed only of classes that inherit from Tool"
 
-	# Keep track of some state data...
-	class _classTrackr(object):
+		# Python 2 compatibility... python 3 allows keyword arguments after *args, but python 2 doesn't
+		if len(kwargs) != 0:
+			assert len(kwargs) == 1 and "runInit" in kwargs, "Invalid keyword arguments. Valid arguments: runInit"
+			runInit = kwargs["runInit"]
+		else:
+			runInit = True
+
+		# Keep track of some state data...
+		class _classTrackr(object):
+			# List of classes that have had __init__ called on them.
+			# Since base class data is shared, we don't want to initialize them more than once
+			initialized = set()
+
+			# Limited class lookup table. When non-empty, only classes in this set will be
+			# visible when performing member lookups
+			limit = set()
+
+			# List of inits that are already overloaded so we don't wrap them multiple times
+			overloadedInits = set()
+
+			# Mutable list of classes
+			classes = ordered_set.OrderedSet()
+
+		_threadSafeClassTrackr = threading.local()
+
 		# The last class to have a public function called on it
 		# This is used to resolve private function calls and private member variable access - only
 		# those elements that exist on this class or its bases will be visible
-		lastClass = None
-
-		# List of classes that have had __init__ called on them.
-		# Since base class data is shared, we don't want to initialize them more than once
-		initialized = set()
-
-		# Limited class lookup table. When non-empty, only classes in this set will be
-		# visible when performing member lookups
-		limit = set()
-
-		# List of inits that are already overloaded so we don't wrap them multiple times
-		overloadedInits = set()
-
-	# Replace each class's __init__ function with one that will prevent double-init
-	# and will ensure that _classTrackr.lastClass is set properly so that variables
-	# initialize with the correct visibility
-	def _setinit(base):
-		# Use a variable on the function to prevent us from wrapping this over and over
-		if base.__init__ not in _classTrackr.overloadedInits:
-			oldinit = base.__init__
-
-			def _initwrap(self):
-				# Don't re-init if already initialized
-				if base not in _classTrackr.initialized:
-					_classTrackr.initialized.add(base)
-					# Track the current class for __setattr__
-					oldLastClass = _classTrackr.lastClass
-					_classTrackr.lastClass = base
-					oldinit(self)
-					_classTrackr.lastClass = oldLastClass
-
-			# Replace existing init and set the memoization value
-			base.__init__ = _initwrap
-			_classTrackr.overloadedInits.add(base.__init__)
-
-	# Collect a list of all the base classes
-	bases = set()
-	for cls in classes:
-		# mro() - "method resolution order", which happens to also be a list of all classes in the inheritance
-		# tree, including the class itself (but we only care about its base classes
-		for base in cls.mro():
-			if base is cls:
-				continue
-			if base is Tool:
-				break
-			# Replace the base class's __init__ so we can track members properly
-			_setinit(base)
-			bases.add(base)
-
-	# Set up a map of class to member variable dict
-	# All member variables will be stored here instead of in the class's __dict__
-	# This is what allows for both sharing of base class values, and separation of
-	# derived class values that share the same name, so they don't overwrite each other
-	classValues = {cls : {} for cls in set(classes) | bases}
+		_threadSafeClassTrackr.lastClass = None
 
 
-	def _init(self):
-		# Initialize all dynamically created bases.
+		@contextlib.contextmanager
+		def Use(cls):
+			"""
+			Simple context manager to simplify scope management for the class tracker
+			:param cls: The class to manage, or 'self' to access self variables
+			:type cls: class, or Toolchain instance
+			"""
+			oldClass = _threadSafeClassTrackr.lastClass
+			_threadSafeClassTrackr.lastClass = cls
+			yield
+			_threadSafeClassTrackr.lastClass = oldClass
+
+		# Replace each class's __init__ function with one that will prevent double-init
+		# and will ensure that _threadSafeClassTrackr.lastClass is set properly so that variables
+		# initialize with the correct visibility
+		def _setinit(base):
+			# Use a variable on the function to prevent us from wrapping this over and over
+			if base.__init__ not in _classTrackr.overloadedInits:
+				oldinit = base.__init__
+
+				def _initwrap(self):
+					# Don't re-init if already initialized
+					if base not in _classTrackr.initialized:
+						_classTrackr.initialized.add(base)
+						# Track the current class for __setattr__
+						with Use(base):
+							oldinit(self)
+
+				# Replace existing init and set the memoization value
+				base.__init__ = _initwrap
+				base.__oldInit__ = oldinit
+				_classTrackr.overloadedInits.add(base.__init__)
+
+		# Collect a list of all the base classes
+		bases = set()
 		for cls in classes:
-			oldLastClass = _classTrackr.lastClass
-			_classTrackr.lastClass = cls
-			cls.__init__(self)
-			_classTrackr.lastClass = oldLastClass
-		_classTrackr.lastClass = None
-
-	def _setattr(_, name, val):
-		# Because public data is wrapped and combined, but private data is kept separate, classes should never
-		# try and SET public data. They should only set private data and provide a public accessor or property
-		# to retrieve it if necessary (though it's unlikely tools will ever need to provide data back
-		# to a makefile)
-		assert name.startswith("_"), "Tool instance attributes must start with an underscore"
-
-		# Likewise because we have to keep a clear separation of which data belongs to who, disallow
-		# access to this private data when we don't have a view of who owns it. We only have that view
-		# while executing a public method of a class.
-		assert _classTrackr.lastClass, "Cannot access private tool data from outside tool class"
-
-		cls = _classTrackr.lastClass
-
-		# Iterate all the base classes until we find one that's already set this value.
-		# If we don't find one that's set this value, this value is being initialized and should
-		# be placed within the scope of the class that's initializing it. That class and its children
-		# will then be able to see it, but its bases and siblings (classes that share a common base)
-		# will not.
-		for base in _classTrackr.lastClass.mro():
-			if base == Tool:
-				break
-			if name in classValues[base]:
-				cls = base
-		classValues[cls][name] = val
-
-	def _getattr(self, name):
-		if name == "Tool":
-			# Tool is a special function for toolchain.
-			# This function returns a LimitView class that limits operations
-			# to only affecting a specific tool or set of tools.
-			obj = self
-
-			# Create a class so that we can call methods on that class
-			class LimitView(object):
-				"""Represents a limited view into a toolchain"""
-				# The constructor takes the list of tools to limit to - i.e., toolchain.Tool(SomeClass, OtherClass)
-				def __init__(self, *tools):
-					self.tools = set(tools)
-
-				# When asked for an attribute, set the class tracker's limit set and then retrieve the attribute
-				# from the toolchain class (this class) that generated the LimitView. Resolution will be limited
-				# to the tools provided above.
-				def __getattr__(self, item):
-					def _limit(*args, **kwargs):
-						_classTrackr.limit = self.tools
-						getattr(obj, item)(*args, **kwargs)
-						_classTrackr.limit = set()
-					_limit.__name__ = item
-					return _limit
-			return LimitView
-
-		if name.startswith("_") and not name.startswith("__"):
-			# For private variables, as mentioned above, we have to know the scope we're looking in.
-			assert _classTrackr.lastClass, "Cannot access private tool data from outside tool class"
-
-			# Iterate the class's mro looking for the first one that has this name present for it.
-			# This starts with the class itself and then goes through its bases
-			for cls in _classTrackr.lastClass.mro():
-				if cls == Tool:
+			# mro() - "method resolution order", which happens to also be a list of all classes in the inheritance
+			# tree, including the class itself (but we only care about its base classes
+			for base in cls.mro():
+				if base is cls:
+					continue
+				if base is ToolClass:
 					break
-				if name in classValues[cls]:
-					return classValues[cls][name]
+				# Replace the base class's __init__ so we can track members properly
+				if runInit:
+					_setinit(base)
+				bases.add(base)
 
-			# If we didn't find it there, then look for it on the class itself
-			# This is either a function, method, or static variable, not an instance variable.
-			# Would love to guarantee this is a function...
-			# But for some reason python lets you access statics through self, so whatever...
-			if hasattr(_classTrackr.lastClass, name):
-				val = getattr(_classTrackr.lastClass, name)
-				if isinstance(val, Callable):
-					def _runPrivateFunc(*args, **kwargs):
-						return val(self, *args, **kwargs)
-					return _runPrivateFunc
-				else:
-					return val
+		# Set up a map of class to member variable dict
+		# All member variables will be stored here instead of in the class's __dict__
+		# This is what allows for both sharing of base class values, and separation of
+		# derived class values that share the same name, so they don't overwrite each other
+		classValues = {cls : {} for cls in set(classes) | bases}
 
-			# If we didn't find it, delegate to the normal attribute location method.
-			# For 99.9% of cases this means "throw an AttributeError" but we're letting
-			# python's internals do that
-			return object.__getattribute__(self, name)
-		else:
-			# For public variables we want to return a wrapper function that calls all
-			# matching functions. This should definitely be a function. If it's not a function,
-			# things will not work.
-			def _runMultiFunc(*args, **kwargs):
-				calledSomething = False
-				functions = {}
+		_classTrackr.classes = ordered_set.OrderedSet(classes)
 
-				# Iterate through all classes and collect functions that match this name
-				# We'll keep a list of all the functions that match, but only call each matching
-				# function once. And when we call it we'll use the most base class we find that
-				# has it - which should be the one that defined it - and only call each one once
-				# (so if there are two subclasses of a base that base's functions won't get called twice)
-				for cls in classes:
-					if _classTrackr.limit and cls not in _classTrackr.limit:
+		# Create a class so that we can call methods on that class
+		class LimitView(object):
+			"""Represents a limited view into a toolchain"""
+			# The constructor takes the list of tools to limit to - i.e., toolchain.Tool(SomeClass, OtherClass)
+			def __init__(self, obj, *tools):
+				self.obj = obj
+				self.tools = set(tools)
+
+			# When asked for an attribute, set the class tracker's limit set and then retrieve the attribute
+			# from the toolchain class (this class) that generated the LimitView. Resolution will be limited
+			# to the tools provided above.
+			def __getattr__(self, item):
+				def _limit(*args, **kwargs):
+					_classTrackr.limit = self.tools
+					getattr(self.obj, item)(*args, **kwargs)
+					_classTrackr.limit = set()
+				_limit.__name__ = item
+				return _limit
+
+
+		class ToolchainTemplate(object):
+			"""
+			Template class that provides the methods for the toolchain class.
+			This class is never instantiated, its methods are just copied to the dynamically-created toolchain class below
+			This is a hacky hack to get around the fact that python2 doesn't support the syntax
+			class Toolchain(*classes)
+			to give the class dynamically-created base classes (which is required because they need to all share the
+			same, and type-appropriate, self object)
+			"""
+			def __init__(self):
+				if runInit:
+					# Initialize all dynamically created bases.
+					for cls in _classTrackr.classes:
+						with Use(cls):
+							cls.__init__(self)
+					_threadSafeClassTrackr.lastClass = None
+
+					for base in bases:
+						base.__init__ = base.__oldInit__
+						del base.__oldInit__
+
+					with Use(self):
+						self._finishedTools = set()
+
+			@TypeChecked(extension=String)
+			def IsOutputActive(self, extension):
+				"""
+				Check whether an output of the given extension is capable of being generated.
+				:param extension:
+				:type extension: str, bytes
+				"""
+				with Use(self):
+					for cls in _classTrackr.classes:
+						if cls in self._finishedTools:
+							continue
+						if extension in cls.outputFiles:
+							return True
+					return False
+
+			@TypeChecked(tool=(_typeType, _classType))
+			def MarkToolFinished(self, tool):
+				"""
+				Mark a tool as finished
+				This should be done when:
+				1) There are no threads still active using this tool
+				and 2) There are no tools still active that can generate inputs for this one (i.e., IsOutputActive() returns false for all input and group input types)
+				:param tool: tool to mark as complete
+				:type tool: class
+				"""
+				with Use(self):
+					self._finishedTools.add(tool)
+
+			@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
+			def GetToolsFor(self, extension, generatingTool=None):
+				"""
+				Get all tools that take a given input. If a generatingTool is specified, it will be excluded from the result.
+
+				:param extension: The extension of the file to be fed to the new tools
+				:type extension: str, bytes
+				:param generatingTool: The tool that generated this input
+				:type generatingTool: class or None
+				:return: A set of all tools that can take this input as group or individual inputs.
+					It's up to the caller to inspect the object to determine which type of input to provide.
+					It's also up to the caller to not call group input tools until IsOutputActive() returns False
+					for ALL of that tool's group inputs.
+				:rtype: set
+				"""
+				ret = set()
+				with Use(self):
+					for cls in _classTrackr.classes:
+						if cls is generatingTool:
+							continue
+						for dep in cls.dependencies:
+							if self.IsOutputActive(dep):
+								continue
+
+						if extension in cls.inputFiles:
+							ret.add(cls)
+						elif extension in cls.inputGroups:
+							ret.add(cls)
+
+				return ret
+
+
+			def __setattr__(self, name, val):
+				# Because public data is wrapped and combined, but private data is kept separate, classes should never
+				# try and SET public data. They should only set private data and provide a public accessor or property
+				# to retrieve it if necessary (though it's unlikely tools will ever need to provide data back
+				# to a makefile)
+				assert name.startswith("_"), "Tool instance attributes must start with an underscore"
+
+				# Likewise because we have to keep a clear separation of which data belongs to who, disallow
+				# access to this private data when we don't have a view of who owns it. We only have that view
+				# while executing a public method of a class.
+				assert _threadSafeClassTrackr.lastClass, "Cannot access private tool data from outside tool class"
+
+				if _threadSafeClassTrackr.lastClass is self:
+					object.__setattr__(self, name, val)
+					return
+
+				cls = _threadSafeClassTrackr.lastClass
+
+				# Iterate all the base classes until we find one that's already set this value.
+				# If we don't find one that's set this value, this value is being initialized and should
+				# be placed within the scope of the class that's initializing it. That class and its children
+				# will then be able to see it, but its bases and siblings (classes that share a common base)
+				# will not.
+				for base in _threadSafeClassTrackr.lastClass.mro():
+					if base == ToolClass:
+						break
+					if name in classValues[base]:
+						cls = base
+				classValues[cls][name] = val
+
+			def Tool(self, *args):
+				"""
+				Obtain a LimitView object that allows functions to be run only on specific tools
+
+				:param args: List of classes to limit function execution on
+				:type args: class
+				:return: limit view object
+				:rtype: LimitView
+				"""
+				return LimitView(self, *args)
+
+			@TypeChecked(tool=(_typeType, _classType))
+			def AddTool(self, tool):
+				"""
+				Add a new tool to the toolchain. This can only be used by a toolchain initialized with
+				runInit = False to add that tool to the static method resolution; a toolchain initialized
+				with runInit = True is finalized and cannot have new tools added to it
+
+				:param tool: Class inheriting from Tool
+				:type tool: type
+				"""
+				assert not runInit, "AddTool can't be called from this context"
+				assert tool not in _classTrackr.classes, "Tool {} has already been added".format(tool)
+
+				from .._build.project_plan import currentPlan
+				currentPlan.AddToSet("tools", tool)
+
+				for base in cls.mro():
+					if base is cls:
 						continue
-					if hasattr(cls, name):
-						func = getattr(cls, name)
-						if func not in functions or issubclass(functions[func], cls):
-							functions[func] = cls
-						calledSomething = True
+					if base is ToolClass:
+						break
+					# Replace the base class's __init__ so we can track members properly
+					if runInit:
+						_setinit(base)
+					bases.add(base)
+					classValues.setdefault(base, {})
 
-				# Having collected all functions, iterate and call them
-				for func, cls in functions.items():
-					oldLastClass = _classTrackr.lastClass
-					_classTrackr.lastClass = cls
-					func(self, *args, **kwargs)
-					_classTrackr.lastClass = oldLastClass
+				classValues[tool] = {}
 
-				_classTrackr.lastClass = None
+				_classTrackr.classes.add(tool)
 
-				# Finding one tool without this function present on it is not an error.
-				# However, if no tools had this function, that is an error - let python internals
-				# throw us an AttributeError
-				if not calledSomething:
+				object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
+
+
+			def __getattribute__(self, name):
+				if hasattr(ToolchainTemplate, name):
+					# Anything implemented in ToolchainTemplate has priority over things implemented elsewhere
+					# Return these things as actions on the toolchain itself rather than on its tools.
 					return object.__getattribute__(self, name)
-			return _runMultiFunc
 
-	return type(PlatformString("Toolchain"), classes, {"__init__":_init, "__setattr__":_setattr, "__getattribute__":_getattr})()
+				if name.startswith("_"):
+					# For private variables, as mentioned above, we have to know the scope we're looking in.
+					assert _threadSafeClassTrackr.lastClass, "Cannot access private tool data ({}) from outside tool class".format(name)
+
+					if _threadSafeClassTrackr.lastClass is self:
+						return object.__getattribute__(self, name)
+
+					# Iterate the class's mro looking for the first one that has this name present for it.
+					# This starts with the class itself and then goes through its bases
+					for cls in _threadSafeClassTrackr.lastClass.mro():
+						if cls == ToolClass:
+							break
+						if name in classValues[cls]:
+							return classValues[cls][name]
+
+					# If we didn't find it there, then look for it on the class itself
+					# This is either a function, method, or static variable, not an instance variable.
+					# Would love to guarantee this is a function...
+					# But for some reason python lets you access statics through self, so whatever...
+					cls = _threadSafeClassTrackr.lastClass
+					if hasattr(cls, name):
+						# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
+						# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
+						sentinel = object()
+						val = sentinel
+						for cls2 in cls.mro():
+							if name in cls2.__dict__:
+								val = cls2.__dict__[name]
+								break
+						assert val is not sentinel, "this shouldn't happen"
+						if isinstance(val, Callable):
+							def _runPrivateFunc(*args, **kwargs):
+								if isinstance(val, staticmethod):
+									# pylint: disable=no-member
+									return val.__get__(cls)(*args, **kwargs)
+								else:
+									assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
+									return val(self, *args, **kwargs)
+							return _runPrivateFunc
+						else:
+							return val
+
+					# If we didn't find it, delegate to the normal attribute location method.
+					# For 99.9% of cases this means "throw an AttributeError" but we're letting
+					# python's internals do that
+					return object.__getattribute__(self, name)
+				else:
+					# For public variables we want to return a wrapper function that calls all
+					# matching functions. This should definitely be a function. If it's not a function,
+					# things will not work.
+					def _runMultiFunc(*args, **kwargs):
+						calledSomething = False
+						functions = {}
+
+						# Iterate through all classes and collect functions that match this name
+						# We'll keep a list of all the functions that match, but only call each matching
+						# function once. And when we call it we'll use the most base class we find that
+						# has it - which should be the one that defined it - and only call each one once
+						# (so if there are two subclasses of a base that base's functions won't get called twice)
+						for cls in _classTrackr.classes:
+							if _classTrackr.limit and cls not in _classTrackr.limit:
+								continue
+							if hasattr(cls, name):
+								# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
+								# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
+								func = None
+								for cls2 in cls.mro():
+									if name in cls2.__dict__:
+										func = cls2.__dict__[name]
+										break
+								assert func is not None, "this shouldn't happen"
+								if func not in functions or issubclass(functions[func], cls):
+									functions[func] = cls
+								calledSomething = True
+
+						# Having collected all functions, iterate and call them
+						for func, cls in functions.items():
+							with Use(cls):
+								if isinstance(func, staticmethod):
+									func.__get__(cls)(*args, **kwargs)
+								else:
+									assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
+									func(self, *args, **kwargs)
+
+						_threadSafeClassTrackr.lastClass = None
+
+						# Finding one tool without this function present on it is not an error.
+						# However, if no tools had this function, that is an error - let python internals
+						# throw us an AttributeError
+						if not calledSomething:
+							return object.__getattribute__(self, name)
+					return _runMultiFunc
+
+		return type(PlatformString("Toolchain"), classes, dict(ToolchainTemplate.__dict__))()
 
 
 class TestToolchainMixin(testcase.TestCase):
@@ -257,6 +451,9 @@ class TestToolchainMixin(testcase.TestCase):
 		self.maxDiff = None
 
 		class _sharedLocals(object):
+			baseInitialized = 0
+			derived1Initialized = 0
+			derived2Initialized = 0
 			doBaseThingCalledInBase = 0
 			doBaseThing2CalledInBase = 0
 			overloadFnCalledInBase = 0
@@ -280,10 +477,13 @@ class TestToolchainMixin(testcase.TestCase):
 			basePrivateThingCalledInDerived2 = 0
 			doMultiThingCalledInDerived1 = 0
 			doMultiThingCalledInDerived2 = 0
+			derived1Static = 0
+			derived2Static = 0
 
 
-		class _base(Tool):
+		class _base(ToolClass):
 			def __init__(self):
+				_sharedLocals.baseInitialized += 1
 				self._someval = 0
 
 			def Run(self, *args):
@@ -312,6 +512,7 @@ class TestToolchainMixin(testcase.TestCase):
 
 		class _derived1(_base):
 			def __init__(self):
+				_sharedLocals.derived1Initialized += 1
 				self._test = 1
 				_base.__init__(self)
 
@@ -342,8 +543,13 @@ class TestToolchainMixin(testcase.TestCase):
 			def DoMultiThing(self):
 				_sharedLocals.doMultiThingCalledInDerived1 += 1
 
+			@staticmethod
+			def Derived1Static():
+				_sharedLocals.derived1Static += 1
+
 		class _derived2(_base):
 			def __init__(self):
+				_sharedLocals.derived2Initialized += 1
 				self._test = 2
 				_base.__init__(self)
 
@@ -381,12 +587,22 @@ class TestToolchainMixin(testcase.TestCase):
 			def DoMultiThing(self):
 				_sharedLocals.doMultiThingCalledInDerived2 += 1
 
+			@staticmethod
+			def Derived2Static():
+				_sharedLocals.derived2Static += 1
+
 		self.expectedState = {key: val for key, val in _sharedLocals.__dict__.items() if not key.startswith("_")}
-		self.mixin = ToolchainFactory(_derived1, _derived2)
 		self._sharedLocals = _sharedLocals
 		self._derived1 = _derived1
 		self._derived2 = _derived2
 		self._base = _base
+
+		self.mixin = Toolchain(_derived1, _derived2)
+		self.assertChanged(
+			baseInitialized=1,
+			derived1Initialized=1,
+			derived2Initialized=1
+		)
 
 	def assertChanged(self, **kwargs):
 		"""Assert that the listed changes (and ONLY the listed changes) have occurred in the state dict"""
@@ -397,6 +613,20 @@ class TestToolchainMixin(testcase.TestCase):
 		self.expectedState.update(kwargs)
 		actualState = {key: val for key, val in self._sharedLocals.__dict__.items() if not key.startswith("_")}
 		self.assertEqual(self.expectedState, actualState)
+
+	def testStaticFunctionCalls(self):
+		"""Test that static method calls with runInit=False work correctly"""
+		mixin2 = Toolchain(self._derived1, runInit=False)
+		mixin2.AddTool(self._derived2)
+		#Assert init ran once - during setUp - and only once.
+		#i.e., mixin2 should not have run init!
+		self.assertEqual(1, self._sharedLocals.baseInitialized)
+		self.assertEqual(1, self._sharedLocals.derived1Initialized)
+		self.assertEqual(1, self._sharedLocals.derived2Initialized)
+		mixin2.Derived1Static()
+		self.assertChanged(derived1Static = 1)
+		mixin2.Derived2Static()
+		self.assertChanged(derived2Static = 1)
 
 	def testPrivateFunctionCalls(self):
 		"""Test that internal private function calls work with a variety of inheritance scenarios"""

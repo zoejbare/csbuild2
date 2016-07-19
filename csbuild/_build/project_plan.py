@@ -30,6 +30,14 @@ from __future__ import unicode_literals, division, print_function
 
 import platform
 import copy
+import sys
+
+import collections
+
+if sys.version_info[0] >= 3:
+	from collections.abc import Callable
+else:
+	from collections import Callable
 
 from . import project
 from .._utils import ordered_set
@@ -119,13 +127,13 @@ class ProjectPlan(object):
 					settings[key] -= val
 					settings[key] |= val
 					continue
-				if isinstance( val, dict ):
+				if isinstance(val, dict) or isinstance(val, collections.OrderedDict):
 					settings[key] = dict(settings.get(key, {}))
-					settings[key].update( val )
-				elif isinstance( val, list ):
+					settings[key].update(val)
+				elif isinstance(val, list):
 					settings[key] = list(settings.get(key, []))
 					settings[key] += val
-				elif isinstance( val, ordered_set.OrderedSet ):
+				elif isinstance(val, ordered_set.OrderedSet) or isinstance(val, set):
 					settings[key] = ordered_set.OrderedSet(settings.get(key, []))
 					settings[key] |= val
 				else:
@@ -188,6 +196,11 @@ class ProjectPlan(object):
 				"Flatten() called from within a context!"
 
 		from .. import ProjectType
+
+		assert "overrides" in self._settings \
+			and "toolchain" in self._settings["overrides"] \
+			and toolchain in self._settings["overrides"]["toolchain"], \
+			"Toolchain {} has not been registered for project {}".format(toolchain, self._name)
 
 		projectType = self._settings.get("projectType", ProjectType.Application)
 		projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchain, architecture, projectType)
@@ -306,6 +319,17 @@ class ProjectPlan(object):
 		for settings in self._currentSettingsDicts:
 			settings[key] = value
 
+	@TypeChecked(key=String)
+	def Unset(self, key):
+		"""
+		Set a value in the project settings
+
+		:param key: The setting key
+		:type key: str, bytes
+		"""
+		for settings in self._currentSettingsDicts:
+			del settings[key]
+
 	@TypeChecked(key=String, value=object)
 	def ExtendList(self, key, value):
 		"""
@@ -371,6 +395,45 @@ class ProjectPlan(object):
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).add(value)
 
+	@TypeChecked(key=String)
+	def GetValuesInCurrentContexts(self, key):
+		"""
+		Get a list of all values in the currently active contexts.
+		:param key: The setting key
+		:type key: str, bytes
+		:return: list
+		"""
+		ret = []
+		for settings in self._currentSettingsDicts:
+			ret.append(settings[key])
+		return ret
+
+	@TypeChecked(key=String, action=Callable)
+	def PerformAction(self, key, action):
+		"""
+		Perform a complex action on values in the settings dictionary.
+
+		:param key: The value to act on
+		:type key: str, bytes
+		:param action: The action to take
+		:type action: A callable accepting a single parameter representing the current value and returning the new value.
+			If the key has not been set for this scope, the current value passed in will be None.
+			Note that the value passed in will represent only values in the CURRENT scope, not including
+			values inherited from parent scopes.
+
+			Any type may be stored this way, but if the types are to be merged with values from the parent scope, they
+			should be one of the following types:
+				- list
+				- dict
+				- collections.OrderedDict
+				- set
+				- csbuild._utils.ordered_set.OrderedSet
+			Any other value will not be merged with values in parent scopes, but will override them.
+		"""
+		for settings in self._currentSettingsDicts:
+			settings[key] = action(settings.setdefault(key, None))
+
+
 currentPlan = ProjectPlan("", "", [], 0, False, False)
 
 ### Unit Tests ###
@@ -379,12 +442,38 @@ class TestProjectPlan(testcase.TestCase):
 	"""Test the project plan"""
 	# pylint: disable=invalid-name
 	def setUp(self):
+		from csbuild.toolchain import Tool
+		class _nullTool(Tool):
+			def Run(self, inputProject, inputFiles):
+				pass
+
 		global allPlans
 		allPlans = {}
 		global currentPlan
 		# pylint: disable=protected-access
 		currentPlan._settings = {}
 		currentPlan = ProjectPlan("", "", [], 0, False, False)
+
+		# Create some mocked in toolchains...
+		currentPlan.EnterContext(
+			"toolchain",
+			"tc1",
+			"tc2",
+			"none",
+			"scope-then-toolchain",
+			"toolchain-then-scope",
+			"no-toolchain"
+		)
+
+		currentPlan.SetValue("tools", ordered_set.OrderedSet((_nullTool,)))
+
+		currentPlan.LeaveContext()
+
+		self._oldPlan = currentPlan
+
+	def tearDown(self):
+		global currentPlan
+		currentPlan = self._oldPlan
 
 
 	def testProjectPlan(self):

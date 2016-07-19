@@ -43,7 +43,7 @@ class OrderedSet(object):
 	def __init__(self, iterable=None):
 		self.map = collections.OrderedDict()
 		if iterable is not None:
-			self.map.update( [ ( x, None ) for x in iterable ] )
+			self.map.update([( x, None ) for x in iterable])
 
 	def __len__(self):
 		return len(self.map)
@@ -53,22 +53,22 @@ class OrderedSet(object):
 
 	def union(self, other):
 		ret = OrderedSet(self.map.keys())
-		ret.update( other )
+		ret.update(other)
 		return ret
 
 	def intersection(self, other):
 		ret = OrderedSet(self.map.keys())
-		ret.intersection_update( other )
+		ret.intersection_update(other)
 		return ret
 
 	def difference(self, other):
 		ret = OrderedSet(self.map.keys())
-		ret.difference_update( other )
+		ret.difference_update(other)
 		return ret
 
 	def symmetric_difference(self, other):
 		ret = OrderedSet(self.map.keys())
-		ret.symmetric_difference_update( other )
+		ret.symmetric_difference_update(other)
 		return ret
 
 	def __and__(self, other):
@@ -95,7 +95,7 @@ class OrderedSet(object):
 		return "OrderedSet({})".format(list(self.map.keys()))
 
 	def update(self, iterable):
-		self.map.update( [ ( x, None ) for x in iterable ] )
+		self.map.update([( x, None ) for x in iterable])
 
 	def intersection_update(self, iterable):
 		for key in list(self.map.keys()):

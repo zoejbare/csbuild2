@@ -46,18 +46,26 @@ class ContextManager(object):
 	:type methodResolvers: list(objects)
 	"""
 
+	methodResolvers = []
+
 	@TypeChecked(contextType=(StrType, BytesType), contextNames=tuple, methodResolvers=list)
 	def __init__(self, contextType, contextNames, methodResolvers=None):
 		self._type = contextType
 		self._names = contextNames
 		self._methodResolvers = methodResolvers
+		self._previousResolver = None
 
 	def __enter__(self):
 		"""
 		Enter the context, making the listed contexts active
 		"""
 		currentPlan.EnterContext(self._type, self._names)
+
+		if self._methodResolvers:
+			ContextManager.methodResolvers.append(self._methodResolvers)
+
 		# pylint: disable=protected-access
+		self._previousResolver = csbuild._resolver
 		csbuild._resolver = self
 
 	def __exit__(self, excType, excValue, traceback):
@@ -72,36 +80,47 @@ class ContextManager(object):
 		:type traceback: traceback
 		"""
 		# pylint: disable=protected-access
-		csbuild._resolver = None
+		csbuild._resolver = self._previousResolver
+
+		if self._methodResolvers:
+			ContextManager.methodResolvers.pop()
+
 		currentPlan.LeaveContext()
 		return False
 
 	def __getattribute__(self, name):
-		funcs = []
+		if ContextManager.methodResolvers:
+			funcs = set()
 
-		for resolver in self._methodResolvers:
-			if hasattr(resolver, name):
-				funcs.append(getattr(resolver, name))
+			numResolvers = 0
+			for resolverList in ContextManager.methodResolvers:
+				for resolver in resolverList:
+					numResolvers += 1
+					if hasattr(resolver, name):
+						funcs.add(getattr(resolver, name))
 
-		if funcs and len(funcs) != len(self._methodResolvers):
-			for resolver in self._methodResolvers:
-				getattr(resolver, name)
+			if funcs and len(funcs) != numResolvers:
+				for resolverList in ContextManager.methodResolvers:
+					for resolver in resolverList:
+						# If we didn't get a valid result for all resolvers, do getattr on each without a guard
+						# to force an appropriate exception to be thrown.
+						getattr(resolver, name)
 
-		if funcs:
-			def _wrap(*args, **kwargs):
-				with self:
-					for func in funcs:
-						currentPlan.AppendList("commandList", (func, args, kwargs))
+			if funcs:
+				def _wrapResolverMethods(*args, **kwargs):
+					with self:
+						for func in funcs:
+							func(*args, **kwargs)
 
-			return _wrap
+				return _wrapResolverMethods
 
-		elif hasattr(csbuild, name):
+		if hasattr(csbuild, name):
 			obj = getattr(csbuild, name)
 			if isinstance(obj, FunctionType):
-				def _wrap(*args, **kwargs):
+				def _wrapCsbuildMethod(*args, **kwargs):
 					with self:
 						obj(*args, **kwargs)
 
-				return _wrap
+				return _wrapCsbuildMethod
 
 		return object.__getattribute__(self, name)

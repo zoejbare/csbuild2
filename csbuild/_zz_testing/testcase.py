@@ -125,7 +125,7 @@ class TestResult(unittest.TextTestResult):
 	For the other parameters, see unittest.TextTestResult
 	"""
 	def __init__(self, stream, descriptions, verbosity, xmlfile=None):
-		super(TestResult, self).__init__( stream, descriptions, verbosity)
+		super(TestResult, self).__init__(stream, descriptions, verbosity)
 		self.testList = {}
 		self.timer = 0
 		self.xmlfile = xmlfile

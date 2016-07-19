@@ -25,7 +25,7 @@
 """
 
 from __future__ import unicode_literals, division, print_function
-
+from ..toolchain.toolchain import Toolchain
 
 class Project(object):
 	"""
@@ -55,3 +55,9 @@ class Project(object):
 		self.ignoreDependencyOrdering = ignoreDependencyOrdering
 		self.autoDiscoverSourceFiles = autoDiscoverSourceFiles
 		self.settings = projectSettings
+
+		self.tools = projectSettings["tools"]
+
+		self.toolchain = Toolchain(*self.tools)
+
+		self.inputFiles = {}

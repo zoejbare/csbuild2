@@ -49,4 +49,4 @@ def Exit(code = 0):
 	# Die hard, we don't need python to clean up and we want to make sure this exits.
 	# sys.exit just throws an exception that can be caught. No catching allowed.
 	# pylint: disable=protected-access
-	os._exit( code )
+	os._exit(code)

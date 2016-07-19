@@ -41,7 +41,180 @@ from ._build import project_plan
 from . import _build
 from ._utils import system
 from ._utils.string_abc import String
-from ._utils.decorators import TypeChecked
+from ._utils.decorators import TypeChecked, Overload
+from ._utils import shared_globals
+from ._utils import ordered_set
+
+from .toolchain import toolchain
+
+class ProjectType(object):
+	"""
+	Enum representing the available project types.
+	"""
+	Application = 0
+	SharedLibrary = 1
+	StaticLibrary = 2
+
+class ScopeDef(object):
+	"""
+	'enum' representing the types of valid scopes
+	"""
+	Intermediate = "intermediate"
+	Final = "final"
+	Children = "children"
+	All = "all"
+
+@TypeChecked(name=String, projectType=int)
+def SetOutput(name, projectType=ProjectType.Application):
+	"""
+	Set the project output name and type
+
+	:param name: Project name
+	:type name: str, bytes
+	:param projectType: Type of project
+	:type projectType: ProjectType
+	:return:
+	"""
+	project_plan.currentPlan.SetValue("outputName", name)
+	project_plan.currentPlan.SetValue("projectType", projectType)
+
+@TypeChecked(name=String)
+def RegisterToolchain(name, *tools):
+	"""
+ 	Register a new toolchain to be used by the project for building
+
+ 	:param name: The name of the toolchain, which will be used to reference it
+ 	:type name: str, bytes
+ 	:param tools: List of tools to be used to make the toolchain.
+ 	:type tools: class
+ 	:return:
+ 	"""
+	project_plan.currentPlan.EnterContext("toolchain", name)
+	project_plan.currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
+	project_plan.currentPlan.SetValue("_tempToolchain", toolchain.Toolchain(*tools))
+	project_plan.currentPlan.LeaveContext()
+
+class Scope(ContextManager):
+	"""
+	Enter a scope. Settings within this scope will be passed on to libraries that include this lib for intermediate,
+	or to applications that include it for final. Anything that depends on this lib will inherit a value set to children,
+	and a value set to all will be applied to this lib as well as inherited by children.
+
+	:param scopeTypes: Scope type to enter
+	:type scopeTypes: ScopeDef
+	"""
+	def __init__(self, *scopeTypes):
+		for scopeType in scopeTypes:
+			assert scopeType == Csbuild.ScopeDef.Intermediate or scopeType == Csbuild.ScopeDef.Final, "Invalid scope type"
+		ContextManager.__init__(self, "scope", scopeTypes)
+
+class Toolchain(ContextManager):
+	"""
+	Apply values to a specific toolchain
+
+	:param toolchainNames: Toolchain identifier
+	:type toolchainNames: str, bytes
+	"""
+	def __init__(self, *toolchainNames):
+
+		class _toolchainMethodResolver(object):
+			@TypeChecked(plan=project_plan.ProjectPlan)
+			def __init__(self, plan):
+				self._plan = plan
+
+			def __getattribute__(self, item):
+				funcs = []
+				allToolchains = self._plan.GetValuesInCurrentContexts("_tempToolchain")
+				for tempToolchain in allToolchains:
+					funcs.append(getattr(tempToolchain, item))
+
+				def _runFuncs(*args, **kwargs):
+					for func in funcs:
+						func(*args, **kwargs)
+
+				return _runFuncs
+
+		ContextManager.__init__(self, "toolchain", toolchainNames, _toolchainMethodResolver(project_plan.currentPlan))
+
+class Architecture(ContextManager):
+	"""
+	Apply values to a specific architecture
+
+	:param architectureNames: Architecture identifier
+	:type architectureNames: str, bytes
+	"""
+	def __init__(self, *architectureNames):
+		ContextManager.__init__(self, "architecture", architectureNames)
+
+class Platform(ContextManager):
+	"""
+	Apply values to a specific platform
+
+	:param platformNames: Platform identifier
+	:type platformNames: str, bytes
+	"""
+	def __init__(self, *platformNames):
+		ContextManager.__init__(self, "platform", platformNames)
+
+class Project(object):
+	"""
+	Apply settings to a specific project. If a project does not exist with the given name, it will be created.
+	If it does exist, these settings will apply to the existing project.
+
+	:param name: The project's name.
+	:type name: str, bytes
+	:param workingDirectory: The location on disk containing the project's files, which should be examined to collect source files.
+		If autoDiscoverSourceFiles is False, this parameter is ignored.
+	:type workingDirectory: str, bytes
+	:param depends: List of names of other prjects this one depends on.
+	:type depends: list(str, bytes)
+	:param priority: Priority in the build queue, used to cause this project to get built first in its dependency ordering. Higher number means higher priority.
+	:type priority: bool
+	:param ignoreDependencyOrdering: Treat priority as a global value and use priority to raise this project above, or lower it below, the dependency order
+	:type ignoreDependencyOrdering: bool
+	:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
+	:type autoDiscoverSourceFiles: bool
+	"""
+
+	@TypeChecked(name=String, workingDirectory=String, depends=(list,type(None)), priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool)
+	def __init__(self, name, workingDirectory, depends=None, priority=0, ignoreDependencyOrdering=False, autoDiscoverSourceFiles=True):
+		if depends is None:
+			depends = []
+
+		self._name = name
+		self._workingDirectory = workingDirectory
+		self._depends = depends
+		self._priority = priority
+		self._ignoreDependencyOrdering = ignoreDependencyOrdering
+		self._autoDiscoverSourceFiles = autoDiscoverSourceFiles
+		self._prevPlan = None
+
+	def __enter__(self):
+		"""
+		Enter project context
+		"""
+		project_plan.currentPlan = project_plan.ProjectPlan(
+			self._name,
+			self._workingDirectory,
+			self._depends,
+			self._priority,
+			self._ignoreDependencyOrdering,
+			self._autoDiscoverSourceFiles
+		)
+
+	def __exit__(self, excType, excValue, traceback):
+		"""
+		Leave the project context
+
+		:param excType: type of exception thrown in the context (ignored)
+		:type excType: type
+		:param excValue: value of thrown exception (ignored)
+		:type excValue: any
+		:param traceback: traceback attached to the thrown exception (ignored)
+		:type traceback: traceback
+		"""
+		project_plan.currentPlan = self._prevPlan
+		return False
 
 class Csbuild(object):
 	"""
@@ -65,140 +238,6 @@ class Csbuild(object):
 
 		return object.__getattribute__(self, name)
 
-	class ProjectType(object):
-		"""
-		Enum representing the available project types.
-		"""
-		Application = 0
-		SharedLibrary = 1
-		StaticLibrary = 2
-
-	class ScopeDef(object):
-		"""
-		'enum' representing the types of valid scopes
-		"""
-		Intermediate = "intermediate"
-		Final = "final"
-		Children = "children"
-		All = "all"
-
-	@TypeChecked(name=String, projectType=int)
-	def SetOutput(self, name, projectType=ProjectType.Application):
-		"""
-		Set the project output name and type
-
-		:param name: Project name
-		:type name: str, bytes
-		:param projectType: Type of project
-		:type projectType: ProjectType
-		:return:
-		"""
-		project_plan.currentPlan.SetValue("outputName", name)
-		project_plan.currentPlan.SetValue("projectType", projectType)
-
-	class Scope(ContextManager):
-		"""
-		Enter a scope. Settings within this scope will be passed on to libraries that include this lib for intermediate,
-		or to applications that include it for final. Anything that depends on this lib will inherit a value set to children,
-		and a value set to all will be applied to this lib as well as inherited by children.
-
-		:param scopeTypes: Scope type to enter
-		:type scopeTypes: ScopeDef
-		"""
-		def __init__(self, *scopeTypes):
-			for scopeType in scopeTypes:
-				assert scopeType == Csbuild.ScopeDef.Intermediate or scopeType == Csbuild.ScopeDef.Final, "Invalid scope type"
-			ContextManager.__init__(self, "scope", scopeTypes)
-
-	class Toolchain(ContextManager):
-		"""
-		Apply values to a specific toolchain
-
-		:param toolchainNames: Toolchain identifier
-		:type toolchainNames: str, bytes
-		"""
-		def __init__(self, *toolchainNames):
-			ContextManager.__init__(self, "toolchain", toolchainNames)
-
-	class Architecture(ContextManager):
-		"""
-		Apply values to a specific architecture
-
-		:param architectureNames: Architecture identifier
-		:type architectureNames: str, bytes
-		"""
-		def __init__(self, *architectureNames):
-			ContextManager.__init__(self, "architecture", architectureNames)
-
-	class Platform(ContextManager):
-		"""
-		Apply values to a specific platform
-
-		:param platformNames: Platform identifier
-		:type platformNames: str, bytes
-		"""
-		def __init__(self, *platformNames):
-			ContextManager.__init__(self, "platform", platformNames)
-
-	class Project(object):
-		"""
-		Apply settings to a specific project. If a project does not exist with the given name, it will be created.
-		If it does exist, these settings will apply to the existing project.
-
-		:param name: The project's name.
-		:type name: str, bytes
-		:param workingDirectory: The location on disk containing the project's files, which should be examined to collect source files.
-			If autoDiscoverSourceFiles is False, this parameter is ignored.
-		:type workingDirectory: str, bytes
-		:param depends: List of names of other prjects this one depends on.
-		:type depends: list(str, bytes)
-		:param priority: Priority in the build queue, used to cause this project to get built first in its dependency ordering. Higher number means higher priority.
-		:type priority: bool
-		:param ignoreDependencyOrdering: Treat priority as a global value and use priority to raise this project above, or lower it below, the dependency order
-		:type ignoreDependencyOrdering: bool
-		:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
-		:type autoDiscoverSourceFiles: bool
-		"""
-
-		@TypeChecked(name=String, workingDirectory=String, depends=(list,type(None)), priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool)
-		def __init__(self, name, workingDirectory, depends=None, priority=0, ignoreDependencyOrdering=False, autoDiscoverSourceFiles=True):
-			if depends is None:
-				depends = []
-
-			self._name = name
-			self._workingDirectory = workingDirectory
-			self._depends = depends
-			self._priority = priority
-			self._ignoreDependencyOrdering = ignoreDependencyOrdering
-			self._autoDiscoverSourceFiles = autoDiscoverSourceFiles
-			self._prevPlan = None
-
-		def __enter__(self):
-			"""
-			Enter project context
-			"""
-			project_plan.currentPlan = project_plan.ProjectPlan(
-				self._name,
-				self._workingDirectory,
-				self._depends,
-				self._priority,
-				self._ignoreDependencyOrdering,
-				self._autoDiscoverSourceFiles
-			)
-
-		def __exit__(self, excType, excValue, traceback):
-			"""
-			Leave the project context
-
-			:param excType: type of exception thrown in the context (ignored)
-			:type excType: type
-			:param excValue: value of thrown exception (ignored)
-			:type excValue: any
-			:param traceback: traceback attached to the thrown exception (ignored)
-			:type traceback: traceback
-			"""
-			project_plan.currentPlan = self._prevPlan
-			return False
 
 sys.modules["csbuild"] = Csbuild()
 

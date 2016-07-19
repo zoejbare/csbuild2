@@ -27,13 +27,13 @@
 
 from __future__ import unicode_literals, division, print_function
 
-def Reraise(exc, traceback):
+def Reraise(exception, traceback):
 	"""
 	Reraise a python exception with a traceback using py2 syntax
 
-	:param exc: Exception object
-	:type exc: Exception
+	:param exception: Exception object
+	:type exception: Exception
 	:param traceback: Traceback object to attach to the exception
 	:type traceback: Traceback
 	"""
-	raise exc, None, traceback
+	raise exception, None, traceback
