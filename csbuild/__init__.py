@@ -35,6 +35,32 @@ from __future__ import unicode_literals, division, print_function
 import sys
 import imp
 
+class Csbuild(object):
+	"""
+	Class that represents the actual csbuild module and replaces this module before anything can interact with it.
+	This is done this way so context managers work - within a context manager, new methods have to become
+	accessible, so there has to be a __getattr__ overload on the module. This is the only method by which
+	such an overload is possible.
+
+	Note that while this could be considered a "hack", it is a hack that's officially endorsed by Guido Van Rossum,
+	and the import machinery goes out of its way to intentionally support this behavior.
+	"""
+	def __init__(self):
+		self._resolver = None
+		self._module = sys.modules["csbuild"]
+
+	def __getattr__(self, name):
+		if hasattr(self._module, name):
+			return getattr(self._module, name)
+
+		if self._resolver is not None and hasattr(self._resolver, name):
+			return getattr(self._resolver, name)
+
+		return object.__getattribute__(self, name)
+
+
+sys.modules["csbuild"] = Csbuild()
+
 from ._build.context_manager import ContextManager
 from ._build import project_plan
 
@@ -118,13 +144,9 @@ class Toolchain(ContextManager):
 	def __init__(self, *toolchainNames):
 
 		class _toolchainMethodResolver(object):
-			@TypeChecked(plan=project_plan.ProjectPlan)
-			def __init__(self, plan):
-				self._plan = plan
-
 			def __getattribute__(self, item):
 				funcs = []
-				allToolchains = self._plan.GetValuesInCurrentContexts("_tempToolchain")
+				allToolchains = project_plan.currentPlan.GetValuesInCurrentContexts("_tempToolchain")
 				for tempToolchain in allToolchains:
 					funcs.append(getattr(tempToolchain, item))
 
@@ -134,7 +156,7 @@ class Toolchain(ContextManager):
 
 				return _runFuncs
 
-		ContextManager.__init__(self, "toolchain", toolchainNames, _toolchainMethodResolver(project_plan.currentPlan))
+		ContextManager.__init__(self, "toolchain", toolchainNames, [_toolchainMethodResolver()])
 
 class Architecture(ContextManager):
 	"""
@@ -155,6 +177,16 @@ class Platform(ContextManager):
 	"""
 	def __init__(self, *platformNames):
 		ContextManager.__init__(self, "platform", platformNames)
+
+class Target(ContextManager):
+	"""
+	Apply values to a specific target
+
+	:param targetNames: target identifiers
+	:type targetNames: str, bytes
+	"""
+	def __init__(self, *targetNames):
+		ContextManager.__init__(self, "target", targetNames)
 
 class Project(object):
 	"""
@@ -215,31 +247,6 @@ class Project(object):
 		"""
 		project_plan.currentPlan = self._prevPlan
 		return False
-
-class Csbuild(object):
-	"""
-	Class that represents the actual csbuild module and replaces this module at the end of the file.
-	This is done this way so context managers work - within a context manager, new methods have to become
-	accessible, so there has to be a __getattr__ overload on the module. This is the only method by which
-	such an overload is possible.
-
-	Note that while this could be considered a "hack", it is a hack that's officially endorsed by Guido Van Rossum,
-	and the import machinery goes out of its way to intentionally support this behavior.
-	"""
-	_resolver = None
-	_module = sys.modules["csbuild"]
-
-	def __getattr__(self, name):
-		if hasattr(Csbuild._module, name):
-			return getattr(Csbuild._module, name)
-
-		if Csbuild._resolver is not None and hasattr(Csbuild._resolver, name):
-			return getattr(Csbuild._resolver, name)
-
-		return object.__getattribute__(self, name)
-
-
-sys.modules["csbuild"] = Csbuild()
 
 if not hasattr(sys, "runningSphinx") and not hasattr(sys, "runningUnitTests"):
 	try:

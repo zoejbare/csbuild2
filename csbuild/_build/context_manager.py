@@ -28,12 +28,40 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-from types import FunctionType
+import sys
+import types
 
 from .._utils import StrType, BytesType
 
 from .project_plan import currentPlan
 from .._utils.decorators import TypeChecked
+
+if sys.version_info[0] >= 3:
+	_typeType = type
+	_classType = type
+else:
+	# pylint: disable=invalid-name
+	_typeType = types.TypeType
+	_classType = types.ClassType
+
+class NestedContext(object):
+	"""
+	Represents a nested context, allowing context managers to be chained, a la csbuild.Toolchain("foo").Architecture("bar")
+
+	:param cls: The ContextManager being nested
+	:type cls: ContextManager
+	:param currentContext: The ContextManager it's being nested into
+	:type currentContext: ContextManager
+	"""
+	def __init__(self, cls, currentContext):
+		self.cls = cls
+		self.ctx = currentContext
+
+	def __call__(self, *args, **kwargs):
+		ret = self.cls(*args, **kwargs)
+		# pylint: disable=protected-access
+		ret._parentContext = self.ctx
+		return ret
 
 class ContextManager(object):
 	"""
@@ -50,16 +78,22 @@ class ContextManager(object):
 
 	@TypeChecked(contextType=(StrType, BytesType), contextNames=tuple, methodResolvers=list)
 	def __init__(self, contextType, contextNames, methodResolvers=None):
+		object.__setattr__(self, "inself", True)
 		self._type = contextType
 		self._names = contextNames
 		self._methodResolvers = methodResolvers
 		self._previousResolver = None
+		self._parentContext = None
+		object.__setattr__(self, "inself", False)
 
 	def __enter__(self):
 		"""
 		Enter the context, making the listed contexts active
 		"""
-		currentPlan.EnterContext(self._type, self._names)
+		object.__setattr__(self, "inself", True)
+		if self._parentContext is not None:
+			object.__getattribute__(self._parentContext, "__enter__")()
+		currentPlan.EnterContext(self._type, *self._names)
 
 		if self._methodResolvers:
 			ContextManager.methodResolvers.append(self._methodResolvers)
@@ -67,6 +101,7 @@ class ContextManager(object):
 		# pylint: disable=protected-access
 		self._previousResolver = csbuild._resolver
 		csbuild._resolver = self
+		object.__setattr__(self, "inself", False)
 
 	def __exit__(self, excType, excValue, traceback):
 		"""
@@ -79,6 +114,7 @@ class ContextManager(object):
 		:param traceback: traceback attached to the thrown exception (ignored)
 		:type traceback: traceback
 		"""
+		object.__setattr__(self, "inself", True)
 		# pylint: disable=protected-access
 		csbuild._resolver = self._previousResolver
 
@@ -86,9 +122,17 @@ class ContextManager(object):
 			ContextManager.methodResolvers.pop()
 
 		currentPlan.LeaveContext()
+
+		if self._parentContext is not None:
+			object.__getattribute__(self._parentContext, "__exit__")(excType, excValue, traceback)
+
+		object.__setattr__(self, "inself", False)
 		return False
 
 	def __getattribute__(self, name):
+		if object.__getattribute__(self, "inself"):
+			return object.__getattribute__(self, name)
+
 		if ContextManager.methodResolvers:
 			funcs = set()
 
@@ -116,11 +160,15 @@ class ContextManager(object):
 
 		if hasattr(csbuild, name):
 			obj = getattr(csbuild, name)
-			if isinstance(obj, FunctionType):
+			if isinstance(obj, types.FunctionType):
 				def _wrapCsbuildMethod(*args, **kwargs):
 					with self:
 						obj(*args, **kwargs)
 
 				return _wrapCsbuildMethod
+			else:
+				if (isinstance(obj, _classType) or isinstance(obj, _typeType)) and issubclass(obj, ContextManager):
+					return NestedContext(obj, self)
+				return obj
 
 		return object.__getattribute__(self, name)

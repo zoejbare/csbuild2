@@ -86,7 +86,7 @@ class ProjectPlan(object):
 		self._currentSettingsDicts = self._workingSettingsStack[0]
 		allPlans[name] = self
 
-	_validContextTypes = {"toolchain", "architecture", "platform", "scope"}
+	_validContextTypes = {"toolchain", "architecture", "platform", "target", "scope"}
 
 	@TypeChecked(contextType=String)
 	def EnterContext(self, contextType, *names):
@@ -110,7 +110,7 @@ class ProjectPlan(object):
 		self._workingSettingsStack.pop()
 		self._currentSettingsDicts = self._workingSettingsStack[-1]
 
-	def _absorbSettings(self, settings, overrideDict, toolchain, architecture, scopeType, inScope):
+	def _absorbSettings(self, settings, overrideDict, toolchain, architecture, target, scopeType, inScope):
 		if overrideDict is None:
 			return
 
@@ -141,30 +141,32 @@ class ProjectPlan(object):
 						settings[key] = val
 		# Else this function just recurses down to the next override dict to look for a dict of scopeType
 
-		self._flattenOverrides(settings, overrideDict.get("overrides"), toolchain, architecture, scopeType, inScope)
+		self._flattenOverrides(settings, overrideDict.get("overrides"), toolchain, architecture, target, scopeType, inScope)
 
-	def _flattenOverrides(self, settings, overrideDict, toolchain, architecture, scopeType="", inScope=False):
+	def _flattenOverrides(self, settings, overrideDict, toolchain, architecture, target, scopeType="", inScope=False):
 		if overrideDict is None:
 			return
 
-		self._absorbSettings(settings, overrideDict.get("toolchain", {}).get(toolchain), toolchain, architecture, scopeType, inScope)
-		self._absorbSettings(settings, overrideDict.get("architecture", {}).get(architecture), toolchain, architecture, scopeType, inScope)
-		self._absorbSettings(settings, overrideDict.get("platform", {}).get(platform.system()), toolchain, architecture, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("toolchain", {}).get(toolchain), toolchain, architecture, target, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("architecture", {}).get(architecture), toolchain, architecture, target, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("target", {}).get(target), toolchain, architecture, target, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("platform", {}).get(platform.system()), toolchain, architecture, target, scopeType, inScope)
 		if scopeType:
-			self._absorbSettings(settings, overrideDict.get("scope", {}).get(scopeType), toolchain, architecture, scopeType, True)
+			self._absorbSettings(settings, overrideDict.get("scope", {}).get(scopeType), toolchain, architecture, target, scopeType, True)
 
-	def _getFinalValueFromOverride(self, overrideDict, name, toolchain, architecture, default):
+	def _getFinalValueFromOverride(self, overrideDict, name, toolchain, architecture, target, default):
 		if overrideDict is not None:
 			default = overrideDict.get(name, default)
-			default = self._getFinalValue(overrideDict.get("overrides"), name, toolchain, architecture, default)
+			default = self._getFinalValue(overrideDict.get("overrides"), name, toolchain, architecture, target, default)
 		return default
 
-	def _getFinalValue(self, overrideDict, name, toolchain, architecture, default):
+	def _getFinalValue(self, overrideDict, name, toolchain, architecture, target, default):
 		if overrideDict is not None:
 			default = overrideDict.get("scope", {}).get(name, default)
-			default = self._getFinalValueFromOverride(overrideDict.get("toolchain", {}).get(toolchain), name, toolchain, architecture, default)
-			default = self._getFinalValueFromOverride(overrideDict.get("architecture", {}).get(architecture), name, toolchain, architecture, default)
-			default = self._getFinalValueFromOverride(overrideDict.get("platform", {}).get(platform.system()), name, toolchain, architecture, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("toolchain", {}).get(toolchain), name, toolchain, architecture, target, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("architecture", {}).get(architecture), name, toolchain, architecture, target, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("target", {}).get(target), name, toolchain, architecture, target, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("platform", {}).get(platform.system()), name, toolchain, architecture, target, default)
 		return default
 
 	def _flattenDepends(self, flattenedDepends, dependObj):
@@ -176,8 +178,8 @@ class ProjectPlan(object):
 			self._flattenDepends(flattenedDepends, allPlans[depend])
 			flattenedDepends.add(depend)
 
-	@TypeChecked(toolchain=String, architecture=String)
-	def ExecutePlan(self, toolchain, architecture):
+	@TypeChecked(toolchain=String, architecture=String, target=String)
+	def ExecutePlan(self, toolchain, architecture, target):
 		"""
 		Execute the project plan for a given toolchain and architecture to create a concrete project.
 
@@ -185,6 +187,8 @@ class ProjectPlan(object):
 		:type toolchain: str, bytes
 		:param architecture: The architecture to execute the plan for
 		:type architecture: str, bytes
+		:param target: The target to execute the plan for
+		:type target: str, bytes
 		:return: A concrete project
 		:rtype: project.Project
 		"""
@@ -193,7 +197,7 @@ class ProjectPlan(object):
 				self._workingSettingsStack[0][0] == self._settings and \
 				len(self._currentSettingsDicts) == 1 and \
 				self._currentSettingsDicts[0] == self._settings, \
-				"Flatten() called from within a context!"
+				"ExecutePlan() called from within a context!"
 
 		from .. import ProjectType
 
@@ -203,7 +207,7 @@ class ProjectPlan(object):
 			"Toolchain {} has not been registered for project {}".format(toolchain, self._name)
 
 		projectType = self._settings.get("projectType", ProjectType.Application)
-		projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchain, architecture, projectType)
+		projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchain, architecture, target, projectType)
 
 		settings = {}
 		for key, value in self._settings.items():
@@ -224,6 +228,7 @@ class ProjectPlan(object):
 			self._settings.get("overrides", {}),
 			toolchain,
 			architecture,
+			target,
 			"all"
 		)
 
@@ -240,6 +245,7 @@ class ProjectPlan(object):
 							"outputName",
 							toolchain,
 							architecture,
+							target,
 							dependObj._name
 						)
 					]
@@ -249,6 +255,7 @@ class ProjectPlan(object):
 					dependObj._settings.get("overrides", {}),
 					toolchain,
 					architecture,
+					target,
 					"all"
 				)
 				self._flattenOverrides(
@@ -256,6 +263,7 @@ class ProjectPlan(object):
 					dependObj._settings.get("overrides", {}),
 					toolchain,
 					architecture,
+					target,
 					"children"
 				)
 				self._flattenOverrides(
@@ -263,6 +271,7 @@ class ProjectPlan(object):
 					dependObj._settings.get("overrides", {}),
 					toolchain,
 					architecture,
+					target,
 					"final"
 				)
 			else:
@@ -271,6 +280,7 @@ class ProjectPlan(object):
 					dependObj._settings.get("overrides", {}),
 					toolchain,
 					architecture,
+					target,
 					"all"
 				)
 				self._flattenOverrides(
@@ -278,6 +288,7 @@ class ProjectPlan(object):
 					dependObj._settings.get("overrides", {}),
 					toolchain,
 					architecture,
+					target,
 					"children"
 				)
 				self._flattenOverrides(
@@ -285,6 +296,7 @@ class ProjectPlan(object):
 					dependObj._settings.get("overrides", {}),
 					toolchain,
 					architecture,
+					target,
 					"scope"
 				)
 
@@ -293,7 +305,7 @@ class ProjectPlan(object):
 		else:
 			settings["libraries"] = libraries
 
-		self._flattenOverrides(settings, self._settings.get("overrides"), toolchain, architecture)
+		self._flattenOverrides(settings, self._settings.get("overrides"), toolchain, architecture, target)
 
 		return project.Project(
 			self._name,
@@ -405,7 +417,8 @@ class ProjectPlan(object):
 		"""
 		ret = []
 		for settings in self._currentSettingsDicts:
-			ret.append(settings[key])
+			if key in settings:
+				ret.append(settings[key])
 		return ret
 
 	@TypeChecked(key=String, action=Callable)
@@ -484,6 +497,7 @@ class TestProjectPlan(testcase.TestCase):
 		plan.AppendList("list", 2)
 		plan.AddToSet("set", 3)
 		plan.UpdateDict("dict", {4: 5})
+		plan.SetValue("hasTarget", False)
 
 		plan.EnterContext("toolchain", "tc1")
 		# pylint: disable=using-constant-test
@@ -557,12 +571,18 @@ class TestProjectPlan(testcase.TestCase):
 
 			plan.LeaveContext()
 
-		proj1 = plan.ExecutePlan("tc1", "ar1")
-		proj2 = plan.ExecutePlan("tc1", "ar2")
-		proj3 = plan.ExecutePlan("tc1", "ar3")
-		proj4 = plan.ExecutePlan("tc2", "ar1")
-		proj5 = plan.ExecutePlan("tc2", "ar2")
-		proj6 = plan.ExecutePlan("tc2", "ar3")
+		plan.EnterContext("target", "target")
+		if True:
+			plan.SetValue("hasTarget", True)
+
+			plan.LeaveContext()
+
+		proj1 = plan.ExecutePlan("tc1", "ar1", "target")
+		proj2 = plan.ExecutePlan("tc1", "ar2", "target")
+		proj3 = plan.ExecutePlan("tc1", "ar3", "target")
+		proj4 = plan.ExecutePlan("tc2", "ar1", "target")
+		proj5 = plan.ExecutePlan("tc2", "ar2", "target")
+		proj6 = plan.ExecutePlan("tc2", "ar3", "target")
 
 		self.assertIn("value", proj1.settings)
 		self.assertIn("list", proj1.settings)
@@ -634,6 +654,13 @@ class TestProjectPlan(testcase.TestCase):
 		self.assertEqual(proj5.settings["value"], 1)
 		self.assertEqual(proj6.settings["value"], 34)
 
+		self.assertTrue(proj1.settings["hasTarget"])
+		self.assertTrue(proj2.settings["hasTarget"])
+		self.assertTrue(proj3.settings["hasTarget"])
+		self.assertTrue(proj4.settings["hasTarget"])
+		self.assertTrue(proj5.settings["hasTarget"])
+		self.assertTrue(proj6.settings["hasTarget"])
+
 	def testScope(self):
 		"""Ensure all scope overrides apply properly to dependent project plans"""
 		from .. import ProjectType
@@ -693,15 +720,15 @@ class TestProjectPlan(testcase.TestCase):
 		third.SetValue("should_be_one", 1)
 		third.AddToSet("libraries", "lib6")
 
-		first1 = first.ExecutePlan("scope-then-toolchain", "none")
-		first2 = first.ExecutePlan("toolchain-then-scope", "none")
-		first3 = first.ExecutePlan("no-toolchain", "none")
-		second1 = second.ExecutePlan("scope-then-toolchain", "none")
-		second2 = second.ExecutePlan("toolchain-then-scope", "none")
-		second3 = second.ExecutePlan("no-toolchain", "none")
-		third1 = third.ExecutePlan("scope-then-toolchain", "none")
-		third2 = third.ExecutePlan("toolchain-then-scope", "none")
-		third3 = third.ExecutePlan("no-toolchain", "none")
+		first1 = first.ExecutePlan("scope-then-toolchain", "none", "target")
+		first2 = first.ExecutePlan("toolchain-then-scope", "none", "target")
+		first3 = first.ExecutePlan("no-toolchain", "none", "target")
+		second1 = second.ExecutePlan("scope-then-toolchain", "none", "target")
+		second2 = second.ExecutePlan("toolchain-then-scope", "none", "target")
+		second3 = second.ExecutePlan("no-toolchain", "none", "target")
+		third1 = third.ExecutePlan("scope-then-toolchain", "none", "target")
+		third2 = third.ExecutePlan("toolchain-then-scope", "none", "target")
+		third3 = third.ExecutePlan("no-toolchain", "none", "target")
 
 		self.assertEqual(third1.settings["should_be_one"], 1)
 		self.assertEqual(third2.settings["should_be_one"], 1)
@@ -745,8 +772,8 @@ class TestProjectPlan(testcase.TestCase):
 		second = currentPlan
 
 
-		first1 = first.ExecutePlan("none", "none")
-		second1 = second.ExecutePlan("none", "none")
+		first1 = first.ExecutePlan("none", "none", "target")
+		second1 = second.ExecutePlan("none", "none", "target")
 
 		self.assertEqual(first1.settings["list"], [1,2,3])
 		self.assertEqual(second1.settings["list"], [1,2,3,4,5,6])
@@ -761,9 +788,9 @@ class TestProjectPlan(testcase.TestCase):
 		first.SetValue("a", 2)
 		first.LeaveContext()
 
-		first1 = first.ExecutePlan("none", "none")
-		first2 = first.ExecutePlan("tc1", "none")
-		first3 = first.ExecutePlan("tc2", "none")
+		first1 = first.ExecutePlan("none", "none", "target")
+		first2 = first.ExecutePlan("tc1", "none", "target")
+		first3 = first.ExecutePlan("tc2", "none", "target")
 
 		self.assertEqual(first1.settings["a"], 1)
 		self.assertEqual(first2.settings["a"], 2)
