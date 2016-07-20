@@ -61,6 +61,7 @@ class Csbuild(object):
 
 sys.modules["csbuild"] = Csbuild()
 
+# pylint: disable=wrong-import-position
 from ._build.context_manager import ContextManager
 from ._build import project_plan
 
