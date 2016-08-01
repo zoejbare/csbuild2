@@ -27,8 +27,41 @@
 
 from __future__ import unicode_literals, division, print_function
 
+from . import dag
+
 errors = []
 warnings = []
 quiet = 0
 colorSupported = False
 logFile = None
+
+toolchains = {}
+
+sortedProjects = dag.DAG(lambda x: x.name)
+allTargets = set()
+allToolchains = set()
+allArchitectures = set()
+
+projectFilter = None
+
+runMode = None
+
+defaultTarget = "release"
+
+parser = None
+
+class Verbosity(object):
+	"""
+	'enum' representing verbosity
+	"""
+	Verbose = 0
+	Normal = 1
+	Quiet = 2
+	Mute = 3
+
+#Has to default to Verbose for tests to print Info since they don't take command line params
+verbosity = Verbosity.Verbose
+
+showCommands = False
+
+projectMap = {}

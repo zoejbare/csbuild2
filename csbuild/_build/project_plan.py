@@ -47,6 +47,16 @@ from .._zz_testing import testcase
 
 
 allPlans = {}
+class _defaultType(object):
+	def __repr__(self):
+		return "<default>"
+
+useDefault = _defaultType()
+
+def _getDefaultToolchain():
+	if platform.system() == "Windows":
+		return "msvc"
+	return "gcc"
 
 class ProjectPlan(object):
 	"""
@@ -76,15 +86,35 @@ class ProjectPlan(object):
 		self._ignoreDependencyOrdering = ignoreDependencyOrdering
 		self._autoDiscoverSourceFiles = autoDiscoverSourceFiles
 
+
 		try:
 			# pylint: disable=protected-access
 			self._settings = copy.deepcopy(currentPlan._settings)
-		except:
+		except NameError:
 			self._settings = {}
+			self.defaultTarget = "release"
+			self.defaultToolchain = _getDefaultToolchain()
+			self.defaultArchitecture = useDefault
+			self.defaultArchitectureMap = {}
+		else:
+			self.defaultTarget = currentPlan.defaultTarget
+			self.defaultToolchain = currentPlan.defaultToolchain
+			self.defaultArchitecture = currentPlan.defaultArchitecture
+			self.defaultArchitectureMap = copy.deepcopy(currentPlan.defaultArchitectureMap)
+
 
 		self._workingSettingsStack = [[self._settings]]
 		self._currentSettingsDicts = self._workingSettingsStack[0]
 		allPlans[name] = self
+
+	@property
+	def name(self):
+		"""
+		Get the project name
+		:return: project name
+		:rtype: str, bytes
+		"""
+		return self._name
 
 	_validContextTypes = {"toolchain", "architecture", "platform", "target", "scope"}
 
@@ -178,7 +208,7 @@ class ProjectPlan(object):
 			self._flattenDepends(flattenedDepends, allPlans[depend])
 			flattenedDepends.add(depend)
 
-	@TypeChecked(toolchain=String, architecture=String, target=String)
+	@TypeChecked(toolchain=(String, _defaultType), architecture=(String, _defaultType), target=(String, _defaultType))
 	def ExecutePlan(self, toolchain, architecture, target):
 		"""
 		Execute the project plan for a given toolchain and architecture to create a concrete project.
@@ -200,6 +230,16 @@ class ProjectPlan(object):
 				"ExecutePlan() called from within a context!"
 
 		from .. import ProjectType
+
+		if target is useDefault:
+			target = self.defaultTarget
+		if toolchain is useDefault:
+			toolchain = self.defaultToolchain
+		if architecture is useDefault:
+			if self.defaultArchitecture is useDefault:
+				architecture = self.defaultArchitectureMap[toolchain]
+			else:
+				architecture = self.defaultArchitecture
 
 		assert "overrides" in self._settings \
 			and "toolchain" in self._settings["overrides"] \
@@ -314,7 +354,10 @@ class ProjectPlan(object):
 			self._priority,
 			self._ignoreDependencyOrdering,
 			self._autoDiscoverSourceFiles,
-			settings
+			settings,
+			toolchain,
+			architecture,
+			target
 		)
 
 

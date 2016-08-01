@@ -40,7 +40,6 @@ else:
 from . import testcase
 from .._utils import thread_pool, log, PlatformString
 
-
 class TestPylint(testcase.TestCase):
 	"""Test to run pylint"""
 	# pylint: disable=invalid-name
@@ -87,6 +86,11 @@ class TestPylint(testcase.TestCase):
 			if _sharedLocals.count == _sharedLocals.done:
 				pool.Stop()
 
+		# TODO:
+		# resultMTime = 0
+		# if os.path.exists("unit_tests.xml"):
+		# 	resultMTime = os.path.getmtime("unit_tests.xml")
+
 		for root, _, files in os.walk("csbuild"):
 			for filename in files:
 				if filename.endswith(".py"):
@@ -96,8 +100,18 @@ class TestPylint(testcase.TestCase):
 					if filename.endswith("_py2.py") and sys.version_info[0] != 2:
 						continue
 
+					finalfile = os.path.join(root, filename)
+
+					# TODO:
+					# fileMTime = os.path.getmtime(finalfile)
+					# if fileMTime < resultMTime:
+					# 	continue
+
 					_sharedLocals.count += 1
-					pool.AddTask((_runPylint, os.path.join(root, filename)), _checkDone)
+					pool.AddTask((_runPylint, finalfile), _checkDone)
+
+		if _sharedLocals.count == 0:
+			return
 
 		pool.Start()
 		errors = False

@@ -33,6 +33,7 @@ import sys
 import types
 from collections import Callable
 
+from .._utils import shared_globals
 from . import Tool as ToolClass
 from .._utils import PlatformString, ordered_set
 from .._utils.decorators import TypeChecked
@@ -80,20 +81,29 @@ class Toolchain(object):
 			runInit = True
 
 		# Keep track of some state data...
-		class _classTrackr(object):
-			# List of classes that have had __init__ called on them.
-			# Since base class data is shared, we don't want to initialize them more than once
-			initialized = set()
+		class _classTrackrClass(object):
+			def __init__(self):
+				# List of classes that have had __init__ called on them.
+				# Since base class data is shared, we don't want to initialize them more than once
+				self.initialized = set()
 
-			# Limited class lookup table. When non-empty, only classes in this set will be
-			# visible when performing member lookups
-			limit = set()
+				# Limited class lookup table. When non-empty, only classes in this set will be
+				# visible when performing member lookups
+				self.limit = set()
 
-			# List of inits that are already overloaded so we don't wrap them multiple times
-			overloadedInits = set()
+				# List of inits that are already overloaded so we don't wrap them multiple times
+				self.overloadedInits = set()
 
-			# Mutable list of classes
-			classes = ordered_set.OrderedSet()
+				# Mutable list of classes
+				self.classes = ordered_set.OrderedSet()
+
+				# List of paths by which files can go through tools at various starting points.
+				self.paths = {}
+
+				# List of reachable extensions given currently active or pending tools
+				self.reachability = {}
+
+		_classTrackr = _classTrackrClass()
 
 		_threadSafeClassTrackr = threading.local()
 
@@ -151,6 +161,32 @@ class Toolchain(object):
 					_setinit(base)
 				bases.add(base)
 
+		# Create paths for each tool, showing the total path a file will take from this tool to its final output
+		for cls in classes:
+			needAnotherPass = True
+			path = ordered_set.OrderedSet()
+			while needAnotherPass:
+				needAnotherPass = False
+				outputs = set(cls.outputFiles)
+				for cls2 in classes:
+					if cls2 is cls:
+						continue
+
+					if cls2 in path:
+						continue
+
+					for inputFile in cls2.inputFiles:
+						if inputFile in outputs:
+							path.add(cls2)
+							outputs.update(cls2.outputFiles)
+							needAnotherPass = True
+					for inputFile in cls2.inputGroups:
+						if inputFile in outputs:
+							path.add(cls2)
+							outputs.update(cls2.outputFiles)
+							needAnotherPass = True
+			_classTrackr.paths[cls] = path
+
 		# Set up a map of class to member variable dict
 		# All member variables will be stored here instead of in the class's __dict__
 		# This is what allows for both sharing of base class values, and separation of
@@ -200,8 +236,54 @@ class Toolchain(object):
 						base.__init__ = base.__oldInit__
 						del base.__oldInit__
 
-					with Use(self):
-						self._finishedTools = set()
+			@TypeChecked(tool=(_classType, _typeType))
+			def CreateReachability(self, tool):
+				"""
+				Create reachability info for a tool as it's about to be used.
+				The tool does not have to actively be in the task queue, this should be called every time an input
+				is assigned to a tool, whether it's being processed immediately or being marked as pending.
+				:param tool: The tool to mark reachability for
+				:type tool: type
+				"""
+				for output in tool.outputFiles:
+					_classTrackr.reachability.setdefault(output, 0)
+					_classTrackr.reachability[output] += 1
+
+				for otherTool in _classTrackr.paths[tool]:
+					for output in otherTool.outputFiles:
+						_classTrackr.reachability.setdefault(output, 0)
+						_classTrackr.reachability[output] += 1
+
+			@TypeChecked(tool=(_classType, _typeType))
+			def ReleaseReachability(self, tool):
+				"""
+				Releases reachability info for a tool, marking one instance of the tool finished.
+				Note that for group inputs, this should be released as many times as it was created (i.e., if every
+				input called CreateReachability, then it needs to also be released once per input)
+				:param tool: The tool to release reachability for
+				:type tool: type
+				"""
+				for output in tool.outputFiles:
+					_classTrackr.reachability.setdefault(output, 0)
+					_classTrackr.reachability[output] -= 1
+					assert _classTrackr.reachability[output] >= 0, "Cannot release reachability without creating it"
+
+				for otherTool in _classTrackr.paths[tool]:
+					for output in otherTool.outputFiles:
+						_classTrackr.reachability.setdefault(output, 0)
+						_classTrackr.reachability[output] -= 1
+						assert _classTrackr.reachability[output] >= 0, "Cannot release reachability without creating it"
+
+			def HasAnyReachability(self):
+				"""
+				Check if any builds have started that didn't finish, if anything at all is reachable.
+				:return: True if reachable, False otherwise
+				:rtype: bool
+				"""
+				for val in _classTrackr.reachability.values():
+					if val != 0:
+						return True
+				return False
 
 			@TypeChecked(extension=String)
 			def IsOutputActive(self, extension):
@@ -210,26 +292,33 @@ class Toolchain(object):
 				:param extension:
 				:type extension: str, bytes
 				"""
-				with Use(self):
-					for cls in _classTrackr.classes:
-						if cls in self._finishedTools:
-							continue
-						if extension in cls.outputFiles:
-							return True
-					return False
+				return _classTrackr.reachability.get(extension, 0) != 0
 
-			@TypeChecked(tool=(_typeType, _classType))
-			def MarkToolFinished(self, tool):
+			@TypeChecked(tool=(_classType, _typeType), extension=String)
+			def CanCreateOutput(self, tool, extension):
 				"""
-				Mark a tool as finished
-				This should be done when:
-				1) There are no threads still active using this tool
-				and 2) There are no tools still active that can generate inputs for this one (i.e., IsOutputActive() returns false for all input and group input types)
-				:param tool: tool to mark as complete
-				:type tool: class
+				Check whether a tool is capable of ever creating a given output, even indirectly through other tools
+				:param tool: The tool to check
+				:type tool: type
+				:param extension: The extension to check
+				:type extension: str, bytes
+				:return: Whether or not the tool can create that output
+				:rtype: bool
 				"""
-				with Use(self):
-					self._finishedTools.add(tool)
+				if extension in tool.outputFiles:
+					return True
+				for otherTool in _classTrackr.paths[tool]:
+					if extension in otherTool.outputFiles:
+						return True
+				return False
+
+			def GetAllTools(self):
+				"""
+				Get the full list of tools in this toolchain
+				:return: Tool list
+				:rtype: ordered_set.OrderedSet
+				"""
+				return _classTrackr.classes
 
 			@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
 			def GetToolsFor(self, extension, generatingTool=None):
@@ -244,7 +333,33 @@ class Toolchain(object):
 					It's up to the caller to inspect the object to determine which type of input to provide.
 					It's also up to the caller to not call group input tools until IsOutputActive() returns False
 					for ALL of that tool's group inputs.
-				:rtype: set
+				:rtype: set[type]
+				"""
+				ret = set()
+				with Use(self):
+					for cls in _classTrackr.classes:
+						if cls is generatingTool:
+							continue
+
+						if extension in cls.inputFiles:
+							ret.add(cls)
+
+				return ret
+
+			@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
+			def GetGroupToolsFor(self, extension, generatingTool=None):
+				"""
+				Get all tools that take a given group input. If a generatingTool is specified, it will be excluded from the result.
+
+				:param extension: The extension of the file to be fed to the new tools
+				:type extension: str, bytes
+				:param generatingTool: The tool that generated this input
+				:type generatingTool: class or None
+				:return: A set of all tools that can take this input as group or individual inputs.
+					It's up to the caller to inspect the object to determine which type of input to provide.
+					It's also up to the caller to not call group input tools until IsOutputActive() returns False
+					for ALL of that tool's group inputs.
+				:rtype: set[type]
 				"""
 				ret = set()
 				with Use(self):
@@ -255,11 +370,23 @@ class Toolchain(object):
 							if self.IsOutputActive(dep):
 								continue
 
-						if extension in cls.inputFiles:
-							ret.add(cls)
-						elif extension in cls.inputGroups:
+						if extension in cls.inputGroups:
 							ret.add(cls)
 
+				return ret
+
+			@TypeChecked(_return=set)
+			def GetSearchExtensions(self):
+				"""
+				Return the full list of all extensions handled as inputs by any tool in the toolchain.
+				:return: Set of all extensions
+				:rtype: set[String]
+				"""
+				ret = set()
+				with Use(self):
+					for cls in _classTrackr.classes:
+						ret |= cls.inputFiles
+						ret |= cls.inputGroups
 				return ret
 
 
@@ -335,8 +462,13 @@ class Toolchain(object):
 
 				_classTrackr.classes.add(tool)
 
+				shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
+
 				object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
 
+			def __deepcopy__(self, memo):
+				memo[id(self)] = self
+				return self
 
 			def __getattribute__(self, name):
 				if hasattr(ToolchainTemplate, name):
@@ -439,6 +571,136 @@ class Toolchain(object):
 
 		return type(PlatformString("Toolchain"), classes, dict(ToolchainTemplate.__dict__))()
 
+	################################################################################
+	################################################################################
+	### Stub functions for the sake of making code complete work.                ###
+	### See above for actually implementations in ToolchainTemplate.             ###
+	################################################################################
+	################################################################################
+
+	@TypeChecked(tool=(_classType, _typeType))
+	def CreateReachability(self, tool):
+		"""
+		Create reachability info for a tool as it's about to be used.
+		The tool does not have to actively be in the task queue, this should be called every time an input
+		is assigned to a tool, whether it's being processed immediately or being marked as pending.
+		:param tool: The tool to mark reachability for
+		:type tool: type
+		"""
+		pass
+
+	@TypeChecked(tool=(_classType, _typeType))
+	def ReleaseReachability(self, tool):
+		"""
+		Releases reachability info for a tool, marking one instance of the tool finished.
+		Note that for group inputs, this should be released as many times as it was created (i.e., if every
+		input called CreateReachability, then it needs to also be released once per input)
+		:param tool: The tool to release reachability for
+		:type tool: type
+		"""
+		pass
+
+	def HasAnyReachability(self):
+		"""
+		Check if any builds have started that didn't finish, if anything at all is reachable.
+		:return: True if reachable, False otherwise
+		:rtype: bool
+		"""
+		pass
+
+	@TypeChecked(extension=String)
+	def IsOutputActive(self, extension):
+		"""
+		Check whether an output of the given extension is capable of being generated.
+		:param extension:
+		:type extension: str, bytes
+		"""
+
+	@TypeChecked(tool=(_classType, _typeType), extension=String)
+	def CanCreateOutput(self, tool, extension):
+		"""
+		Check whether a tool is capable of ever creating a given output, even indirectly through other tools
+		:param tool: The tool to check
+		:type tool: type
+		:param extension: The extension to check
+		:type extension: str, bytes
+		:return: Whether or not the tool can create that output
+		:rtype: bool
+		"""
+
+	def GetAllTools(self):
+		"""
+		Get the full list of tools in this toolchain
+		:return: Tool list
+		:rtype: ordered_set.OrderedSet
+		"""
+		pass
+
+	@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
+	def GetToolsFor(self, extension, generatingTool=None):
+		"""
+		Get all tools that take a given input. If a generatingTool is specified, it will be excluded from the result.
+
+		:param extension: The extension of the file to be fed to the new tools
+		:type extension: str, bytes
+		:param generatingTool: The tool that generated this input
+		:type generatingTool: class or None
+		:return: A set of all tools that can take this input as group or individual inputs.
+			It's up to the caller to inspect the object to determine which type of input to provide.
+			It's also up to the caller to not call group input tools until IsOutputActive() returns False
+			for ALL of that tool's group inputs.
+		:rtype: set[type]
+		"""
+		pass
+
+	@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
+	def GetGroupToolsFor(self, extension, generatingTool=None):
+		"""
+		Get all tools that take a given group input. If a generatingTool is specified, it will be excluded from the result.
+
+		:param extension: The extension of the file to be fed to the new tools
+		:type extension: str, bytes
+		:param generatingTool: The tool that generated this input
+		:type generatingTool: class or None
+		:return: A set of all tools that can take this input as group or individual inputs.
+			It's up to the caller to inspect the object to determine which type of input to provide.
+			It's also up to the caller to not call group input tools until IsOutputActive() returns False
+			for ALL of that tool's group inputs.
+		:rtype: set[type]
+		"""
+		pass
+
+	@TypeChecked(_return=set)
+	def GetSearchExtensions(self):
+		"""
+		Return the full list of all extensions handled as inputs by any tool in the toolchain.
+		:return: Set of all extensions
+		:rtype: set[String]
+		"""
+		pass
+
+	def Tool(self, *args):
+		"""
+		Obtain a LimitView object that allows functions to be run only on specific tools
+
+		:param args: List of classes to limit function execution on
+		:type args: class
+		:return: limit view object
+		:rtype: LimitView
+		"""
+		pass
+
+	@TypeChecked(tool=(_typeType, _classType))
+	def AddTool(self, tool):
+		"""
+		Add a new tool to the toolchain. This can only be used by a toolchain initialized with
+		runInit = False to add that tool to the static method resolution; a toolchain initialized
+		with runInit = True is finalized and cannot have new tools added to it
+
+		:param tool: Class inheriting from Tool
+		:type tool: type
+		"""
+		pass
 
 class TestToolchainMixin(testcase.TestCase):
 	"""Test the toolchain mixin"""

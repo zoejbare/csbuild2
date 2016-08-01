@@ -92,7 +92,7 @@ class OrderedSet(object):
 			yield key
 
 	def __repr__(self):
-		return "OrderedSet({})".format(list(self.map.keys()))
+		return "{{{}}}".format(", ".join([repr(key) for key in self.map.keys()]))
 
 	def update(self, iterable):
 		self.map.update([( x, None ) for x in iterable])

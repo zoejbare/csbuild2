@@ -57,7 +57,7 @@ class DAG(object):
 		:type dependencies: list(any)
 		:return:
 		"""
-		assert self._keyFunc(value) not in self._graph
+		assert self._keyFunc(value) not in self._graph, "Duplicate item in dependency graph: {}".format(self._keyFunc(value))
 		for dependency in dependencies:
 			if dependency not in self._graph:
 				self._deferred.add((value, tuple(dependencies)))
@@ -110,6 +110,9 @@ class DAG(object):
 		for val in self._graph.values():
 			yield val
 
+	def __len__(self):
+		return len(self._graph) + len(self._deferred)
+
 class TestDAG(testcase.TestCase):
 	"""Test the DAG"""
 	# pylint: disable=invalid-name
@@ -122,6 +125,7 @@ class TestDAG(testcase.TestCase):
 		dag.Add(5, [])
 		dag.Add(2, [3, 4, 5])
 		dag.Add(4, [5])
+		self.assertEqual(5, len(dag))
 		l = list(dag)
 		self.assertEqual(l, [5,4,3,2,1])
 
@@ -135,6 +139,7 @@ class TestDAG(testcase.TestCase):
 		dag.Add(4, [5])
 		self.assertFalse(dag.Valid())
 		self.assertFalse(dag)
+		self.assertEqual(5, len(dag))
 		with self.assertRaises(ValueError):
 			_ = list(dag)
 
@@ -147,6 +152,7 @@ class TestDAG(testcase.TestCase):
 		dag.Add(2, [3, 4, 5])
 		self.assertFalse(dag.Valid())
 		self.assertFalse(dag)
+		self.assertEqual(4, len(dag))
 		with self.assertRaises(ValueError):
 			_ = list(dag)
 
@@ -162,6 +168,7 @@ class TestDAG(testcase.TestCase):
 		dag.Add(_intWrap(5), [])
 		dag.Add(_intWrap(2), [3, 4, 5])
 		dag.Add(_intWrap(4), [5])
+		self.assertEqual(5, len(dag))
 		l = list(dag)
 		self.assertEqual([a.val for a in l], [5,4,3,2,1])
 

@@ -37,6 +37,7 @@ else:
 	import Queue as queue
 
 from . import terminfo, shared_globals, BytesType, StrType
+from .shared_globals import Verbosity
 
 _logQueue = queue.Queue()
 _stopEvent = object()
@@ -140,6 +141,8 @@ def Error(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity >= Verbosity.Quiet:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.RED, "ERROR", msg, 3)
 	shared_globals.errors.append(msg)
@@ -156,6 +159,8 @@ def Warn(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity >= Verbosity.Quiet:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, 3)
 	shared_globals.warnings.append(msg)
@@ -172,6 +177,8 @@ def WarnNoPush(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity > Verbosity.Quiet:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, 3)
 
@@ -187,6 +194,8 @@ def Info(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity > Verbosity.Verbose:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.CYAN, "INFO", msg, 1)
 
@@ -202,6 +211,8 @@ def Build(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity > Verbosity.Normal:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.MAGENTA, "BUILD", msg, 2)
 
@@ -218,6 +229,8 @@ def Test(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity > Verbosity.Normal:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.MAGENTA, "TEST", msg, 2)
 
@@ -233,6 +246,8 @@ def Linker(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity > Verbosity.Normal:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.GREEN, "LINKER", msg, 2)
 
@@ -248,6 +263,8 @@ def Thread(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity > Verbosity.Normal:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.BLUE, "THREAD", msg, 2)
 
@@ -263,5 +280,7 @@ def Install(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
+	if shared_globals.verbosity > Verbosity.Normal:
+		return
 	msg = _formatMsg(msg, *args, **kwargs)
 	_logMsg(terminfo.TermColor.WHITE, "INSTALL", msg, 2)

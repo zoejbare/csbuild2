@@ -34,6 +34,23 @@ from __future__ import unicode_literals, division, print_function
 
 import sys
 import imp
+import signal
+import os
+
+__author__ = "Jaedyn K. Draper, Brandon M. Bare"
+__copyright__ = 'Copyright (C) 2012-2014 Jaedyn K. Draper'
+__credits__ = ["Jaedyn K. Draper", "Brandon M. Bare", "Jeff Grills", "Randy Culley"]
+__license__ = 'MIT'
+
+__maintainer__ = "Jaedyn K. Draper"
+__email__ = "jaedyn.csbuild-contact@jaedyn.co"
+__status__ = "Development"
+
+try:
+	with open(os.path.join(os.path.dirname(__file__), "version"), "r") as f:
+		__version__ = f.read()
+except IOError:
+	__version__ = "ERR_VERSION_FILE_MISSING"
 
 class Csbuild(object):
 	"""
@@ -63,7 +80,7 @@ sys.modules["csbuild"] = Csbuild()
 
 # pylint: disable=wrong-import-position
 from ._build.context_manager import ContextManager
-from ._build import project_plan
+from ._build import project_plan, project, input_file
 
 from . import _build
 from ._utils import system
@@ -71,12 +88,13 @@ from ._utils.string_abc import String
 from ._utils.decorators import TypeChecked, Overload
 from ._utils import shared_globals
 from ._utils import ordered_set
+from ._utils import log
 
 from .toolchain import toolchain
 
 class ProjectType(object):
 	"""
-	Enum representing the available project types.
+	'enum' representing the available project types.
 	"""
 	Application = 0
 	SharedLibrary = 1
@@ -90,6 +108,78 @@ class ScopeDef(object):
 	Final = "final"
 	Children = "children"
 	All = "all"
+
+class DebugLevel( object ):
+	"""
+	'enum' representing various levels of debug information
+	"""
+	Disabled = 0
+	EmbeddedSymbols = 1
+	ExternalSymbols = 2
+	ExternalSymbolsPlus = 3
+
+class OptimizationLevel( object ):
+	"""
+	'enum' representing various optimization levels
+	"""
+	Disabled = 0
+	Size = 1
+	Speed = 2
+	Max = 3
+
+class StaticLinkMode( object ):
+	"""
+	'enum' representing the manner by which to handle static linking
+	"""
+	LinkLibs = 0
+	LinkIntermediateObjects = 1
+
+class RunMode( object ):
+	"""
+	'enum' representing the way csbuild has been invoked
+	"""
+	Normal = 0
+	Help = 1
+	Version = 2
+	GenerateSolution = 3
+	QUALAP = 4
+
+class BuildFailureException(Exception):
+	"""
+	Notify a build failed.
+
+	:param buildProject: Project being built
+	:type buildProject: project.Project
+	:param inputFile: The file being built
+	:type inputFile: input_file.InputFile
+	:param info: Extra details about the failure
+	:type info: str
+	"""
+	@TypeChecked(buildProject=project.Project, inputFile=input_file.InputFile, info=String)
+	def __init__(self, buildProject, inputFile, info=""):
+		Exception.__init__(self)
+		self.project = buildProject
+		self.inputFile = inputFile
+		self.info = info
+
+	def __repr__(self):
+		ret = "Build for {} in project {} failed!".format(
+			self.inputFile.filename,
+			self.project
+		)
+		if self.info:
+			ret += "\n\t" + "\n\t".join(self.info.splitlines())
+		return ret
+
+@TypeChecked(_return=int)
+def GetRunMode():
+	"""
+	Get information on how csbuild was invoked.
+
+	:return: Run mode class member
+	:rtype: int
+	"""
+	return shared_globals.runMode
 
 @TypeChecked(name=String, projectType=int)
 def SetOutput(name, projectType=ProjectType.Application):
@@ -105,21 +195,55 @@ def SetOutput(name, projectType=ProjectType.Application):
 	project_plan.currentPlan.SetValue("outputName", name)
 	project_plan.currentPlan.SetValue("projectType", projectType)
 
-@TypeChecked(name=String)
-def RegisterToolchain(name, *tools):
+@TypeChecked(name=String, defaultArchitecture=String)
+def RegisterToolchain(name, defaultArchitecture, *tools):
 	"""
  	Register a new toolchain to be used by the project for building
 
  	:param name: The name of the toolchain, which will be used to reference it
  	:type name: str, bytes
+ 	:param defaultArchitecture: The default architecture to be used for this toolchain
+ 	:type defaultArchitecture: str, bytes
  	:param tools: List of tools to be used to make the toolchain.
  	:type tools: class
  	:return:
  	"""
+	shared_globals.allToolchains.add(name)
 	project_plan.currentPlan.EnterContext("toolchain", name)
 	project_plan.currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
 	project_plan.currentPlan.SetValue("_tempToolchain", toolchain.Toolchain(*tools))
+	project_plan.currentPlan.defaultArchitectureMap[name] = defaultArchitecture
 	project_plan.currentPlan.LeaveContext()
+
+	for tool in tools:
+		shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
+
+@TypeChecked(toolchainName=String)
+def SetDefaultToolchain(toolchainName):
+	"""
+	Set the default toolchain to be used.
+	:param toolchainName: Name of the toolchain
+	:type toolchainName: str, bytes
+	"""
+	project_plan.currentPlan.defaultToolchain = toolchainName
+
+@TypeChecked(architectureName=String)
+def SetDefaultArchitecture(architectureName):
+	"""
+	Set the default architecture to be used.
+	:param architectureName: Name of the architecture
+	:type architectureName: str, bytes
+	"""
+	project_plan.currentPlan.defaultArchitecture = architectureName
+
+@TypeChecked(targetName=String)
+def SetDefaultTarget(targetName):
+	"""
+	Set the default target to be used.
+	:param targetName: Name of the target
+	:type targetName: str, bytes
+	"""
+	project_plan.currentPlan.defaultTarget = targetName
 
 class Scope(ContextManager):
 	"""
@@ -143,7 +267,6 @@ class Toolchain(ContextManager):
 	:type toolchainNames: str, bytes
 	"""
 	def __init__(self, *toolchainNames):
-
 		class _toolchainMethodResolver(object):
 			def __getattribute__(self, item):
 				funcs = []
@@ -187,6 +310,7 @@ class Target(ContextManager):
 	:type targetNames: str, bytes
 	"""
 	def __init__(self, *targetNames):
+		shared_globals.allTargets.update(targetNames)
 		ContextManager.__init__(self, "target", targetNames)
 
 class Project(object):
@@ -215,7 +339,7 @@ class Project(object):
 			depends = []
 
 		self._name = name
-		self._workingDirectory = workingDirectory
+		self._workingDirectory = os.path.abspath(workingDirectory)
 		self._depends = depends
 		self._priority = priority
 		self._ignoreDependencyOrdering = ignoreDependencyOrdering
@@ -226,6 +350,7 @@ class Project(object):
 		"""
 		Enter project context
 		"""
+		self._prevPlan = project_plan.currentPlan
 		project_plan.currentPlan = project_plan.ProjectPlan(
 			self._name,
 			self._workingDirectory,
@@ -234,6 +359,8 @@ class Project(object):
 			self._ignoreDependencyOrdering,
 			self._autoDiscoverSourceFiles
 		)
+		if not shared_globals.projectFilter or self._name not in shared_globals.projectFilter:
+			shared_globals.sortedProjects.Add(project_plan.currentPlan, self._depends)
 
 	def __exit__(self, excType, excValue, traceback):
 		"""
@@ -249,15 +376,38 @@ class Project(object):
 		project_plan.currentPlan = self._prevPlan
 		return False
 
-if not hasattr(sys, "runningSphinx") and not hasattr(sys, "runningUnitTests"):
+def Run():
+	"""
+	Run a build. This is called automatically if the environment variable CSBUILD_NO_AUTO_RUN is not equal to 1.
+	If the build runs automatically, it will execute the csbuild makefile as part of running.
+	If the build does not run automatically, the csbuild makefile is expected to finish executing before
+	calling this function. The default and recommended behavior is to allow csbuild to run on its own;
+	however, it can be beneficial to defer calling Run for use in environments such as tests and the
+	interactive console.
+	"""
+	def _exitsig(sig, _):
+		if sig == signal.SIGINT:
+			log.Error("Keyboard interrupt received. Aborting build.")
+		else:
+			log.Error("Received terminate signal. Aborting build.")
+		system.Exit(sig)
+
+	signal.signal(signal.SIGINT, _exitsig)
+	signal.signal(signal.SIGTERM, _exitsig)
+
+	shared_globals.runMode = RunMode.Normal
+
 	try:
-		#Regular sys.exit can't be called because we HAVE to reacquore the import lock at exit.
+		#Regular sys.exit can't be called because we HAVE to re-acquire the import lock at exit.
 		#We stored sys.exit earlier, now we overwrite it to call our wrapper.
 		sys.exit = system.Exit
 
 		_build.Run()
 		system.Exit(0)
-	except Exception as e:
+	except:
 		if not imp.lock_held():
 			imp.acquire_lock()
 		raise
+
+if os.getenv("CSBUILD_NO_AUTO_RUN") != "1":
+	Run()

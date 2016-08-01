@@ -41,4 +41,5 @@ def RunTests():
 	shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 	tests = unittest.defaultTestLoader.discover("csbuild", "*.py", ".")
 	testRunner = testcase.TestRunner(stream=sys.stdout, verbosity=0)
-	testRunner.run(tests)
+	result = testRunner.run(tests)
+	return 0 if result.wasSuccessful() else 1

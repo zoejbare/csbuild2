@@ -25,6 +25,12 @@
 """
 
 from __future__ import unicode_literals, division, print_function
+
+import os
+import fnmatch
+
+from .._utils import log, ordered_set, shared_globals
+from .._build import input_file
 from ..toolchain.toolchain import Toolchain
 
 class Project(object):
@@ -46,18 +52,124 @@ class Project(object):
 	:type autoDiscoverSourceFiles: bool
 	:param projectSettings: Finalized settings from the project plan
 	:type projectSettings: dict
+	:param toolchainName: Toolchain name
+	:type toolchainName: str, bytes
+	:param archName: Architecture name
+	:type archName: str, bytes
+	:param targetName: Target name
+	:type targetName: str, bytes
 	"""
-	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings):
+	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings, toolchainName, archName, targetName):
 		self.name = name
 		self.workingDirectory = workingDirectory
-		self.depends = depends
+		self.dependencyNames = depends
+		self.dependencies = []
 		self.priority = priority
 		self.ignoreDependencyOrdering = ignoreDependencyOrdering
 		self.autoDiscoverSourceFiles = autoDiscoverSourceFiles
 		self.settings = projectSettings
 
+		self.toolchainName = toolchainName
+		self.archName = archName
+		self.targetName = targetName
+
+		log.Build("Preparing build tasks for {}", self)
+
+		#: type: list[Tool]
 		self.tools = projectSettings["tools"]
+
+		#: type: set[str]
+		self.extraDirs = projectSettings.get("extraDirs", set())
+		#: type: set[str]
+		self.excludeDirs = projectSettings.get("excludeDirs", set())
+		#: type: set[str]
+		self.excludeFiles = projectSettings.get("excludeFiles", set())
+		#: type: set[str]
+		self.sourceFiles = projectSettings.get("sourceFiles", set())
+
+		#: type: str
+		self.intermediateDir = projectSettings.get("intermediateDir", os.path.join(self.workingDirectory, "intermediate"))
+		#: type: str
+		self.outputDir = projectSettings.get("outputDir", os.path.join(self.workingDirectory, "out"))
+		#: type: str
+		self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
+
+		self.outputName = projectSettings.get("outputName", self.name)
+
+		if not os.path.exists(self.intermediateDir):
+			os.makedirs(self.intermediateDir)
+		if not os.path.exists(self.outputDir):
+			os.makedirs(self.outputDir)
+		if not os.path.exists(self.csbuildDir):
+			os.makedirs(self.csbuildDir)
 
 		self.toolchain = Toolchain(*self.tools)
 
+		#: type: dict[str, ordered_set.OrderedSet]
 		self.inputFiles = {}
+
+		self.RediscoverFiles()
+
+	def __repr__(self):
+		return "{} ({}/{}/{})".format(self.name, self.toolchainName, self.archName, self.targetName)
+
+	def ResolveDependencies(self):
+		"""
+		Called after shared_globals.projectMap is filled out, this will populate the dependencies map.
+		"""
+		for name in self.dependencyNames:
+			self.dependencies.append(shared_globals.projectMap[self.toolchainName][self.archName][self.targetName][name])
+
+	def RediscoverFiles(self):
+		"""
+		(Re)-Run source file discovery.
+		If autoDiscoverSourceFiles is enabled, this will recursively search the working directory and all extra directories
+		to find source files.
+		Manually specified source files are then added to this list.
+		Note that even if autoDiscoverSourceFiles is disabled, this must be called again in order to update the source
+		file list after a preBuildStep.
+		"""
+		log.Info("Discovering files for {}...", self)
+		self.inputFiles = {}
+
+		if self.autoDiscoverSourceFiles:
+			extensionList = self.toolchain.GetSearchExtensions()
+
+			for sourceDir in ordered_set.OrderedSet([self.workingDirectory]) | self.extraDirs:
+				log.Build("Collecting files from {}", sourceDir)
+				for root, _, filenames in os.walk(sourceDir):
+					absroot = os.path.abspath(root)
+					if absroot in self.excludeDirs:
+						if absroot != self.csbuildDir:
+							log.Info("Skipping dir {0}".format(root))
+						continue
+					if ".csbuild" in root \
+							or root.startswith(self.intermediateDir) \
+							or (root.startswith(self.outputDir) and self.outputDir != self.workingDirectory):
+						continue
+					if absroot == self.csbuildDir or absroot.startswith(self.csbuildDir):
+						continue
+					bFound = False
+					for testDir in self.excludeDirs:
+						if absroot.startswith(testDir):
+							bFound = True
+							continue
+					if bFound:
+						if not absroot.startswith(self.csbuildDir):
+							log.Info("Skipping directory {0}".format(root))
+						continue
+					log.Info("Looking in directory {0}".format(root))
+					for extension in extensionList:
+						self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
+							[
+								input_file.InputFile(
+									os.path.join(absroot, filename)
+								) for filename in fnmatch.filter(filenames, "*{}".format(extension))
+							]
+						)
+
+		for filename in self.sourceFiles:
+			extension = os.path.splitext(filename)[1]
+			self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(filename)
+		log.Info("Discovered {}", self.inputFiles)
+

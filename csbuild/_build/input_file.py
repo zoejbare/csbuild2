@@ -28,11 +28,19 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
+import sys
 
 from .._utils.decorators import TypeChecked
-from .._utils.string_abc import String
 from .._utils import PlatformString
-from ..toolchain import Tool
+
+if sys.version_info[0] >= 3:
+	_typeType = type
+	_classType = type
+else:
+	import types
+	# pylint: disable=invalid-name
+	_typeType = types.TypeType
+	_classType = types.ClassType
 
 class InputFile(object):
 	"""
@@ -43,42 +51,42 @@ class InputFile(object):
 	:param filename: The filename
 	:type filename: str, bytes
 
-	:param sourceInput: The previous input in the chain (if None, this represents the first input)
-	:type sourceInput: InputFile
+	:param sourceInputs: The previous sinput in the chain (if None, this represents the first input)
+	:type sourceInputs: list[InputFile]
 	"""
-	def __init__(self, filename, sourceInput=None):
-		# Can't do @TypeChecked with type InputFile due to incomplete type issue, so have to do this check manually
-		if not isinstance(filename, String):
-			raise TypeError("Argument 'filename' is type {}, expected {}".format(filename.__class__, String))
-
-		if sourceInput is not None and not isinstance(sourceInput, InputFile):
-			raise TypeError("Argument 'sourceInput' is type {}, expected {}".format(sourceInput.__class__, InputFile))
-
+	def __init__(self, filename, sourceInputs=None):
 		self._filename = os.path.abspath(PlatformString(filename))
-		self._sourceInput = sourceInput
-		if sourceInput is not None:
-			# pylint: disable=protected-access
-			self._toolsUsed = sourceInput._toolsUsed
-		else:
-			self._toolsUsed = set()
+		self._sourceInputs = sourceInputs
+		self._toolsUsed = set()
+		if sourceInputs is not None:
+			if isinstance(sourceInputs, InputFile):
+				# pylint: disable=protected-access
+				self._toolsUsed |= sourceInputs._toolsUsed
+			else:
+				for sourceInput in sourceInputs:
+					# pylint: disable=protected-access
+					self._toolsUsed |= sourceInput._toolsUsed
 
-	@TypeChecked(tool=Tool)
+	def __repr__(self):
+		return self._filename
+
+	@TypeChecked(tool=(_classType, _typeType))
 	def AddUsedTool(self, tool):
 		"""
 		Add a tool to the set of tools that have been used on this file
 
 		:param tool: The used tool
-		:type tool: Tool
+		:type tool: type
 		"""
 		self._toolsUsed.add(tool)
 
-	@TypeChecked(tool=Tool, _return=bool)
+	@TypeChecked(tool=(_classType, _typeType), _return=bool)
 	def WasToolUsed(self, tool):
 		"""
 		Check if a tool was used in the process of creating this file (or any file used in the input chain that led to it)
 
 		:param tool: The tool to check
-		:type tool: Tool
+		:type tool: type
 		:return: True if the tool was used, False otherwise
 		:rtype: bool
 		"""
@@ -95,11 +103,11 @@ class InputFile(object):
 		return self._filename
 
 	@property
-	def sourceInput(self):
+	def sourceInputs(self):
 		"""
 		Get the InputFile that was used to create this file, if any
 
 		:return: The InputFile that was used to create this file
-		:rtype: InputFile or None
+		:rtype: list[InputFile] or None
 		"""
-		return self._sourceInput
+		return self._sourceInputs

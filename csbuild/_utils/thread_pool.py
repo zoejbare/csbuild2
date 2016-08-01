@@ -34,16 +34,34 @@ import threading
 if sys.version_info[0] >= 3:
 	import queue
 	from collections.abc import Callable
-	from ._reraise_py3 import Reraise
+	from .reraise_py3 import Reraise
 else:
 	import Queue as queue
 	from collections import Callable
 	# pylint: disable=import-error
-	from ._reraise_py2 import Reraise
+	from .reraise_py2 import Reraise
 
 from . import log
 from .._zz_testing import testcase
 from .decorators import TypeChecked
+
+class ThreadedTaskException(Exception):
+	"""
+	Wraps another exception, allowing the other exception to be caught and handled, then rethrown.
+	"""
+	def __init__(self, exceptionObject):
+		Exception.__init__(self)
+		self.exception = exceptionObject
+
+	def __repr__(self):
+		return repr(self.exception)
+
+	def Reraise(self):
+		"""
+		Reraise the wrapped exception so that a new set of catch statements can be prepared
+		"""
+		Reraise(self.exception, sys.exc_info()[2])
+
 
 class ThreadPool(object):
 	"""
@@ -70,6 +88,7 @@ class ThreadPool(object):
 		self.callbackQueue = callbackQueue
 		self.stopOnException = stopOnException
 		self.excInfo = None
+		self.abort = threading.Event()
 		"""@type: queue.Queue"""
 
 	def Start(self):
@@ -108,20 +127,35 @@ class ThreadPool(object):
 		_ = [t.join() for t in self.threads]
 		self.callbackQueue.put(ThreadPool.exitEvent)
 
+	def Abort(self):
+		"""
+		Abort execution, joining all threads without finishing the tasks in the queue.
+		Anything currently executing will finish, but no new tasks will be started.
+		This function will join all threads and return once all in-progress tasks are finished and all threads have stopped.
+		"""
+		self.abort.set()
+		for _ in range(len(self.threads)):
+			self.queue.put(ThreadPool.exitEvent, block=False)
+		_ = [t.join() for t in self.threads]
+		self.callbackQueue.put(ThreadPool.exitEvent)
+
 	def _rethrowException(self, excInfo):
-		Reraise(excInfo[1], excInfo[2])
+		Reraise(ThreadedTaskException(excInfo[1]), excInfo[2])
 
 	def _threadRunner(self):
 		while True:
 			task = self.queue.get(block=True)
+			ret = None
 			if task is ThreadPool.exitEvent:
+				return
+			if self.abort.is_set():
 				return
 			if self.stopOnException and self.excInfo is not None:
 				return
 
 			try:
 				if task[0]:
-					task[0]()
+					ret = task[0]()
 			except:
 				self.excInfo = sys.exc_info()
 
@@ -132,7 +166,17 @@ class ThreadPool(object):
 					return
 
 			if task[1]:
-				self.callbackQueue.put(task[1], block=False)
+				# Has to be nested because we have to rebind task[1] to a name in a different scope
+				# Otherwise by the time this runs, task has probably changed to another value and we get invalid results
+				def _makeCallback(callback, ret):
+					def _callback():
+						try:
+							callback(ret)
+						except TypeError:
+							callback()
+					return _callback
+
+				self.callbackQueue.put(_makeCallback(task[1], ret), block=False)
 
 ### Unit Tests ###
 
@@ -218,7 +262,8 @@ class TestThreadPool(testcase.TestCase):
 
 			try:
 				cb()
-			except RuntimeError:
+			except ThreadedTaskException as e:
+				self.assertTrue(isinstance(e.exception, RuntimeError))
 				caughtException = True
 				import traceback
 				exc = traceback.format_exc()
@@ -226,3 +271,28 @@ class TestThreadPool(testcase.TestCase):
 				self.assertIn("_throwException", exc)
 			else:
 				self.assertTrue(caughtException, "Exception was not thrown")
+
+	def testReturnValues(self):
+		"""Test that a callback can take a parameter and be told about the return value from the called function"""
+		callbackQueue = queue.Queue()
+		log.SetCallbackQueue(callbackQueue)
+		pool = ThreadPool(4, callbackQueue)
+
+		def _getTwo():
+			return 2
+
+		def _callbackTakesArg(self, a):
+			self.assertEqual(2, a)
+
+		def _callbackNoArg():
+			pool.Stop()
+
+		pool.AddTask(_getTwo, lambda x: _callbackTakesArg(self, x))
+		pool.AddTask(_getTwo, _callbackNoArg)
+		pool.Start()
+
+		while True:
+			cb = callbackQueue.get(block=True)
+			if cb is ThreadPool.exitEvent:
+				break
+			cb()

@@ -30,7 +30,11 @@ from __future__ import unicode_literals, division, print_function
 import abc
 from .._utils.decorators import MetaClass
 
-@MetaClass(abc.ABCMeta)
+_eliminatePylintAbstractMethodCheck = True
+
+def _ignore(_):
+	pass
+
 class Tool(object):
 	"""
 	Tool base class. Derive from this class to provide a tool for use in building things.
@@ -51,47 +55,41 @@ class Tool(object):
 
 	#: List of file extensions to be passed to Run as individual inputs.
 	#  Run() will be called once per file as soon as each file is available to build
-	#  Example: A C++ compiler would take individual inputs of types [".c", ".cc", ".cxx", ".cpp"]
+	#  Example: A C++ compiler would take individual inputs of types {".c", ".cc", ".cxx", ".cpp"}
 	#  An empty string indicates a file with no extension
-	inputFiles = []
+	inputFiles = set()
 
 	#: List of file extensions to be passed to Run as a group input.
 	#  Run() will be called only once all tools that output this type have finished running
 	#  and will be called only once on the entire group.
-	#  Example: A C++ linker would take group inputs of types [".o"] or [".obj"] depending on the platform
+	#  Example: A C++ linker would take group inputs of types {".o"} or {".obj"} depending on the platform
 	#  An empty string indicates a file with no extension
-	inputGroups = []
+	inputGroups = set()
 
 	#: List of dependencies that will prevent Run() from being called if they're still being created,
 	#  even if they're not taken as inputs.
-	#  Example: A C++ compiler might add dependencies of type [".pch"] or [".gch"] to wait on a precompile step
+	#  Example: A C++ compiler might add dependencies of type {".pch"} or {".gch"} to wait on a precompile step
 	#  An empty string indicates a file with no extension
-	dependencies = []
+	dependencies = set()
 
 	#: The file extensions of files created by this toolchain
-	#  Example: A C++ compiler would have output files of type [".o"] or [".obj"] depending on the platform
-	#  Or a C++ linker would have output files of type [".exe", ".dll", ".lib"] or ["", ".so", ".a"]
+	#  Example: A C++ compiler would have output files of type {".o"} or {".obj"} depending on the platform
+	#  Or a C++ linker would have output files of type {".exe", ".dll", ".lib"} or {"", ".so", ".a"}
 	#  An empty string indicates a file with no extension
-	outputFiles = []
+	outputFiles = set()
 
-	def Finalize(self):
-		"""
-		Called once all makefile commands are guaranteed to have run and it is safe to access that data.
-		"""
-		pass
+	#: Indicates what output files (if any) must completed on dependencies
+	#  before this tool is run on this project. Example: A C++ linker might need all dependencies to finish
+	#  generating files of type {".dll", ".lib"} or {".so", ".a"} before running itself. Any projects in the
+	#  dependency chain that generate files of that type will prevent this tool from running until it no longer
+	#  has any valid inputs for tools that will generate that output, and the outputs have all been generated.
+	waitForDependentExtensions = set()
 
-	def RunCommands(self, commandList):
-		"""
-		Execute the enqqueued commands for this tool
+	#: Set of supported architectures. If this toolchain supports all possible --architecture arguments,
+	#  set this value to None. An empty set implies it supports no architectures and can never be run.
+	supportedArchitectures = set()
 
-		:param commandList: List of deferred makefile commands to run
-		:type commandList: implementation defiled, please pass what you are handed.
-		"""
-		for command, args, kwargs in commandList:
-			command(self, *args, **kwargs)
-
-	@abc.abstractmethod
-	def Run(self, project, files):
+	def Run(self, project, inputFile):
 		"""
 		Execute a single build step. Note that this method is run massively in parallel with other build steps.
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
@@ -99,10 +97,31 @@ class Tool(object):
 
 		:param project:
 		:type project: csbuild._build.project.Project
-		:param files: List of files to build (for the inputFiles case, this will always be a list of size 1)
-		:type files: list(.._utils.StrType)
+		:param inputFile: File to build
+		:type inputFile: str
 		:return: List of files created by the tool - all files must have an extension in the outputFiles list
-		:rtype: list(.._utils.StrType)
+		:rtype: list[str]
 		"""
-		pass
+		_ignore(project)
+		_ignore(inputFile)
+		if _eliminatePylintAbstractMethodCheck:
+			raise NotImplementedError()
+
+	def RunGroup(self, project, inputFiles):
+		"""
+		Execute a group build step. Note that this method is run massively in parallel with other build steps.
+		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
+		mutex.
+
+		:param project:
+		:type project: csbuild._build.project.Project
+		:param inputFiles: List of files to build
+		:type inputFiles: list[str]
+		:return: List of files created by the tool - all files must have an extension in the outputFiles list
+		:rtype: list[str]
+		"""
+		_ignore(project)
+		_ignore(inputFiles)
+		if _eliminatePylintAbstractMethodCheck:
+			raise NotImplementedError()
 

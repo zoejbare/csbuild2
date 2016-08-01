@@ -29,7 +29,10 @@ from __future__ import unicode_literals, division, print_function
 
 import imp
 import os
+import csbuild
+
 from . import log
+from . import shared_globals
 
 def Exit(code = 0):
 	"""
@@ -38,7 +41,8 @@ def Exit(code = 0):
 	:param code: Exit code to exit with
 	:type code: int
 	"""
-	log.Build("Cleaning up")
+	if shared_globals.runMode == csbuild.RunMode.Normal:
+		log.Build("Cleaning up")
 
 	if not imp.lock_held():
 		imp.acquire_lock()
