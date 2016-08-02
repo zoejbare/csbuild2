@@ -69,7 +69,7 @@ class FunctionalTest(TestCase):
 		"""
 		cmd = [sys.executable, "make.py"]
 		cmd.extend(args)
-		log.Test("Executing {}", cmd)
+		log.Test("Executing {} (cwd: {})", cmd, os.getcwd())
 		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		running = True
