@@ -52,10 +52,12 @@ class FunctionalTest(TestCase):
 		os.chdir(path)
 
 	def tearDown(self):
-		self.RunMake("--clean")
-		os.chdir(self._prevdir)
-		if self._oldenviron is not None:
-			os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")] = self._oldenviron
+		try:
+			self.RunMake("--clean")
+		finally:
+			os.chdir(self._prevdir)
+			if self._oldenviron is not None:
+				os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")] = self._oldenviron
 
 	def RunMake(self, *args):
 		"""
