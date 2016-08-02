@@ -16,7 +16,7 @@ persistent=yes
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
-load-plugins=pylint.extensions.check_docs,csbuild._zz_testing.pylint_license_check
+load-plugins=pylint.extensions.check_docs,csbuild._testing.pylint_license_check
 
 # Use multiple processes to speed up Pylint.
 jobs=1

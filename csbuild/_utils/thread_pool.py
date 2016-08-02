@@ -42,7 +42,7 @@ else:
 	from .reraise_py2 import Reraise
 
 from . import log
-from .._zz_testing import testcase
+from .._testing import testcase
 from .decorators import TypeChecked
 
 class ThreadedTaskException(Exception):

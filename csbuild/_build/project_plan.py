@@ -43,7 +43,7 @@ from . import project
 from .._utils import ordered_set
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
-from .._zz_testing import testcase
+from .._testing import testcase
 
 
 allPlans = {}

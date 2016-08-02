@@ -33,7 +33,7 @@ import sys
 import warnings
 
 from . import StrType
-from .._zz_testing import testcase
+from .._testing import testcase
 
 if sys.version_info[0] >= 3:
 	_typeType = type

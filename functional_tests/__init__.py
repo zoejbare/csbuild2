@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,27 +19,12 @@
 # SOFTWARE.
 
 """
-.. module:: run_unit_tests
-	:synopsis: Import this file and call RunTests() to run csbuild's unit tests.
-		Ensure cwd is one directory above the csbuild package. Do not execute directly, it will fail.
+.. package:: functional_tests
+	:synopsis: Empty init file to allow unit tests to descend into subdirectories and find files.
+
+.. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import sys
-import unittest
-
-from csbuild._utils import shared_globals, terminfo
-from csbuild._zz_testing import testcase
-
-
-def RunTests():
-	"""
-	Run all unit tests.
-	Must be executed with current working directory being a directory that contains the csbuild package.
-	"""
-	shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
-	tests = unittest.defaultTestLoader.discover("csbuild", "*.py", ".")
-	testRunner = testcase.TestRunner(stream=sys.stdout, verbosity=0)
-	result = testRunner.run(tests)
-	return 0 if result.wasSuccessful() else 1
+#Empty

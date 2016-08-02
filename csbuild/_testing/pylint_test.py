@@ -53,7 +53,7 @@ class TestPylint(testcase.TestCase):
 		env = dict(os.environ)
 		env[PlatformString('PYTHONPATH')] = os.pathsep.join(sys.path)
 
-		fd = subprocess.Popen([sys.executable, "csbuild/_zz_testing/run_pylint.py", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+		fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 		out, err = fd.communicate()
 		if err:
 			log.Error(err)
@@ -65,7 +65,7 @@ class TestPylint(testcase.TestCase):
 
 		def _runPylint(module):
 			log.Info("Linting module {}", module)
-			fd = subprocess.Popen([sys.executable, "csbuild/_zz_testing/run_pylint.py", module], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+			fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", module], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 			out, err = fd.communicate()
 			if err:
 				log.Error(err)
@@ -91,7 +91,7 @@ class TestPylint(testcase.TestCase):
 		# if os.path.exists("unit_tests.xml"):
 		# 	resultMTime = os.path.getmtime("unit_tests.xml")
 
-		for root, _, files in os.walk("csbuild"):
+		for root, _, files in os.walk("."):
 			for filename in files:
 				if filename.endswith(".py"):
 					if filename.endswith("_py3.py") and sys.version_info[0] != 3:

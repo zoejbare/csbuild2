@@ -44,6 +44,10 @@ def Exit(code = 0):
 	if shared_globals.runMode == csbuild.RunMode.Normal:
 		log.Build("Cleaning up")
 
+	for proj in shared_globals.projectBuildList:
+		proj.artifacts.flush()
+		proj.artifacts.close()
+
 	if not imp.lock_held():
 		imp.acquire_lock()
 

@@ -19,21 +19,13 @@
 # SOFTWARE.
 
 """
-.. module:: reraise_py2
-	:synopsis: Python 2 reraise implementation
+.. package:: _testing
+	:synopsis: Files related to testing csbuild
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
+# Required to keep lint happy.
 from __future__ import unicode_literals, division, print_function
 
-def Reraise(exception, traceback):
-	"""
-	Reraise a python exception with a traceback using py2 syntax
-
-	:param exception: Exception object
-	:type exception: Exception
-	:param traceback: Traceback object to attach to the exception
-	:type traceback: Traceback
-	"""
-	raise exception, None, traceback
+# Why _testing? Because that name ensures the pylint test runs last in the test execution order.

@@ -28,6 +28,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import sys
+import math
 
 if sys.version_info[0] >= 3:
 	BytesType = bytes
@@ -47,3 +48,15 @@ else:
 		if isinstance(inputStr, str):
 			return inputStr
 		return inputStr.encode("UTF-8")
+
+def FormatTime(totaltime):
+	"""
+	Format a duration of time into minutes:seconds (i.e., 2:55)
+	:param totaltime: duration of time
+	:type totaltime: float
+	:return: formatted string
+	:rtype: str
+	"""
+	totalmin = math.floor(totaltime / 60)
+	totalsec = math.floor(totaltime % 60)
+	return "{0}:{1:02}".format(int(totalmin), int(totalsec))

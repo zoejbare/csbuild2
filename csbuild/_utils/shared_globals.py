@@ -65,3 +65,5 @@ verbosity = Verbosity.Verbose
 showCommands = False
 
 projectMap = {}
+
+projectBuildList = []

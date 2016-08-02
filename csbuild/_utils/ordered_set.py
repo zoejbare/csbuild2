@@ -26,7 +26,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import collections
-from .._zz_testing import testcase
+from .._testing import testcase
 
 
 class OrderedSet(object):

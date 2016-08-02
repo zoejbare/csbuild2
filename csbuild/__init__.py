@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. package:: CSBuild
+.. package:: csbuild
 	:synopsis: cross-platform c/c++ build system
 
 .. moduleauthor:: Jaedyn K. Draper, Brandon M. Bare

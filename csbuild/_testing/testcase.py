@@ -254,7 +254,7 @@ class TestRunner(unittest.TextTestRunner):
 	"""
 	resultclass = TestResult
 
-	def __init__(self, xmlfile="unit_tests.xml", *args, **kwargs):
+	def __init__(self, xmlfile, *args, **kwargs):
 		super(TestRunner, self).__init__(*args, **kwargs)
 		self.xmlfile=xmlfile
 

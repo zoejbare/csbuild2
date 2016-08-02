@@ -19,13 +19,19 @@
 # SOFTWARE.
 
 """
-.. package:: _zz_testing
-	:synopsis: Files related to testing csbuild
+.. package:: basic_functionality
+	:synopsis: The simplest of tests - make sure a makefile that does nothing runs and exits 0
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
-# Required to keep lint happy.
 from __future__ import unicode_literals, division, print_function
 
-# Why _zz_testing? Because that name ensures the pylint test runs last in the test execution order.
+from csbuild._testing.functional_test import FunctionalTest
+
+class BasicFunctionalityTest(FunctionalTest):
+	"""Basic functionality test"""
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Basic functionality test"""
+		self.RunMake()

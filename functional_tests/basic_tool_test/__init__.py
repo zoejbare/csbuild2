@@ -19,21 +19,22 @@
 # SOFTWARE.
 
 """
-.. module:: reraise_py2
-	:synopsis: Python 2 reraise implementation
+.. package:: basic_tool_test
+	:synopsis: Basic test of tools to make sure simple tools chain together properly
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-def Reraise(exception, traceback):
-	"""
-	Reraise a python exception with a traceback using py2 syntax
+from csbuild._testing.functional_test import FunctionalTest
 
-	:param exception: Exception object
-	:type exception: Exception
-	:param traceback: Traceback object to attach to the exception
-	:type traceback: Traceback
-	"""
-	raise exception, None, traceback
+class BasicToolTest(FunctionalTest):
+	"""Basic tool test"""
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Basic tool test"""
+		self.RunMake("-v")
+		for i in range(1, 11):
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
+		self.assertFileContents("./out/Foo.third", "110")

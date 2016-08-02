@@ -38,7 +38,7 @@ from . import Tool as ToolClass
 from .._utils import PlatformString, ordered_set
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
-from .._zz_testing import testcase
+from .._testing import testcase
 
 if sys.version_info[0] >= 3:
 	_typeType = type

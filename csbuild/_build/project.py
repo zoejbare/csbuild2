@@ -94,6 +94,28 @@ class Project(object):
 		#: type: str
 		self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
 
+		#: type: str
+		self.artifactsFile = os.path.join(
+			self.csbuildDir,
+			"{}_{}_{}_{}.artifacts".format(
+				self.name,
+				self.toolchainName,
+				self.archName,
+				self.targetName
+			)
+		)
+
+		if os.path.exists(self.artifactsFile):
+			with open(self.artifactsFile, "r") as f:
+				self.lastRunArtifacts = ordered_set.OrderedSet(f.read().splitlines())
+		else:
+			self.lastRunArtifacts = ordered_set.OrderedSet()
+
+		self.artifacts = open(
+			self.artifactsFile,
+			"w"
+		)
+
 		self.outputName = projectSettings.get("outputName", self.name)
 
 		if not os.path.exists(self.intermediateDir):

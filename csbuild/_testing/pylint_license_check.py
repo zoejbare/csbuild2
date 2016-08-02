@@ -30,6 +30,7 @@ from __future__ import unicode_literals, division, print_function
 from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
 import re
+import os
 
 MANDATORY_COPYRIGHT_HEADER = R"""^# Copyright \(C\) 201\d [^\n]+
 #
@@ -74,6 +75,16 @@ class HeaderCheck(BaseChecker):
 			'missing-future-imports',
 			'missing-future-imports'
 		),
+		'E9903': (
+			'All modules must include a docstring containing .. module:: <module_name>',
+			'module-name-missing-in-docstring',
+			'module-name-missing-in-docstring'
+		),
+		'E9904': (
+			'__init__.py in a package must include a docstring containing .. package:: <package_name>',
+			'package-name-missing-in-docstring',
+			'package-name-missing-in-docstring'
+		)
 	}
 	options = ()
 
@@ -90,6 +101,15 @@ class HeaderCheck(BaseChecker):
 				self.add_message('missing-license-header', line=0)
 			if FUTURE_IMPORT_REQ not in txt:
 				self.add_message('missing-future-imports', line=0)
+
+			package = os.path.basename(os.path.dirname(module.file))
+			moduleName = os.path.basename(module.file)
+			moduleName = os.path.splitext(moduleName)[0]
+			if moduleName == "__init__":
+				if ".. package:: {}".format(package) not in txt:
+					self.add_message('package-name-missing-in-docstring', line=0)
+			elif ".. module:: {}".format(moduleName) not in txt:
+				self.add_message('module-name-missing-in-docstring', line=0)
 
 
 

@@ -30,7 +30,7 @@ from __future__ import unicode_literals, division, print_function
 import sys
 
 from collections import OrderedDict
-from .._zz_testing import testcase
+from .._testing import testcase
 
 class DAG(object):
 	"""
