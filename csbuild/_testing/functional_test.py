@@ -43,15 +43,19 @@ class FunctionalTest(TestCase):
 		self._prevdir = os.getcwd()
 		module = __import__(self.__class__.__module__)
 		path = os.path.join(os.path.dirname(module.__file__), self.__module__.split('.', 2)[1])
-		self._oldenviron = os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")]
-		del os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")]
+		if PlatformString("CSBUILD_NO_AUTO_RUN") in os.environ:
+			self._oldenviron = os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")]
+			del os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")]
+		else:
+			self._oldenviron = None
 
 		os.chdir(path)
 
 	def tearDown(self):
 		self.RunMake("--clean")
 		os.chdir(self._prevdir)
-		os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")] = self._oldenviron
+		if self._oldenviron is not None:
+			os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")] = self._oldenviron
 
 	def RunMake(self, *args):
 		"""
