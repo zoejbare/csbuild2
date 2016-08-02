@@ -46,6 +46,7 @@ if __name__ == "__main__":
 
 	os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")] = PlatformString("1")
 	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+	os.environ[PlatformString("PYTHONPATH")] = os.pathsep.join(sys.path)
 	os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 	from csbuild._testing.run_unit_tests import RunTests
