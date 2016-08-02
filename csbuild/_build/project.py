@@ -30,6 +30,8 @@ import os
 import fnmatch
 
 from .._utils import log, ordered_set, shared_globals
+from .._utils.decorators import TypeChecked
+from .._utils.string_abc import String
 from .._build import input_file
 from ..toolchain.toolchain import Toolchain
 
@@ -111,7 +113,8 @@ class Project(object):
 		else:
 			self.lastRunArtifacts = ordered_set.OrderedSet()
 
-		self.artifacts = open(
+		self.artifacts = ordered_set.OrderedSet()
+		self.artifactsFile = open(
 			self.artifactsFile,
 			"w"
 		)
@@ -141,6 +144,13 @@ class Project(object):
 		"""
 		for name in self.dependencyNames:
 			self.dependencies.append(shared_globals.projectMap[self.toolchainName][self.archName][self.targetName][name])
+
+	@TypeChecked(artifact=String)
+	def AddArtifact(self, artifact):
+		if artifact not in self.artifacts:
+			self.artifacts.add(artifact)
+			self.artifactsFile.write(artifact)
+			self.artifactsFile.write("\n")
 
 	def RediscoverFiles(self):
 		"""
@@ -187,6 +197,7 @@ class Project(object):
 								input_file.InputFile(
 									os.path.join(absroot, filename)
 								) for filename in fnmatch.filter(filenames, "*{}".format(extension))
+								if os.path.join(absroot, filename) not in self.lastRunArtifacts
 							]
 						)
 
