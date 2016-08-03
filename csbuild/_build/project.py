@@ -97,7 +97,7 @@ class Project(object):
 		self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
 
 		#: type: str
-		self.artifactsFile = os.path.join(
+		self.artifactsFileName = os.path.join(
 			self.csbuildDir,
 			"{}_{}_{}_{}.artifacts".format(
 				self.name,
@@ -107,15 +107,15 @@ class Project(object):
 			)
 		)
 
-		if os.path.exists(self.artifactsFile):
-			with open(self.artifactsFile, "r") as f:
+		if os.path.exists(self.artifactsFileName):
+			with open(self.artifactsFileName, "r") as f:
 				self.lastRunArtifacts = ordered_set.OrderedSet(f.read().splitlines())
 		else:
 			self.lastRunArtifacts = ordered_set.OrderedSet()
 
 		self.artifacts = ordered_set.OrderedSet()
 		self.artifactsFile = open(
-			self.artifactsFile,
+			self.artifactsFileName,
 			"w"
 		)
 
@@ -147,6 +147,12 @@ class Project(object):
 
 	@TypeChecked(artifact=String)
 	def AddArtifact(self, artifact):
+		"""
+		Add an artifact - i.e., a file created by the build
+		:param artifact: absolute path to the file
+		:type artifact: str
+		:return:
+		"""
 		if artifact not in self.artifacts:
 			self.artifacts.add(artifact)
 			self.artifactsFile.write(artifact)

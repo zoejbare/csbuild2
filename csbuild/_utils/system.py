@@ -45,8 +45,8 @@ def Exit(code = 0):
 		log.Build("Cleaning up")
 
 	for proj in shared_globals.projectBuildList:
-		proj.artifacts.flush()
-		proj.artifacts.close()
+		proj.artifactsFile.flush()
+		proj.artifactsFile.close()
 
 	if not imp.lock_held():
 		imp.acquire_lock()
