@@ -28,10 +28,28 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-from csbuild.toolchain import Tool
+from csbuild.toolchain import Tool, language
 import os
 
-class Doubler(Tool):
+@language.LanguageBaseClass("AddDoubles")
+class AddDoubles(Tool):
+	"""
+	Simple base class to test language contexts
+	"""
+	def __init__(self, projectSettings):
+		assert "foo" not in projectSettings._settingsDict #pylint: disable=protected-access
+		assert "{}!foo".format(id(AddDoubles)) in projectSettings._settingsDict #pylint: disable=protected-access
+		self._foo = projectSettings.get("foo", False)
+		Tool.__init__(self, projectSettings)
+
+	@staticmethod
+	def SetFoo():
+		"""
+		Set foo to true, yay testing.
+		"""
+		csbuild.currentPlan.SetValue("foo", True) #pylint: disable=protected-access
+
+class Doubler(AddDoubles):
 	"""
 	Simple tool that opens a file, doubles its contents numerically, and writes a new file.
 	"""
@@ -40,6 +58,7 @@ class Doubler(Tool):
 	outputFiles = {".second"}
 
 	def Run(self, project, inputFile):
+		assert self._foo is True
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
@@ -48,7 +67,7 @@ class Doubler(Tool):
 			f.write(str(value))
 		return outFile
 
-class Adder(Tool):
+class Adder(AddDoubles):
 	"""
 	Simple tool that opens multiple doubled files and adds their contents together numerically, outputting a final file.
 	"""
@@ -56,6 +75,7 @@ class Adder(Tool):
 	outputFiles = {".third"}
 
 	def RunGroup(self, project, inputFiles):
+		assert self._foo is True
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
@@ -68,8 +88,8 @@ class Adder(Tool):
 csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Project("TestProject", "."):
-	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+with csbuild.Language("AddDoubles"):
+	csbuild.SetFoo()
 
-#TODO: Need a way for tests to verify output (likely postBuildStep)
-#TODO: Need a way for tests to return specific error messages and failure counts to go into the result xml
+	with csbuild.Project("TestProject", "."):
+		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

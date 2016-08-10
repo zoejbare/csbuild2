@@ -27,9 +27,6 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import abc
-from .._utils.decorators import MetaClass
-
 _eliminatePylintAbstractMethodCheck = True
 
 def _ignore(_):
@@ -39,18 +36,14 @@ class Tool(object):
 	"""
 	Tool base class. Derive from this class to provide a tool for use in building things.
 
-	Tool constructor should take at least one argument, which will be the project.
+	Tool constructor should take at least one argument, which will be the project settings dictionary.
+	Values in this dictionary which pertain to the tool in question can ONLY be accessed from within that tool -
+	they are scoped. Thus, these values should be pulled out of the settings dict and stored as instance
+	variables on the tool itself, and the projectSettings dict itself should NOT be held onto -
+	this will ensure child classes of a tool can access all the data they need.
 
-	If the constructor takes a second argument, that argument will be a list of commands that are queued
-	to be run on this tool and should be run with self.RunCommands(commands)
-
-	If the constructor does not take a second argument, or doesn't call self.RunCommands(), then self.RunCommands()
-	will be called automatically after the constructor finishes.
-
-	After the constructor has finished and self.RunCommands() is called, self.Finalize() will be called. If you
-	call self.RunCommands() yourself, there is no need to delay any object initialization to Finalize(); if you
-	allow csbuild to call it for you, anything that accesses post-makefile-processing tool state must be deferred
-	to the Finalize() function.
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
 	"""
 
 	#: List of file extensions to be passed to Run as individual inputs.
@@ -88,6 +81,13 @@ class Tool(object):
 	#: Set of supported architectures. If this toolchain supports all possible --architecture arguments,
 	#  set this value to None. An empty set implies it supports no architectures and can never be run.
 	supportedArchitectures = set()
+
+	def __init__(self, projectSettings):
+		pass
+
+	@staticmethod
+	def __static_init__():
+		pass
 
 	def Run(self, project, inputFile):
 		"""

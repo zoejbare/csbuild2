@@ -31,8 +31,8 @@ import imp
 import os
 import csbuild
 
-from . import log
 from . import shared_globals
+from .. import log
 
 def Exit(code = 0):
 	"""

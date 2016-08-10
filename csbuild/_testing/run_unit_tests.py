@@ -30,8 +30,9 @@ import sys
 import unittest
 import fnmatch
 
-from csbuild._utils import shared_globals, terminfo, log
-from csbuild._testing import testcase
+from .. import log
+from .._utils import shared_globals, terminfo
+from .._testing import testcase
 
 
 def RunTests(include, exclude):

@@ -43,6 +43,7 @@ class TestCase(unittest.TestCase):
 	_currentTestCase = None
 	_totalSuccess = 0
 	_totalFail = 0
+	_failedTestNames = []
 
 	def __init__(self, methodName):
 		super(TestCase, self).__init__(methodName)
@@ -55,7 +56,7 @@ class TestCase(unittest.TestCase):
 		:param result: optional test result
 		:type result: unittest.TestResult
 		"""
-		from .._utils import log
+		from .. import log
 		if self.__class__.__name__ not in TestCase._runTestCases:
 			TestCase.PrintSingleResult()
 			TestCase._runTestCases.add(self.__class__.__name__)
@@ -72,6 +73,7 @@ class TestCase(unittest.TestCase):
 			log.Test("	  ... <&DRED>[</&><&RED>Failed!</&><&DRED>]")
 			TestCase._currentTestCase[2] += 1
 			TestCase._totalFail += 1
+			TestCase._failedTestNames.append("{}.<&CYAN>{}</&>".format(self.__class__.__name__, self._testMethodName))
 
 	def TestName(self):
 		"""Get the test method name for this test"""
@@ -86,7 +88,7 @@ class TestCase(unittest.TestCase):
 		"""
 		Print the result of the last test suite, if any have been run
 		"""
-		from .._utils import log
+		from .. import log
 		if TestCase._currentTestCase is not None:
 			txt = "{} <&GREEN>{}</&> test{} succeeded".format(
 				TestCase._currentTestCase[0],
@@ -105,7 +107,7 @@ class TestCase(unittest.TestCase):
 		"""
 		Print the overall result of the entire unit test run
 		"""
-		from .._utils import log
+		from .. import log
 		txt = "Unit test results: <&GREEN>{}</&> test{} succeeded".format(
 			TestCase._totalSuccess,
 			"s" if TestCase._totalSuccess != 1 else ""
@@ -114,6 +116,10 @@ class TestCase(unittest.TestCase):
 			txt += ", <&RED>{}</&> failed".format(TestCase._totalFail)
 		else:
 			txt += "!"
+		if TestCase._totalFail > 0:
+			txt += "\nFailed tests:"
+			for failedTest in TestCase._failedTestNames:
+				txt += "\n\t" + failedTest
 		log.Test(txt)
 
 
@@ -215,7 +221,7 @@ class TestResult(unittest.TextTestResult):
 		# But ONLY for those modules.
 
 		# Python 3.5 changed from ModuleImportFailure to _FailedTest...
-		from .._utils import log
+		from .. import log
 		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
 			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
 				return
@@ -228,7 +234,7 @@ class TestResult(unittest.TextTestResult):
 		# pylint: disable=protected-access
 
 		# See comment in addError above
-		from .._utils import log
+		from .. import log
 		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
 			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
 				return

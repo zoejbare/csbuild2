@@ -33,7 +33,8 @@ import sys
 import threading
 
 from .testcase import TestCase
-from .._utils import PlatformString, log
+from .. import log
+from .._utils import PlatformString
 
 class FunctionalTest(TestCase):
 	"""

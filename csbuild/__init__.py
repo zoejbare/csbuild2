@@ -82,15 +82,21 @@ sys.modules["csbuild"] = Csbuild()
 from ._build.context_manager import ContextManager
 from ._build import project_plan, project, input_file
 
-from . import _build
+from . import _build, log
 from ._utils import system
 from ._utils.string_abc import String
 from ._utils.decorators import TypeChecked, Overload
 from ._utils import shared_globals
 from ._utils import ordered_set
-from ._utils import log
 
 from .toolchain import toolchain
+
+#Avoid double init if this module's imported twice for some reason
+#Test framework does this because run_unit_tests.py needs to import to get access to RunTests and logging
+#and then test discovery ends up importing it again and causing havok if this block happens twice
+if not hasattr(sys.modules["csbuild"], "currentPlan"):
+	currentPlan = None # Set to None because ProjectPlan constructor needs to access it.
+	currentPlan = project_plan.ProjectPlan("", "", [], 0, False, False)
 
 class ProjectType(object):
 	"""
@@ -192,8 +198,8 @@ def SetOutput(name, projectType=ProjectType.Application):
 	:type projectType: ProjectType
 	:return:
 	"""
-	project_plan.currentPlan.SetValue("outputName", name)
-	project_plan.currentPlan.SetValue("projectType", projectType)
+	currentPlan.SetValue("outputName", name)
+	currentPlan.SetValue("projectType", projectType)
 
 @TypeChecked(name=String, defaultArchitecture=String)
 def RegisterToolchain(name, defaultArchitecture, *tools):
@@ -209,11 +215,11 @@ def RegisterToolchain(name, defaultArchitecture, *tools):
  	:return:
  	"""
 	shared_globals.allToolchains.add(name)
-	project_plan.currentPlan.EnterContext("toolchain", name)
-	project_plan.currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
-	project_plan.currentPlan.SetValue("_tempToolchain", toolchain.Toolchain(*tools))
-	project_plan.currentPlan.defaultArchitectureMap[name] = defaultArchitecture
-	project_plan.currentPlan.LeaveContext()
+	currentPlan.EnterContext("toolchain", name)
+	currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
+	currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False))
+	currentPlan.defaultArchitectureMap[name] = defaultArchitecture
+	currentPlan.LeaveContext()
 
 	for tool in tools:
 		shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
@@ -225,7 +231,7 @@ def SetDefaultToolchain(toolchainName):
 	:param toolchainName: Name of the toolchain
 	:type toolchainName: str, bytes
 	"""
-	project_plan.currentPlan.defaultToolchain = toolchainName
+	currentPlan.defaultToolchain = toolchainName
 
 @TypeChecked(architectureName=String)
 def SetDefaultArchitecture(architectureName):
@@ -234,7 +240,7 @@ def SetDefaultArchitecture(architectureName):
 	:param architectureName: Name of the architecture
 	:type architectureName: str, bytes
 	"""
-	project_plan.currentPlan.defaultArchitecture = architectureName
+	currentPlan.defaultArchitecture = architectureName
 
 @TypeChecked(targetName=String)
 def SetDefaultTarget(targetName):
@@ -243,7 +249,7 @@ def SetDefaultTarget(targetName):
 	:param targetName: Name of the target
 	:type targetName: str, bytes
 	"""
-	project_plan.currentPlan.defaultTarget = targetName
+	currentPlan.defaultTarget = targetName
 
 class Scope(ContextManager):
 	"""
@@ -270,7 +276,7 @@ class Toolchain(ContextManager):
 		class _toolchainMethodResolver(object):
 			def __getattribute__(self, item):
 				funcs = []
-				allToolchains = project_plan.currentPlan.GetValuesInCurrentContexts("_tempToolchain")
+				allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
 				for tempToolchain in allToolchains:
 					funcs.append(getattr(tempToolchain, item))
 
@@ -313,6 +319,29 @@ class Target(ContextManager):
 		shared_globals.allTargets.update(targetNames)
 		ContextManager.__init__(self, "target", targetNames)
 
+class Language(ContextManager):
+	"""
+	Apply values within a specific language
+
+	:param langNames: Language identifier
+	:type langNames: str, bytes
+	"""
+	def __init__(self, *langNames):
+		langs = [shared_globals.languages[lang] for lang in langNames]
+		class _languageMethodResolver(object):
+			def __getattribute__(self, item):
+				funcs = []
+				for lang in langs:
+					funcs.append(getattr(lang, item))
+
+				def _runFuncs(*args, **kwargs):
+					for func in funcs:
+						func(*args, **kwargs)
+
+				return _runFuncs
+
+		ContextManager.__init__(self, None, (), [_languageMethodResolver()])
+
 class Project(object):
 	"""
 	Apply settings to a specific project. If a project does not exist with the given name, it will be created.
@@ -335,6 +364,8 @@ class Project(object):
 
 	@TypeChecked(name=String, workingDirectory=String, depends=(list,type(None)), priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool)
 	def __init__(self, name, workingDirectory, depends=None, priority=0, ignoreDependencyOrdering=False, autoDiscoverSourceFiles=True):
+		assert name != "", "Project name cannot be empty."
+		assert workingDirectory != "", "Working directory cannot be empty (use '.' to use the makefile's local directory)"
 		if depends is None:
 			depends = []
 
@@ -350,8 +381,9 @@ class Project(object):
 		"""
 		Enter project context
 		"""
-		self._prevPlan = project_plan.currentPlan
-		project_plan.currentPlan = project_plan.ProjectPlan(
+		global currentPlan
+		self._prevPlan = currentPlan
+		currentPlan = project_plan.ProjectPlan(
 			self._name,
 			self._workingDirectory,
 			self._depends,
@@ -360,7 +392,7 @@ class Project(object):
 			self._autoDiscoverSourceFiles
 		)
 		if not shared_globals.projectFilter or self._name not in shared_globals.projectFilter:
-			shared_globals.sortedProjects.Add(project_plan.currentPlan, self._depends)
+			shared_globals.sortedProjects.Add(currentPlan, self._depends)
 
 	def __exit__(self, excType, excValue, traceback):
 		"""
@@ -373,7 +405,8 @@ class Project(object):
 		:param traceback: traceback attached to the thrown exception (ignored)
 		:type traceback: traceback
 		"""
-		project_plan.currentPlan = self._prevPlan
+		global currentPlan
+		currentPlan = self._prevPlan
 		return False
 
 def Run():

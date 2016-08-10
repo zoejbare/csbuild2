@@ -36,8 +36,8 @@ if sys.version_info[0] >= 3:
 else:
 	import Queue as queue
 
-from . import terminfo, shared_globals, BytesType, StrType
-from .shared_globals import Verbosity
+from ._utils import terminfo, shared_globals, BytesType, StrType
+from ._utils.shared_globals import Verbosity
 
 _logQueue = queue.Queue()
 _stopEvent = object()

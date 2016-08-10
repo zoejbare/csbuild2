@@ -41,7 +41,7 @@ else:
 	# pylint: disable=import-error
 	from .reraise_py2 import Reraise
 
-from . import log
+from .. import log
 from .._testing import testcase
 from .decorators import TypeChecked
 
@@ -49,9 +49,10 @@ class ThreadedTaskException(Exception):
 	"""
 	Wraps another exception, allowing the other exception to be caught and handled, then rethrown.
 	"""
-	def __init__(self, exceptionObject):
+	def __init__(self, exceptionObject, tb):
 		Exception.__init__(self)
 		self.exception = exceptionObject
+		self.traceback = tb
 
 	def __repr__(self):
 		return repr(self.exception)
@@ -60,7 +61,7 @@ class ThreadedTaskException(Exception):
 		"""
 		Reraise the wrapped exception so that a new set of catch statements can be prepared
 		"""
-		Reraise(self.exception, sys.exc_info()[2])
+		Reraise(self.exception, self.traceback)
 
 
 class ThreadPool(object):
@@ -140,7 +141,7 @@ class ThreadPool(object):
 		self.callbackQueue.put(ThreadPool.exitEvent)
 
 	def _rethrowException(self, excInfo):
-		Reraise(ThreadedTaskException(excInfo[1]), excInfo[2])
+		Reraise(ThreadedTaskException(excInfo[1], excInfo[2]), excInfo[2])
 
 	def _threadRunner(self):
 		while True:

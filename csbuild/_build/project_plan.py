@@ -39,11 +39,13 @@ if sys.version_info[0] >= 3:
 else:
 	from collections import Callable
 
+import csbuild
 from . import project
 from .._utils import ordered_set
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._testing import testcase
+from ..toolchain import toolchain
 
 
 allPlans = {}
@@ -70,7 +72,7 @@ class ProjectPlan(object):
 	:param depends: List of names of other prjects this one depends on.
 	:type depends: list(str, bytes)
 	:param priority: Priority in the build queue, used to cause this project to get built first in its dependency ordering. Higher number means higher priority.
-	:type priority: bool
+	:type priority: int
 	:param ignoreDependencyOrdering: Treat priority as a global value and use priority to raise this project above, or lower it below, the dependency order
 	:type ignoreDependencyOrdering: bool
 	:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
@@ -87,21 +89,19 @@ class ProjectPlan(object):
 		self._autoDiscoverSourceFiles = autoDiscoverSourceFiles
 
 
-		try:
+		if csbuild.currentPlan is not None:
 			# pylint: disable=protected-access
-			self._settings = copy.deepcopy(currentPlan._settings)
-		except NameError:
+			self._settings = copy.deepcopy(csbuild.currentPlan._settings)
+			self.defaultTarget = csbuild.currentPlan.defaultTarget
+			self.defaultToolchain = csbuild.currentPlan.defaultToolchain
+			self.defaultArchitecture = csbuild.currentPlan.defaultArchitecture
+			self.defaultArchitectureMap = copy.deepcopy(csbuild.currentPlan.defaultArchitectureMap)
+		else:
 			self._settings = {}
 			self.defaultTarget = "release"
 			self.defaultToolchain = _getDefaultToolchain()
 			self.defaultArchitecture = useDefault
 			self.defaultArchitectureMap = {}
-		else:
-			self.defaultTarget = currentPlan.defaultTarget
-			self.defaultToolchain = currentPlan.defaultToolchain
-			self.defaultArchitecture = currentPlan.defaultArchitecture
-			self.defaultArchitectureMap = copy.deepcopy(currentPlan.defaultArchitectureMap)
-
 
 		self._workingSettingsStack = [[self._settings]]
 		self._currentSettingsDicts = self._workingSettingsStack[0]
@@ -140,7 +140,7 @@ class ProjectPlan(object):
 		self._workingSettingsStack.pop()
 		self._currentSettingsDicts = self._workingSettingsStack[-1]
 
-	def _absorbSettings(self, settings, overrideDict, toolchain, architecture, target, scopeType, inScope):
+	def _absorbSettings(self, settings, overrideDict, toolchainName, architectureName, targetName, scopeType, inScope):
 		if overrideDict is None:
 			return
 
@@ -171,32 +171,32 @@ class ProjectPlan(object):
 						settings[key] = val
 		# Else this function just recurses down to the next override dict to look for a dict of scopeType
 
-		self._flattenOverrides(settings, overrideDict.get("overrides"), toolchain, architecture, target, scopeType, inScope)
+		self._flattenOverrides(settings, overrideDict.get("overrides"), toolchainName, architectureName, targetName, scopeType, inScope)
 
-	def _flattenOverrides(self, settings, overrideDict, toolchain, architecture, target, scopeType="", inScope=False):
+	def _flattenOverrides(self, settings, overrideDict, toolchainName, architectureName, targetName, scopeType="", inScope=False):
 		if overrideDict is None:
 			return
 
-		self._absorbSettings(settings, overrideDict.get("toolchain", {}).get(toolchain), toolchain, architecture, target, scopeType, inScope)
-		self._absorbSettings(settings, overrideDict.get("architecture", {}).get(architecture), toolchain, architecture, target, scopeType, inScope)
-		self._absorbSettings(settings, overrideDict.get("target", {}).get(target), toolchain, architecture, target, scopeType, inScope)
-		self._absorbSettings(settings, overrideDict.get("platform", {}).get(platform.system()), toolchain, architecture, target, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("toolchain", {}).get(toolchainName), toolchainName, architectureName, targetName, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("architecture", {}).get(architectureName), toolchainName, architectureName, targetName, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("target", {}).get(targetName), toolchainName, architectureName, targetName, scopeType, inScope)
+		self._absorbSettings(settings, overrideDict.get("platform", {}).get(platform.system()), toolchainName, architectureName, targetName, scopeType, inScope)
 		if scopeType:
-			self._absorbSettings(settings, overrideDict.get("scope", {}).get(scopeType), toolchain, architecture, target, scopeType, True)
+			self._absorbSettings(settings, overrideDict.get("scope", {}).get(scopeType), toolchainName, architectureName, targetName, scopeType, True)
 
-	def _getFinalValueFromOverride(self, overrideDict, name, toolchain, architecture, target, default):
+	def _getFinalValueFromOverride(self, overrideDict, name, toolchainName, architectureName, targetName, default):
 		if overrideDict is not None:
 			default = overrideDict.get(name, default)
-			default = self._getFinalValue(overrideDict.get("overrides"), name, toolchain, architecture, target, default)
+			default = self._getFinalValue(overrideDict.get("overrides"), name, toolchainName, architectureName, targetName, default)
 		return default
 
-	def _getFinalValue(self, overrideDict, name, toolchain, architecture, target, default):
+	def _getFinalValue(self, overrideDict, name, toolchainName, architectureName, targetName, default):
 		if overrideDict is not None:
 			default = overrideDict.get("scope", {}).get(name, default)
-			default = self._getFinalValueFromOverride(overrideDict.get("toolchain", {}).get(toolchain), name, toolchain, architecture, target, default)
-			default = self._getFinalValueFromOverride(overrideDict.get("architecture", {}).get(architecture), name, toolchain, architecture, target, default)
-			default = self._getFinalValueFromOverride(overrideDict.get("target", {}).get(target), name, toolchain, architecture, target, default)
-			default = self._getFinalValueFromOverride(overrideDict.get("platform", {}).get(platform.system()), name, toolchain, architecture, target, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("toolchain", {}).get(toolchainName), name, toolchainName, architectureName, targetName, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("architecture", {}).get(architectureName), name, toolchainName, architectureName, targetName, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("target", {}).get(targetName), name, toolchainName, architectureName, targetName, default)
+			default = self._getFinalValueFromOverride(overrideDict.get("platform", {}).get(platform.system()), name, toolchainName, architectureName, targetName, default)
 		return default
 
 	def _flattenDepends(self, flattenedDepends, dependObj):
@@ -208,17 +208,17 @@ class ProjectPlan(object):
 			self._flattenDepends(flattenedDepends, allPlans[depend])
 			flattenedDepends.add(depend)
 
-	@TypeChecked(toolchain=(String, _defaultType), architecture=(String, _defaultType), target=(String, _defaultType))
-	def ExecutePlan(self, toolchain, architecture, target):
+	@TypeChecked(toolchainName=(String, _defaultType), architectureName=(String, _defaultType), targetName=(String, _defaultType))
+	def ExecutePlan(self, toolchainName, architectureName, targetName):
 		"""
 		Execute the project plan for a given toolchain and architecture to create a concrete project.
 
-		:param toolchain: The toolchain to execute the plan for
-		:type toolchain: str, bytes
-		:param architecture: The architecture to execute the plan for
-		:type architecture: str, bytes
-		:param target: The target to execute the plan for
-		:type target: str, bytes
+		:param toolchainName: The toolchain to execute the plan for
+		:type toolchainName: str, bytes
+		:param architectureName: The architecture to execute the plan for
+		:type architectureName: str, bytes
+		:param targetName: The target to execute the plan for
+		:type targetName: str, bytes
 		:return: A concrete project
 		:rtype: project.Project
 		"""
@@ -231,23 +231,23 @@ class ProjectPlan(object):
 
 		from .. import ProjectType
 
-		if target is useDefault:
-			target = self.defaultTarget
-		if toolchain is useDefault:
-			toolchain = self.defaultToolchain
-		if architecture is useDefault:
+		if targetName is useDefault:
+			targetName = self.defaultTarget
+		if toolchainName is useDefault:
+			toolchainName = self.defaultToolchain
+		if architectureName is useDefault:
 			if self.defaultArchitecture is useDefault:
-				architecture = self.defaultArchitectureMap[toolchain]
+				architectureName = self.defaultArchitectureMap[toolchainName]
 			else:
-				architecture = self.defaultArchitecture
+				architectureName = self.defaultArchitecture
 
 		assert "overrides" in self._settings \
 			and "toolchain" in self._settings["overrides"] \
-			and toolchain in self._settings["overrides"]["toolchain"], \
-			"Toolchain {} has not been registered for project {}".format(toolchain, self._name)
+			   and toolchainName in self._settings["overrides"]["toolchain"], \
+			"Toolchain {} has not been registered for project {}".format(toolchainName, self._name)
 
 		projectType = self._settings.get("projectType", ProjectType.Application)
-		projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchain, architecture, target, projectType)
+		projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchainName, architectureName, targetName, projectType)
 
 		settings = {}
 		for key, value in self._settings.items():
@@ -266,9 +266,9 @@ class ProjectPlan(object):
 		self._flattenOverrides(
 			settings,
 			self._settings.get("overrides", {}),
-			toolchain,
-			architecture,
-			target,
+			toolchainName,
+			architectureName,
+			targetName,
 			"all"
 		)
 
@@ -283,9 +283,9 @@ class ProjectPlan(object):
 						dependObj._getFinalValue(
 							dependObj._settings.get("overrides"),
 							"outputName",
-							toolchain,
-							architecture,
-							target,
+							toolchainName,
+							architectureName,
+							targetName,
 							dependObj._name
 						)
 					]
@@ -293,50 +293,50 @@ class ProjectPlan(object):
 				self._flattenOverrides(
 					settings,
 					dependObj._settings.get("overrides", {}),
-					toolchain,
-					architecture,
-					target,
+					toolchainName,
+					architectureName,
+					targetName,
 					"all"
 				)
 				self._flattenOverrides(
 					settings,
 					dependObj._settings.get("overrides", {}),
-					toolchain,
-					architecture,
-					target,
+					toolchainName,
+					architectureName,
+					targetName,
 					"children"
 				)
 				self._flattenOverrides(
 					settings,
 					dependObj._settings.get("overrides", {}),
-					toolchain,
-					architecture,
-					target,
+					toolchainName,
+					architectureName,
+					targetName,
 					"final"
 				)
 			else:
 				self._flattenOverrides(
 					settings,
 					dependObj._settings.get("overrides", {}),
-					toolchain,
-					architecture,
-					target,
+					toolchainName,
+					architectureName,
+					targetName,
 					"all"
 				)
 				self._flattenOverrides(
 					settings,
 					dependObj._settings.get("overrides", {}),
-					toolchain,
-					architecture,
-					target,
+					toolchainName,
+					architectureName,
+					targetName,
 					"children"
 				)
 				self._flattenOverrides(
 					settings,
 					dependObj._settings.get("overrides", {}),
-					toolchain,
-					architecture,
-					target,
+					toolchainName,
+					architectureName,
+					targetName,
 					"scope"
 				)
 
@@ -345,7 +345,7 @@ class ProjectPlan(object):
 		else:
 			settings["libraries"] = libraries
 
-		self._flattenOverrides(settings, self._settings.get("overrides"), toolchain, architecture, target)
+		self._flattenOverrides(settings, self._settings.get("overrides"), toolchainName, architectureName, targetName)
 
 		return project.Project(
 			self._name,
@@ -355,9 +355,9 @@ class ProjectPlan(object):
 			self._ignoreDependencyOrdering,
 			self._autoDiscoverSourceFiles,
 			settings,
-			toolchain,
-			architecture,
-			target
+			toolchainName,
+			architectureName,
+			targetName
 		)
 
 
@@ -371,6 +371,8 @@ class ProjectPlan(object):
 		:param value: The value
 		:type value: Any
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			settings[key] = value
 
@@ -382,6 +384,8 @@ class ProjectPlan(object):
 		:param key: The setting key
 		:type key: str, bytes
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			del settings[key]
 
@@ -395,6 +399,8 @@ class ProjectPlan(object):
 		:param value: The value
 		:type value: Any
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, []).extend(value)
 
@@ -408,6 +414,8 @@ class ProjectPlan(object):
 		:param value: The value
 		:type value: Any
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, []).append(value)
 
@@ -421,6 +429,8 @@ class ProjectPlan(object):
 		:param value: The value
 		:type value: Any
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, {}).update(value)
 
@@ -434,6 +444,8 @@ class ProjectPlan(object):
 		:param value: The value
 		:type value: Any
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).union(value)
 
@@ -447,6 +459,8 @@ class ProjectPlan(object):
 		:param value: The value
 		:type value: Any
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).add(value)
 
@@ -458,6 +472,8 @@ class ProjectPlan(object):
 		:type key: str, bytes
 		:return: list
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		ret = []
 		for settings in self._currentSettingsDicts:
 			if key in settings:
@@ -486,11 +502,10 @@ class ProjectPlan(object):
 				- csbuild._utils.ordered_set.OrderedSet
 			Any other value will not be merged with values in parent scopes, but will override them.
 		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
 			settings[key] = action(settings.setdefault(key, None))
-
-
-currentPlan = ProjectPlan("", "", [], 0, False, False)
 
 ### Unit Tests ###
 
@@ -498,6 +513,9 @@ class TestProjectPlan(testcase.TestCase):
 	"""Test the project plan"""
 	# pylint: disable=invalid-name
 	def setUp(self):
+		from .._utils import shared_globals
+		self._oldVerbosity = shared_globals.verbosity
+		shared_globals.verbosity = shared_globals.Verbosity.Quiet
 		from csbuild.toolchain import Tool
 		class _nullTool(Tool):
 			def Run(self, inputProject, inputFiles):
@@ -505,13 +523,12 @@ class TestProjectPlan(testcase.TestCase):
 
 		global allPlans
 		allPlans = {}
-		global currentPlan
 		# pylint: disable=protected-access
-		currentPlan._settings = {}
-		currentPlan = ProjectPlan("", "", [], 0, False, False)
+		csbuild.currentPlan._settings = {}
+		csbuild.currentPlan = ProjectPlan("", "", [], 0, False, False)
 
 		# Create some mocked in toolchains...
-		currentPlan.EnterContext(
+		csbuild.currentPlan.EnterContext(
 			"toolchain",
 			"tc1",
 			"tc2",
@@ -521,15 +538,16 @@ class TestProjectPlan(testcase.TestCase):
 			"no-toolchain"
 		)
 
-		currentPlan.SetValue("tools", ordered_set.OrderedSet((_nullTool,)))
+		csbuild.currentPlan.SetValue("tools", ordered_set.OrderedSet((_nullTool,)))
 
-		currentPlan.LeaveContext()
+		csbuild.currentPlan.LeaveContext()
 
-		self._oldPlan = currentPlan
+		self._oldPlan = csbuild.currentPlan
 
 	def tearDown(self):
-		global currentPlan
-		currentPlan = self._oldPlan
+		from .._utils import shared_globals
+		csbuild.currentPlan = self._oldPlan
+		shared_globals.verbosity = self._oldVerbosity
 
 
 	def testProjectPlan(self):
@@ -795,24 +813,23 @@ class TestProjectPlan(testcase.TestCase):
 
 	def testInheritance(self):
 		"""Test that project inheritance works correctly"""
-		global currentPlan
-		currentPlan = ProjectPlan("first", "test", [], 0, False, True)
-		currentPlan.AppendList("list", 1)
-		currentPlan.AppendList("list", 2)
-		currentPlan.AppendList("list", 3)
-		currentPlan.UpdateDict("dict", {1: 2})
-		currentPlan.UpdateDict("dict", {3: 4})
-		currentPlan.UpdateDict("dict", {5: 6})
+		csbuild.currentPlan = ProjectPlan("first", "test", [], 0, False, True)
+		csbuild.currentPlan.AppendList("list", 1)
+		csbuild.currentPlan.AppendList("list", 2)
+		csbuild.currentPlan.AppendList("list", 3)
+		csbuild.currentPlan.UpdateDict("dict", {1: 2})
+		csbuild.currentPlan.UpdateDict("dict", {3: 4})
+		csbuild.currentPlan.UpdateDict("dict", {5: 6})
 
-		first = currentPlan
-		currentPlan = ProjectPlan("second", "test", ["first"], 0, False, True)
-		currentPlan.AppendList("list", 4)
-		currentPlan.AppendList("list", 5)
-		currentPlan.AppendList("list", 6)
-		currentPlan.UpdateDict("dict", {7: 8})
-		currentPlan.UpdateDict("dict", {9: 10})
-		currentPlan.UpdateDict("dict", {11: 12})
-		second = currentPlan
+		first = csbuild.currentPlan
+		csbuild.currentPlan = ProjectPlan("second", "test", ["first"], 0, False, True)
+		csbuild.currentPlan.AppendList("list", 4)
+		csbuild.currentPlan.AppendList("list", 5)
+		csbuild.currentPlan.AppendList("list", 6)
+		csbuild.currentPlan.UpdateDict("dict", {7: 8})
+		csbuild.currentPlan.UpdateDict("dict", {9: 10})
+		csbuild.currentPlan.UpdateDict("dict", {11: 12})
+		second = csbuild.currentPlan
 
 
 		first1 = first.ExecutePlan("none", "none", "target")

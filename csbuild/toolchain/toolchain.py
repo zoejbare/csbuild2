@@ -40,6 +40,8 @@ from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._testing import testcase
 
+currentToolId = None
+
 if sys.version_info[0] >= 3:
 	_typeType = type
 	_classType = type
@@ -47,6 +49,8 @@ else:
 	# pylint: disable=invalid-name
 	_typeType = types.TypeType
 	_classType = types.ClassType
+
+staticInitsRun = set()
 
 class Toolchain(object):
 	"""
@@ -61,6 +65,8 @@ class Toolchain(object):
 	* Public functions will be called as a group - all tools that have a certain function on it will have that function
 	  called when the toolchain's function of that name is called.
 
+	:param projectSettings: Settings to initialize tool classes with
+	:type projectSettings: dict
 	:param classes: list of Tool classes
 	:type classes: class inherited from Tool
 	:param kwargs: Optional argument runInit to disable initialization so that static methods may be called
@@ -69,7 +75,7 @@ class Toolchain(object):
 	:return: generated Toolchain class
 	:rtype: Toolchain
 	"""
-	def __new__(cls, *classes, **kwargs):
+	def __new__(cls, projectSettings, *classes, **kwargs):
 		for cls in classes:
 			assert issubclass(cls, ToolClass), "Toolchains must be composed only of classes that inherit from Tool"
 
@@ -112,6 +118,10 @@ class Toolchain(object):
 		# those elements that exist on this class or its bases will be visible
 		_threadSafeClassTrackr.lastClass = None
 
+		def _getLastClass():
+			if hasattr(_threadSafeClassTrackr, "lastClass"):
+				return _threadSafeClassTrackr.lastClass
+			return None
 
 		@contextlib.contextmanager
 		def Use(cls):
@@ -120,10 +130,14 @@ class Toolchain(object):
 			:param cls: The class to manage, or 'self' to access self variables
 			:type cls: class, or Toolchain instance
 			"""
-			oldClass = _threadSafeClassTrackr.lastClass
+			global currentToolId
+			lastToolId = currentToolId
+			currentToolId = id(cls)
+			oldClass = _getLastClass()
 			_threadSafeClassTrackr.lastClass = cls
 			yield
 			_threadSafeClassTrackr.lastClass = oldClass
+			currentToolId = lastToolId
 
 		# Replace each class's __init__ function with one that will prevent double-init
 		# and will ensure that _threadSafeClassTrackr.lastClass is set properly so that variables
@@ -133,18 +147,29 @@ class Toolchain(object):
 			if base.__init__ not in _classTrackr.overloadedInits:
 				oldinit = base.__init__
 
-				def _initwrap(self):
+				def _initwrap(self, projectSettings):
 					# Don't re-init if already initialized
 					if base not in _classTrackr.initialized:
 						_classTrackr.initialized.add(base)
 						# Track the current class for __setattr__
 						with Use(base):
-							oldinit(self)
+							oldinit(self, projectSettings)
 
 				# Replace existing init and set the memoization value
 				base.__init__ = _initwrap
 				base.__oldInit__ = oldinit
 				_classTrackr.overloadedInits.add(base.__init__)
+			if base.__static_init__ not in _classTrackr.overloadedInits:
+				oldstaticinit = base.__static_init__
+
+				@staticmethod
+				def _staticinitwrap():
+					# Don't re-init if already initialized
+					if oldstaticinit not in staticInitsRun:
+						staticInitsRun.add(oldstaticinit)
+						oldstaticinit()
+				base.__static_init__ = _staticinitwrap
+				base.__old_static_init__ = oldstaticinit
 
 		# Collect a list of all the base classes
 		bases = set()
@@ -214,6 +239,99 @@ class Toolchain(object):
 				_limit.__name__ = item
 				return _limit
 
+		class ReadOnlySettingsView(object):
+			"""
+			Represents a read-only, class-scoped view into a project's settings dictionary.
+			:param settingsDict: Settings
+			:type settingsDict: dict
+			"""
+			# pylint: disable=invalid-name
+			# Names here are to match dict interface
+			def __init__(self, settingsDict):
+				self._settingsDict = settingsDict
+
+			def __getitem__(self, item):
+				"""
+				Get item from the dictionary
+				:param item: the key to search for
+				:type item: any
+				:return: the item
+				:rtype: any
+				"""
+				key = "{}!{}".format(currentToolId, item)
+				if key not in self._settingsDict:
+					raise KeyError(item)
+				return self._settingsDict[key]
+
+			def items(self):
+				"""
+				Iterate the key,value tuple pairs in the dictionary
+				"""
+				for key, value in self._settingsDict.items():
+					if key.startswith("{}!".format(currentToolId)):
+						yield key.split("!", 1)[1], value
+
+			def keys(self):
+				"""
+				Iterate the keys in the dictionary
+				"""
+				for key in self._settingsDict.keys():
+					if key.startswith("{}!".format(currentToolId)):
+						yield key.split("!", 1)[1]
+
+			def __iter__(self):
+				"""
+				Iterate the keys in the dictionary
+				"""
+				for key in self._settingsDict.keys():
+					if key.startswith("{}!".format(currentToolId)):
+						yield key.split("!", 1)[1]
+
+			def __contains__(self, item):
+				"""
+				Check if a key is in the dictionary
+				:param item: key to check
+				:type item: any
+				:return: true if in, false otherwise
+				:rtype: bool
+				"""
+				key = "{}!{}".format(currentToolId, item)
+				return key in self._settingsDict
+
+			def get(self, item, default):
+				"""
+				Get the item from the dict. If not present, return default
+				:param item: Key to search for
+				:type item: any
+				:param default: default value to return
+				:type default: any
+				:return: the value, or default
+				:rtype: any
+				"""
+				key = "{}!{}".format(currentToolId, item)
+				if key not in self._settingsDict:
+					return default
+				return self._settingsDict[key]
+
+			def values(self):
+				"""
+				Iterate the values in the dictionary
+				"""
+				for key, value in self._settingsDict.items():
+					if key.startswith("{}!".format(currentToolId)):
+						yield value
+
+			def __len__(self):
+				"""
+				Get number of items in the dictionary
+				:return: count of items
+				:rtype: int
+				"""
+				length = 0
+				for key in self._settingsDict.keys():
+					if key.startswith("{}!".format(currentToolId)):
+						length += 1
+				return length
 
 		class ToolchainTemplate(object):
 			"""
@@ -228,13 +346,29 @@ class Toolchain(object):
 				if runInit:
 					# Initialize all dynamically created bases.
 					for cls in _classTrackr.classes:
+						if cls.__static_init__ not in staticInitsRun:
+							cls.__static_init__()
 						with Use(cls):
-							cls.__init__(self)
+							cls.__init__(self, ReadOnlySettingsView(projectSettings))
 					_threadSafeClassTrackr.lastClass = None
 
 					for base in bases:
 						base.__init__ = base.__oldInit__
 						del base.__oldInit__
+						base.__static_init__ = base.__old_static_init__
+						del base.__old_static_init__
+
+			@TypeChecked(tool=(_classType, _typeType))
+			def Use(self, tool):
+				"""
+				Enter a tool context, must be called before calling any functions that were directly pulled from the tool.
+				i.e.,::
+					with toolchain.Use(tool):
+						tool.Run(toolchain, *args)
+				:param tool: The tool context to enter
+				:type tool: type
+				"""
+				return Use(tool)
 
 			@TypeChecked(tool=(_classType, _typeType))
 			def CreateReachability(self, tool):
@@ -336,13 +470,12 @@ class Toolchain(object):
 				:rtype: set[type]
 				"""
 				ret = set()
-				with Use(self):
-					for cls in _classTrackr.classes:
-						if cls is generatingTool:
-							continue
+				for cls in _classTrackr.classes:
+					if cls is generatingTool:
+						continue
 
-						if extension in cls.inputFiles:
-							ret.add(cls)
+					if extension in cls.inputFiles:
+						ret.add(cls)
 
 				return ret
 
@@ -362,16 +495,15 @@ class Toolchain(object):
 				:rtype: set[type]
 				"""
 				ret = set()
-				with Use(self):
-					for cls in _classTrackr.classes:
-						if cls is generatingTool:
+				for cls in _classTrackr.classes:
+					if cls is generatingTool:
+						continue
+					for dep in cls.dependencies:
+						if self.IsOutputActive(dep):
 							continue
-						for dep in cls.dependencies:
-							if self.IsOutputActive(dep):
-								continue
 
-						if extension in cls.inputGroups:
-							ret.add(cls)
+					if extension in cls.inputGroups:
+						ret.add(cls)
 
 				return ret
 
@@ -383,10 +515,9 @@ class Toolchain(object):
 				:rtype: set[String]
 				"""
 				ret = set()
-				with Use(self):
-					for cls in _classTrackr.classes:
-						ret |= cls.inputFiles
-						ret |= cls.inputGroups
+				for cls in _classTrackr.classes:
+					ret |= cls.inputFiles
+					ret |= cls.inputGroups
 				return ret
 
 
@@ -400,20 +531,21 @@ class Toolchain(object):
 				# Likewise because we have to keep a clear separation of which data belongs to who, disallow
 				# access to this private data when we don't have a view of who owns it. We only have that view
 				# while executing a public method of a class.
-				assert _threadSafeClassTrackr.lastClass, "Cannot access private tool data from outside tool class"
+				lastClass =  _getLastClass()
+				assert lastClass, "Cannot access private tool data from outside tool class"
 
-				if _threadSafeClassTrackr.lastClass is self:
+				if lastClass is self:
 					object.__setattr__(self, name, val)
 					return
 
-				cls = _threadSafeClassTrackr.lastClass
+				cls = lastClass
 
 				# Iterate all the base classes until we find one that's already set this value.
 				# If we don't find one that's set this value, this value is being initialized and should
 				# be placed within the scope of the class that's initializing it. That class and its children
 				# will then be able to see it, but its bases and siblings (classes that share a common base)
 				# will not.
-				for base in _threadSafeClassTrackr.lastClass.mro():
+				for base in lastClass.mro():
 					if base == ToolClass:
 						break
 					if name in classValues[base]:
@@ -444,7 +576,7 @@ class Toolchain(object):
 				assert not runInit, "AddTool can't be called from this context"
 				assert tool not in _classTrackr.classes, "Tool {} has already been added".format(tool)
 
-				from .._build.project_plan import currentPlan
+				from .. import currentPlan
 				currentPlan.AddToSet("tools", tool)
 
 				for base in cls.mro():
@@ -478,14 +610,15 @@ class Toolchain(object):
 
 				if name.startswith("_"):
 					# For private variables, as mentioned above, we have to know the scope we're looking in.
-					assert _threadSafeClassTrackr.lastClass, "Cannot access private tool data ({}) from outside tool class".format(name)
+					lastClass = _getLastClass()
+					assert lastClass, "Cannot access private tool data ({}) from outside tool class".format(name)
 
-					if _threadSafeClassTrackr.lastClass is self:
+					if lastClass is self:
 						return object.__getattribute__(self, name)
 
 					# Iterate the class's mro looking for the first one that has this name present for it.
 					# This starts with the class itself and then goes through its bases
-					for cls in _threadSafeClassTrackr.lastClass.mro():
+					for cls in lastClass.mro():
 						if cls == ToolClass:
 							break
 						if name in classValues[cls]:
@@ -495,7 +628,7 @@ class Toolchain(object):
 					# This is either a function, method, or static variable, not an instance variable.
 					# Would love to guarantee this is a function...
 					# But for some reason python lets you access statics through self, so whatever...
-					cls = _threadSafeClassTrackr.lastClass
+					cls = lastClass
 					if hasattr(cls, name):
 						# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
 						# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
@@ -529,6 +662,7 @@ class Toolchain(object):
 					def _runMultiFunc(*args, **kwargs):
 						calledSomething = False
 						functions = {}
+						ret = []
 
 						# Iterate through all classes and collect functions that match this name
 						# We'll keep a list of all the functions that match, but only call each matching
@@ -555,18 +689,20 @@ class Toolchain(object):
 						for func, cls in functions.items():
 							with Use(cls):
 								if isinstance(func, staticmethod):
-									func.__get__(cls)(*args, **kwargs)
+									ret.append(func.__get__(cls)(*args, **kwargs))
 								else:
 									assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
-									func(self, *args, **kwargs)
-
-						_threadSafeClassTrackr.lastClass = None
+									ret.append(func(self, *args, **kwargs))
 
 						# Finding one tool without this function present on it is not an error.
 						# However, if no tools had this function, that is an error - let python internals
 						# throw us an AttributeError
 						if not calledSomething:
 							return object.__getattribute__(self, name)
+						if len(ret) == 1:
+							return ret[0]
+						return ret
+
 					return _runMultiFunc
 
 		return type(PlatformString("Toolchain"), classes, dict(ToolchainTemplate.__dict__))()
@@ -577,6 +713,19 @@ class Toolchain(object):
 	### See above for actually implementations in ToolchainTemplate.             ###
 	################################################################################
 	################################################################################
+
+	@contextlib.contextmanager
+	@TypeChecked(tool=(_classType, _typeType))
+	def Use(self, tool):
+		"""
+		Enter a tool context, must be called before calling any functions that were directly pulled from the tool.
+		i.e.,::
+			with toolchain.Use(tool):
+				tool.Run(toolchain, *args)
+		:param tool: The tool context to enter
+		:type tool: type
+		"""
+		pass
 
 	@TypeChecked(tool=(_classType, _typeType))
 	def CreateReachability(self, tool):
@@ -716,6 +865,9 @@ class TestToolchainMixin(testcase.TestCase):
 			baseInitialized = 0
 			derived1Initialized = 0
 			derived2Initialized = 0
+			baseStaticInitialized = 0
+			derived1StaticInitialized = 0
+			derived2StaticInitialized = 0
 			doBaseThingCalledInBase = 0
 			doBaseThing2CalledInBase = 0
 			overloadFnCalledInBase = 0
@@ -744,9 +896,15 @@ class TestToolchainMixin(testcase.TestCase):
 
 
 		class _base(ToolClass):
-			def __init__(self):
+			def __init__(self, projectSettings):
 				_sharedLocals.baseInitialized += 1
 				self._someval = 0
+				ToolClass.__init__(self, projectSettings)
+
+			@staticmethod
+			def __static_init__():
+				ToolClass.__static_init__()
+				_sharedLocals.baseStaticInitialized += 1
 
 			def Run(self, *args):
 				pass
@@ -773,10 +931,15 @@ class TestToolchainMixin(testcase.TestCase):
 
 
 		class _derived1(_base):
-			def __init__(self):
+			def __init__(self, projectSettings):
 				_sharedLocals.derived1Initialized += 1
 				self._test = 1
-				_base.__init__(self)
+				_base.__init__(self, projectSettings)
+
+			@staticmethod
+			def __static_init__():
+				_base.__static_init__()
+				_sharedLocals.derived1StaticInitialized += 1
 
 			def Derived1CallInternals(self):
 				self._basePrivateThing()
@@ -810,10 +973,15 @@ class TestToolchainMixin(testcase.TestCase):
 				_sharedLocals.derived1Static += 1
 
 		class _derived2(_base):
-			def __init__(self):
+			def __init__(self, projectSettings):
 				_sharedLocals.derived2Initialized += 1
 				self._test = 2
-				_base.__init__(self)
+				_base.__init__(self, projectSettings)
+
+			@staticmethod
+			def __static_init__():
+				_base.__static_init__()
+				_sharedLocals.derived2StaticInitialized += 1
 
 			def Derived2CallInternals(self):
 				self._basePrivateThing()
@@ -859,11 +1027,14 @@ class TestToolchainMixin(testcase.TestCase):
 		self._derived2 = _derived2
 		self._base = _base
 
-		self.mixin = Toolchain(_derived1, _derived2)
+		self.mixin = Toolchain({}, _derived1, _derived2)
 		self.assertChanged(
 			baseInitialized=1,
 			derived1Initialized=1,
-			derived2Initialized=1
+			derived2Initialized=1,
+			baseStaticInitialized=1,
+			derived1StaticInitialized=1,
+			derived2StaticInitialized=1,
 		)
 
 	def assertChanged(self, **kwargs):
@@ -878,7 +1049,7 @@ class TestToolchainMixin(testcase.TestCase):
 
 	def testStaticFunctionCalls(self):
 		"""Test that static method calls with runInit=False work correctly"""
-		mixin2 = Toolchain(self._derived1, runInit=False)
+		mixin2 = Toolchain({}, self._derived1, runInit=False)
 		mixin2.AddTool(self._derived2)
 		#Assert init ran once - during setUp - and only once.
 		#i.e., mixin2 should not have run init!

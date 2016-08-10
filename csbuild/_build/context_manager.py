@@ -32,8 +32,6 @@ import sys
 import types
 
 from .._utils import StrType, BytesType
-
-from .project_plan import currentPlan
 from .._utils.decorators import TypeChecked
 
 if sys.version_info[0] >= 3:
@@ -76,7 +74,7 @@ class ContextManager(object):
 
 	methodResolvers = []
 
-	@TypeChecked(contextType=(StrType, BytesType), contextNames=tuple, methodResolvers=list)
+	@TypeChecked(contextType=(StrType, BytesType, type(None)), contextNames=tuple, methodResolvers=list)
 	def __init__(self, contextType, contextNames, methodResolvers=None):
 		object.__setattr__(self, "inself", True)
 		self._type = contextType
@@ -93,7 +91,8 @@ class ContextManager(object):
 		object.__setattr__(self, "inself", True)
 		if self._parentContext is not None:
 			object.__getattribute__(self._parentContext, "__enter__")()
-		currentPlan.EnterContext(self._type, *self._names)
+		if self._type is not None:
+			csbuild.currentPlan.EnterContext(self._type, *self._names)
 
 		if self._methodResolvers:
 			ContextManager.methodResolvers.append(self._methodResolvers)
@@ -121,7 +120,8 @@ class ContextManager(object):
 		if self._methodResolvers:
 			ContextManager.methodResolvers.pop()
 
-		currentPlan.LeaveContext()
+		if self._type is not None:
+			csbuild.currentPlan.LeaveContext()
 
 		if self._parentContext is not None:
 			object.__getattribute__(self._parentContext, "__exit__")(excType, excValue, traceback)

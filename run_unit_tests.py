@@ -50,7 +50,7 @@ if __name__ == "__main__":
 	os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 	from csbuild._testing.run_unit_tests import RunTests
-	from csbuild._utils import log
+	from csbuild import log
 
 	include = []
 	exclude = []
@@ -62,7 +62,6 @@ if __name__ == "__main__":
 			include.append(arg)
 	log.Test("Filtering to tests: {}", include)
 	log.Test("Excluding tests: {}", exclude)
-
 
 	totalret = RunTests(include, exclude)
 

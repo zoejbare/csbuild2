@@ -67,3 +67,5 @@ showCommands = False
 projectMap = {}
 
 projectBuildList = []
+
+languages = {}

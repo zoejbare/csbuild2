@@ -36,7 +36,8 @@ import multiprocessing
 import time
 
 from . import project_plan, project, input_file
-from .._utils import log, system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime
+from .. import log
+from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 
@@ -132,7 +133,10 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 			newInput.AddUsedTool(tool)
 			_runningBuilds += 1
 			log.Info("Enqueuing build for {}", newInput)
-			pool.AddTask((_logThenRun, tool.Run, buildProject.toolchain, buildProject, newInput), (_buildFinished, pool, projectList, buildProject, tool, outputExtension, [newInput]))
+			pool.AddTask(
+				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, newInput),
+				(_buildFinished, pool, projectList, buildProject, tool, outputExtension, [newInput])
+			)
 
 		log.Info("Checking if {} is still active... {}", outputExtension, "yes" if buildProject.toolchain.IsOutputActive(outputExtension) else "no")
 
@@ -179,7 +183,10 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 
 				_runningBuilds += 1
 				log.Info("Enqueuing multi-build task for {}", fileList)
-				pool.AddTask((_logThenRun, tool.RunGroup, buildProject.toolchain, buildProject, fileList), (_buildFinished, pool, projectList, buildProject, tool, None, fileList))
+				pool.AddTask(
+					(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, fileList),
+					(_buildFinished, pool, projectList, buildProject, tool, None, fileList)
+				)
 
 			# Check to see if we've freed up any pending builds in other projects as well
 			for proj in projectList:
@@ -202,7 +209,10 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 							inputFile.AddUsedTool(tool)
 							_runningBuilds += 1
 							log.Info("Enqueuing build for {}", projectInput)
-							pool.AddTask((_logThenRun, tool.Run, proj.toolchain, proj, projectInput), (_buildFinished, pool, projectList, proj, tool, inputFile, [projectInput]))
+							pool.AddTask(
+								(_logThenRun, tool.Run, tool, proj.toolchain, proj, projectInput),
+								(_buildFinished, pool, projectList, proj, tool, inputFile, [projectInput])
+							)
 
 					fileList = ordered_set.OrderedSet()
 					try:
@@ -223,7 +233,10 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 
 					_runningBuilds += 1
 					log.Info("Enqueuing multi-build task for {}", fileList)
-					pool.AddTask((_logThenRun, tool.RunGroup, proj.toolchain, proj, fileList), (_buildFinished, pool, projectList, proj, tool, None, fileList))
+					pool.AddTask(
+						(_logThenRun, tool.RunGroup, tool, proj.toolchain, proj, fileList),
+						(_buildFinished, pool, projectList, proj, tool, None, fileList)
+					)
 
 	if _runningBuilds == 0:
 		# We have no builds running and finishing this build did not spawn a new one
@@ -231,9 +244,10 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 		pool.Stop()
 
 
-def _logThenRun(function, buildToolchain, buildProject, inputFiles):
+def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles):
 	log.Build("Processing {}", inputFiles)
-	return function(buildToolchain, buildProject, inputFiles)
+	with buildToolchain.Use(buildTool):
+		return function(buildToolchain, buildProject, inputFiles)
 
 @TypeChecked(numThreads=int, projectBuildList=list)
 def _build(numThreads, projectBuildList):
@@ -293,7 +307,10 @@ def _build(numThreads, projectBuildList):
 					buildProject.toolchain.CreateReachability(tool)
 					inputFile.AddUsedTool(tool)
 					_runningBuilds += 1
-					pool.AddTask((_logThenRun, tool.Run, buildProject.toolchain, buildProject, inputFile), (_buildFinished, pool, projectBuildList, buildProject, tool, extension, [inputFile]))
+					pool.AddTask(
+						(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, inputFile),
+						(_buildFinished, pool, projectBuildList, buildProject, tool, extension, [inputFile])
+					)
 					queuedSomething = True
 
 		tools = buildProject.toolchain.GetAllTools()
@@ -352,7 +369,10 @@ def _build(numThreads, projectBuildList):
 
 			_runningBuilds += 1
 			log.Info("Enqueuing multi-build task for {}", fileList)
-			pool.AddTask((_logThenRun, tool.RunGroup, buildProject.toolchain, fileList), (_buildFinished, pool, projectBuildList, buildProject, tool, None, fileList))
+			pool.AddTask(
+				(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, fileList),
+				(_buildFinished, pool, projectBuildList, buildProject, tool, None, fileList)
+			)
 			queuedSomething = True
 	if not queuedSomething:
 		log.Build("Nothing to build.")
@@ -367,12 +387,13 @@ def _build(numThreads, projectBuildList):
 		if callback is thread_pool.ThreadPool.exitEvent:
 			break
 
+		toReraise = None
 		try:
 			callback()
 		except thread_pool.ThreadedTaskException as e:
 			failures += 1
 			try:
-				e.Reraise()
+				toReraise = e
 			except csbuild.BuildFailureException as buildExc:
 				log.Error(repr(buildExc))
 			except:
@@ -381,6 +402,9 @@ def _build(numThreads, projectBuildList):
 		except:
 			pool.Abort()
 			raise
+
+		if toReraise is not None:
+			toReraise.Reraise()
 
 	for buildProject in projectBuildList:
 		if buildProject.toolchain.HasAnyReachability():
@@ -516,7 +540,7 @@ def Run():
 	#group.add_argument('--install', action = "store_true", help = 'Install the target build')
 	#group.add_argument('--install-headers', action = "store_true", help = 'Install only headers for the target build')
 	#group.add_argument('--install-output', action = "store_true", help = 'Install only the output for the target build')
-	#group.add_argument('-r', '--rebuild', action = "store_true", help = 'Clean the target build and then build it')
+	group.add_argument('-r', '--rebuild', action = "store_true", help = 'Clean the target build and then build it')
 
 	group2 = parser.add_mutually_exclusive_group()
 	group2.add_argument('-v', '--verbose', action = "store_const", const = 0, dest = "verbosity",
@@ -692,7 +716,8 @@ def Run():
 	if imp.lock_held():
 		imp.release_lock()
 
-	if args.clean:
+	if args.clean or args.rebuild:
 		_clean(projectBuildList)
-	else:
+
+	if not args.clean or args.rebuild:
 		_build(args.jobs, projectBuildList)

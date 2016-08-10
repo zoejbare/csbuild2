@@ -29,7 +29,8 @@ from __future__ import unicode_literals, division, print_function
 import os
 import fnmatch
 
-from .._utils import log, ordered_set, shared_globals
+from .. import log
+from .._utils import ordered_set, shared_globals
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._build import input_file
@@ -47,7 +48,7 @@ class Project(object):
 	:param depends: List of names of other prjects this one depends on.
 	:type depends: list(String)
 	:param priority: Priority in the build queue, used to cause this project to get built first in its dependency ordering. Higher number means higher priority.
-	:type priority: bool
+	:type priority: int
 	:param ignoreDependencyOrdering: Treat priority as a global value and use priority to raise this project above, or lower it below, the dependency order
 	:type ignoreDependencyOrdering: bool
 	:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
@@ -128,7 +129,7 @@ class Project(object):
 		if not os.path.exists(self.csbuildDir):
 			os.makedirs(self.csbuildDir)
 
-		self.toolchain = Toolchain(*self.tools)
+		self.toolchain = Toolchain(projectSettings, *self.tools)
 
 		#: type: dict[str, ordered_set.OrderedSet]
 		self.inputFiles = {}
@@ -179,7 +180,7 @@ class Project(object):
 					absroot = os.path.abspath(root)
 					if absroot in self.excludeDirs:
 						if absroot != self.csbuildDir:
-							log.Info("Skipping dir {0}".format(root))
+							log.Info("Skipping dir {}", root)
 						continue
 					if ".csbuild" in root \
 							or root.startswith(self.intermediateDir) \
@@ -194,10 +195,11 @@ class Project(object):
 							continue
 					if bFound:
 						if not absroot.startswith(self.csbuildDir):
-							log.Info("Skipping directory {0}".format(root))
+							log.Info("Skipping directory {}", root)
 						continue
-					log.Info("Looking in directory {0}".format(root))
+					log.Info("Looking in directory {}", root)
 					for extension in extensionList:
+						log.Info("Checking for {}", extension)
 						self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
 							[
 								input_file.InputFile(

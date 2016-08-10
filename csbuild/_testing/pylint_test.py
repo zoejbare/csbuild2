@@ -38,7 +38,8 @@ else:
 	import Queue as queue
 
 from . import testcase
-from .._utils import thread_pool, log, PlatformString
+from .. import log
+from .._utils import thread_pool, PlatformString
 
 class TestPylint(testcase.TestCase):
 	"""Test to run pylint"""
