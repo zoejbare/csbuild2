@@ -88,6 +88,7 @@ from ._utils.string_abc import String
 from ._utils.decorators import TypeChecked, Overload
 from ._utils import shared_globals
 from ._utils import ordered_set
+from ._utils import PlatformString
 
 from .toolchain import toolchain
 
@@ -442,5 +443,5 @@ def Run():
 			imp.acquire_lock()
 		raise
 
-if os.getenv("CSBUILD_NO_AUTO_RUN") != "1":
+if os.getenv(PlatformString("CSBUILD_NO_AUTO_RUN")) != "1":
 	Run()
