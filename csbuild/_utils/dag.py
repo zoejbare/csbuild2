@@ -171,4 +171,3 @@ class TestDAG(testcase.TestCase):
 		self.assertEqual(5, len(dag))
 		l = list(dag)
 		self.assertEqual([a.val for a in l], [5,4,3,2,1])
-

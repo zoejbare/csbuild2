@@ -33,13 +33,21 @@ if __name__ == "__main__":
 	# Copied from csbuild._utils because we can't import that before we set environ, and we need this to do that
 	if sys.version_info[0] >= 3:
 		def PlatformString(inputStr):
-			"""In the presence of unicode_literals, get an object that is type str in both python2 and python3."""
+			"""
+			In the presence of unicode_literals, get an object that is type str in both python2 and python3.
+			:return: str representation of inputStr
+			:rtype: str
+			"""
 			if isinstance(inputStr, str):
 				return inputStr
 			return inputStr.decode("UTF-8")
 	else:
 		def PlatformString(inputStr):
-			"""In the presence of unicode_literals, get an object that is type str in both python2 and python3."""
+			"""
+			In the presence of unicode_literals, get an object that is type str in both python2 and python3.
+			:return: str representation of inputStr
+			:rtype: str
+			"""
 			if isinstance(inputStr, str):
 				return inputStr
 			return inputStr.encode("UTF-8")
@@ -66,4 +74,3 @@ if __name__ == "__main__":
 	totalret = RunTests(include, exclude)
 
 	sys.exit(totalret)
-

@@ -61,7 +61,8 @@ def TypeChecked(**argtypes):
 				The special keyword *_return* designates the return type.
 				Each parameter must either specify a type or a tuple of argtypes.
 				To explicitly accept all argtypes, pass arg=object
-	:return: function
+	:return: a type-checked wrapper for the function
+	:rtype: function
 	"""
 	argtypes = dict(**argtypes)
 
@@ -161,7 +162,8 @@ def Overload(**argtypes):
 				If a value is passed rather than a type or tuple of argtypes, that value will provide an even more specific
 				overload (for example, allowing the base case of a recursive function to be defined as an overload
 				of the function that will be selected when, ex, param0=0)
-	:return: function
+	:return: A wrapper function that performs overload resolution and calls the correct function
+	:rtype: function
 	"""
 	argtypes = dict(**argtypes)
 
@@ -222,7 +224,7 @@ def Overload(**argtypes):
 
 				disqualified = False
 				priority = 0
-				for key in kwargs.keys():
+				for key in kwargs:
 					# If there are any keyword arguments provided that aren't accepted by this overload, skip it
 					if key not in func.__varNames__:
 						disqualified = True
@@ -447,6 +449,8 @@ def MetaClass(meta):
 
 	:param meta: Class to decorate
 	:type meta: any
+	:return: The class with metaclass added to it
+	:rtype: type
 	"""
 	def _wrap(cls):
 		return meta(cls.__name__, cls.__bases__, dict(cls.__dict__))

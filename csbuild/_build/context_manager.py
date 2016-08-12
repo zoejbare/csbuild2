@@ -112,6 +112,8 @@ class ContextManager(object):
 		:type excValue: any
 		:param traceback: traceback attached to the thrown exception (ignored)
 		:type traceback: traceback
+		:return: Always false
+		:rtype: bool
 		"""
 		object.__setattr__(self, "inself", True)
 		# pylint: disable=protected-access

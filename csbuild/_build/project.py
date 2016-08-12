@@ -213,4 +213,3 @@ class Project(object):
 			extension = os.path.splitext(filename)[1]
 			self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(filename)
 		log.Info("Discovered {}", self.inputFiles)
-

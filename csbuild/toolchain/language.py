@@ -76,6 +76,8 @@ def LanguageBaseClass(lang):
 	Decorator that should be applied to a base class implementing a language.
 	:param lang: The name of the language (i.e., c++)
 	:type lang: str
+	:return: The original class
+	:rtype: type
 	"""
 	def _wrap(cls):
 		shared_globals.languages.setdefault(lang, Language()).AddTool(cls)

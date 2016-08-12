@@ -34,11 +34,6 @@ import sys
 
 import collections
 
-if sys.version_info[0] >= 3:
-	from collections.abc import Callable
-else:
-	from collections import Callable
-
 import csbuild
 from . import project
 from .._utils import ordered_set
@@ -47,6 +42,10 @@ from .._utils.string_abc import String
 from .._testing import testcase
 from ..toolchain import toolchain
 
+if sys.version_info[0] >= 3:
+	from collections.abc import Callable
+else:
+	from collections import Callable
 
 allPlans = {}
 class _defaultType(object):
@@ -470,7 +469,8 @@ class ProjectPlan(object):
 		Get a list of all values in the currently active contexts.
 		:param key: The setting key
 		:type key: str, bytes
-		:return: list
+		:return: list of values in currently active contexts
+		:rtype: list
 		"""
 		if toolchain.currentToolId is not None:
 			key = "{}!{}".format(toolchain.currentToolId, key)
@@ -855,4 +855,3 @@ class TestProjectPlan(testcase.TestCase):
 		self.assertEqual(first1.settings["a"], 1)
 		self.assertEqual(first2.settings["a"], 2)
 		self.assertEqual(first3.settings["a"], 2)
-

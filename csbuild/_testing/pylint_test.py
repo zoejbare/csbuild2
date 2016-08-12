@@ -32,14 +32,14 @@ import sys
 import traceback
 import threading
 
+from . import testcase
+from .. import log
+from .._utils import thread_pool, PlatformString
+
 if sys.version_info[0] >= 3:
 	import queue
 else:
 	import Queue as queue
-
-from . import testcase
-from .. import log
-from .._utils import thread_pool, PlatformString
 
 class TestPylint(testcase.TestCase):
 	"""Test to run pylint"""

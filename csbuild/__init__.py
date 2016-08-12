@@ -405,6 +405,8 @@ class Project(object):
 		:type excValue: any
 		:param traceback: traceback attached to the thrown exception (ignored)
 		:type traceback: traceback
+		:return: Always false
+		:rtype: bool
 		"""
 		global currentPlan
 		currentPlan = self._prevPlan

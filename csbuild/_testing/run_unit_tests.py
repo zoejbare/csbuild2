@@ -44,6 +44,8 @@ def RunTests(include, exclude):
 	:type include: list[str]
 	:param exclude: Filters to not build
 	:type exclude: list[str]
+	:return: 0 if successful, 1 if not
+	:rtype: int
 	"""
 	shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 	tests = unittest.defaultTestLoader.discover("csbuild", "*.py", ".")

@@ -257,6 +257,9 @@ class Toolchain(object):
 				:type item: any
 				:return: the item
 				:rtype: any
+				:return: Whatever was placed in the settings dictionary
+				:rtype: any
+				:raises KeyError: if the key is not present in the dictionary within the calling class's scope
 				"""
 				key = "{}!{}".format(currentToolId, item)
 				if key not in self._settingsDict:
@@ -367,6 +370,8 @@ class Toolchain(object):
 						tool.Run(toolchain, *args)
 				:param tool: The tool context to enter
 				:type tool: type
+				:returns: Context manager to be used with a 'with' statement
+				:rtype: context manager
 				"""
 				return Use(tool)
 
@@ -425,6 +430,8 @@ class Toolchain(object):
 				Check whether an output of the given extension is capable of being generated.
 				:param extension:
 				:type extension: str, bytes
+				:return: Whether or not the input is active
+				:rtype: bool
 				"""
 				return _classTrackr.reachability.get(extension, 0) != 0
 
@@ -714,6 +721,7 @@ class Toolchain(object):
 	################################################################################
 	################################################################################
 
+	# pylint: disable=redundant-returns-doc
 	@contextlib.contextmanager
 	@TypeChecked(tool=(_classType, _typeType))
 	def Use(self, tool):
@@ -724,6 +732,8 @@ class Toolchain(object):
 				tool.Run(toolchain, *args)
 		:param tool: The tool context to enter
 		:type tool: type
+		:returns: Context manager to be used with a 'with' statement
+		:rtype: context manager
 		"""
 		pass
 
@@ -763,6 +773,8 @@ class Toolchain(object):
 		Check whether an output of the given extension is capable of being generated.
 		:param extension:
 		:type extension: str, bytes
+		:return: Whether or not the input is active
+		:rtype: bool
 		"""
 
 	@TypeChecked(tool=(_classType, _typeType), extension=String)

@@ -101,11 +101,13 @@ class Tool(object):
 		:type inputFile: str
 		:return: List of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: list[str]
+		:raises NotImplementedError: if the subclass defines inputFiles and does not implement it
 		"""
 		_ignore(project)
 		_ignore(inputFile)
 		if _eliminatePylintAbstractMethodCheck:
 			raise NotImplementedError()
+		return []
 
 	def RunGroup(self, project, inputFiles):
 		"""
@@ -119,9 +121,10 @@ class Tool(object):
 		:type inputFiles: list[str]
 		:return: List of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: list[str]
+		:raises NotImplementedError: if the subclass defines inputGroups and does not implement it
 		"""
 		_ignore(project)
 		_ignore(inputFiles)
 		if _eliminatePylintAbstractMethodCheck:
 			raise NotImplementedError()
-
+		return []

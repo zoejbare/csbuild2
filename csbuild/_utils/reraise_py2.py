@@ -35,5 +35,6 @@ def Reraise(exception, traceback):
 	:type exception: Exception
 	:param traceback: Traceback object to attach to the exception
 	:type traceback: Traceback
+	:raises exception: always
 	"""
 	raise exception, None, traceback

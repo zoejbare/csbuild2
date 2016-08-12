@@ -31,13 +31,13 @@ import sys
 import threading
 import re
 
+from ._utils import terminfo, shared_globals, BytesType, StrType
+from ._utils.shared_globals import Verbosity
+
 if sys.version_info[0] >= 3:
 	import queue
 else:
 	import Queue as queue
-
-from ._utils import terminfo, shared_globals, BytesType, StrType
-from ._utils.shared_globals import Verbosity
 
 _logQueue = queue.Queue()
 _stopEvent = object()

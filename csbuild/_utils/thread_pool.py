@@ -31,6 +31,11 @@ from __future__ import unicode_literals, division, print_function
 import functools
 import sys
 import threading
+
+from .. import log
+from .._testing import testcase
+from .decorators import TypeChecked
+
 if sys.version_info[0] >= 3:
 	import queue
 	from collections.abc import Callable
@@ -40,10 +45,6 @@ else:
 	from collections import Callable
 	# pylint: disable=import-error
 	from .reraise_py2 import Reraise
-
-from .. import log
-from .._testing import testcase
-from .decorators import TypeChecked
 
 class ThreadedTaskException(Exception):
 	"""
@@ -55,11 +56,15 @@ class ThreadedTaskException(Exception):
 		self.traceback = tb
 
 	def __repr__(self):
-		return repr(self.exception)
+		return "ThreadedTaskException: (" + type(self.exception).__name__ + ": " + repr(self.exception) + ")"
+
+	def __str__(self):
+		return "(" + type(self.exception).__name__ + ": " + str(self.exception) + ")"
 
 	def Reraise(self):
 		"""
-		Reraise the wrapped exception so that a new set of catch statements can be prepared
+		Reraise the wrapped exception so that
+		 a new set of catch statements can be prepared
 		"""
 		Reraise(self.exception, self.traceback)
 
