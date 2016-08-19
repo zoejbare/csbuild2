@@ -718,12 +718,12 @@ def Run():
 
 	# Encodings are handled by trying to import a module and then failing to encode if they can't
 	# Import all encodings and cache before releasing the import lock to make sure this can be done in a safe way
-	sys.modules.update(
-		{
-			name: importlib.import_module('encodings.' + name)
-			for loader, name, _ in pkgutil.walk_packages(encodings.__path__, onerror=_ignoreError)
-		}
-	)
+	for _, name, _ in pkgutil.walk_packages(encodings.__path__, onerror=_ignoreError):
+		try:
+			module = importlib.import_module('encodings.' + name)
+			sys.modules[name] = module
+		except:
+			continue
 
 	# Note:
 	# The reason for this line of code is that the import lock, in the way that CSBuild operates, prevents
