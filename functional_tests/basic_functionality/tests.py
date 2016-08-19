@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. package:: basic_tool_test
-	:synopsis: Basic test of tools to make sure simple tools chain together properly
+.. module:: tests
+	:synopsis: The simplest of tests - make sure a makefile that does nothing runs and exits 0
 
 .. moduleauthor:: Jaedyn K. Draper
 """
@@ -29,12 +29,9 @@ from __future__ import unicode_literals, division, print_function
 
 from csbuild._testing.functional_test import FunctionalTest
 
-class BasicToolTest(FunctionalTest):
-	"""Basic tool test"""
+class BasicFunctionalityTest(FunctionalTest):
+	"""Basic functionality test"""
 	# pylint: disable=invalid-name
 	def test(self):
-		"""Basic tool test"""
-		self.RunMake("-v")
-		for i in range(1, 11):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "110")
+		"""Basic functionality test"""
+		self.assertMakeSucceeds()

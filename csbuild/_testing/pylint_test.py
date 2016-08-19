@@ -69,9 +69,9 @@ class TestPylint(testcase.TestCase):
 			fd = subprocess.Popen([sys.executable, "csbuild/_testing/run_pylint.py", module], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 			out, err = fd.communicate()
 			if err:
-				log.Error(err)
+				log.Error("LINTING {}:\n\n{}", module, err)
 			if out:
-				log.Error(out)
+				log.Error("LINTING {}:\n\n{}", module, out)
 			if fd.returncode != 0:
 				with lock:
 					failedLints.add(module)

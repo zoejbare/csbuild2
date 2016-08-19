@@ -19,19 +19,40 @@
 # SOFTWARE.
 
 """
-.. package:: basic_functionality
-	:synopsis: The simplest of tests - make sure a makefile that does nothing runs and exits 0
+.. module:: make
+	:synopsis: Makefile for this test
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from csbuild._testing.functional_test import FunctionalTest
+import csbuild
+import os
+from csbuild.toolchain import Tool, language
 
-class BasicFunctionalityTest(FunctionalTest):
-	"""Basic functionality test"""
-	# pylint: disable=invalid-name
-	def test(self):
-		"""Basic functionality test"""
-		self.RunMake()
+@language.LanguageBaseClass("NullTool")
+class NullTool(Tool):
+	"""
+	Simple base class to test language contexts
+	"""
+
+	inputFiles=set(".in")
+
+	def __init__(self, projectSettings):
+		import csbimporttest #pylint: disable=unused-variable
+		Tool.__init__(self, projectSettings)
+
+	def Run(self, project, inputFile):
+		import csbimporttest
+		assert csbimporttest.foo == 0
+		outFile = os.path.join(project.outputDir, project.outputName + ".out")
+		with open(outFile, "w") as f:
+			f.write("you're out-a here")
+		return outFile
+
+csbuild.RegisterToolchain("NullTool", "", NullTool)
+csbuild.SetDefaultToolchain("NullTool")
+
+with csbuild.Project("TestProject", "."):
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

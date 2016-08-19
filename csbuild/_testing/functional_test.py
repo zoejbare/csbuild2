@@ -43,7 +43,7 @@ class FunctionalTest(TestCase):
 	def setUp(self):
 		self._prevdir = os.getcwd()
 		module = __import__(self.__class__.__module__)
-		path = os.path.join(os.path.dirname(module.__file__), self.__module__.split('.', 2)[1])
+		path = os.path.dirname(module.__file__)
 		if PlatformString("CSBUILD_NO_AUTO_RUN") in os.environ:
 			self._oldenviron = os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")]
 			del os.environ[PlatformString("CSBUILD_NO_AUTO_RUN")]
@@ -65,8 +65,8 @@ class FunctionalTest(TestCase):
 		Run the test's local makefile with the given args. The makefile must be in the same directory and named make.py
 		:param args: Arguments to pass
 		:type args: str
-		:return: Tuple of stdout and stderr output from the process
-		:rtype: tuple[str, str]
+		:return: Tuple of returncode, stdout and stderr output from the process
+		:rtype: tuple[int, str, str]
 		"""
 		cmd = [sys.executable, "make.py"]
 		cmd.extend(args)
@@ -99,11 +99,38 @@ class FunctionalTest(TestCase):
 		outputThread.join()
 		errorThread.join()
 
-		self.assertEqual(proc.returncode, 0)
-
-		return "".join(output), "".join(errors)
+		return proc.returncode, "".join(output), "".join(errors)
 
 	# pylint: disable=invalid-name
+	def assertMakeSucceeds(self, *args):
+		"""
+		Assert that running a makefile succeeds
+		:param args: Arguments to pass
+		:type args: str
+		:return: Tuple of returncode, stdout and stderr output from the process
+		:rtype: tuple[int, str, str]
+		"""
+		returncode, output, errors = self.RunMake(*args)
+		self.assertEqual(returncode, 0)
+		return returncode, output, errors
+
+	def assertMakeRaises(self, error, *args):
+		"""
+		Assert that running a makefile fails with the given error
+		:param args: Arguments to pass
+		:type args: str
+		:param error: Error or exception to search for in the logs
+		:type error: Exception or str
+		:return: Tuple of returncode, stdout and stderr output from the process
+		:rtype: tuple[int, str, str]
+		"""
+		returncode, output, errors = self.RunMake(*args)
+		self.assertNotEqual(returncode, 0)
+		if issubclass(error, Exception):
+			error = error.__name__
+		self.assertIn(error, errors)
+		return returncode, output, errors
+
 	def assertFileExists(self, filename):
 		"""
 		Assert that an expected file exists

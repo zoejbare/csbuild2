@@ -29,6 +29,8 @@ from __future__ import unicode_literals, division, print_function
 import sys
 import unittest
 import fnmatch
+import os
+import imp
 
 from .. import log
 from .._utils import shared_globals, terminfo
@@ -49,7 +51,14 @@ def RunTests(include, exclude):
 	"""
 	shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 	tests = unittest.defaultTestLoader.discover("csbuild", "*.py", ".")
-	tests.addTests(unittest.defaultTestLoader.discover("functional_tests", "*.py", "."))
+	for testdir in os.listdir("functional_tests"):
+		log.Test("Loading functional tests from {}", testdir)
+		if os.path.isdir(os.path.join("functional_tests", testdir)):
+			modulepath = os.path.join("functional_tests", testdir, "tests.py")
+			if os.path.exists(modulepath):
+				log.Test("Loading {}", modulepath)
+				log.Test("{}", dir(imp.load_source("{}_tests".format(testdir), modulepath)))
+				tests.addTest(unittest.defaultTestLoader.loadTestsFromModule(imp.load_source("{}_tests".format(testdir), modulepath)))
 	testRunner = testcase.TestRunner(xmlfile="result.xml", stream=sys.stdout, verbosity=0)
 
 	# Handle filtering:

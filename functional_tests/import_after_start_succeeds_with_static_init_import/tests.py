@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,49 +19,19 @@
 # SOFTWARE.
 
 """
-.. module:: system
-	:synopsis: functions with functionality analogous to the sys module, but specialized for csbuild
+.. module:: tests
+	:synopsis: Test to make sure that importing a file locally after importing it in tool static init will succeed
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import imp
-import os
-import csbuild
-import sys
+from csbuild._testing.functional_test import FunctionalTest
 
-from . import shared_globals
-from .. import log
-
-def Exit(code = 0):
-	"""
-	Exit the build process early
-
-	:param code: Exit code to exit with
-	:type code: int
-	"""
-
-	if not imp.lock_held():
-		imp.acquire_lock()
-
-	sys.meta_path = []
-
-	if shared_globals.runMode == csbuild.RunMode.Normal:
-		log.Build("Cleaning up")
-
-	for proj in shared_globals.projectBuildList:
-		proj.artifactsFile.flush()
-		proj.artifactsFile.close()
-
-	if not imp.lock_held():
-		imp.acquire_lock()
-
-	# TODO: Kill running subprocesses
-	# TODO: Exit events for plugins
-
-	# Die hard, we don't need python to clean up and we want to make sure this exits.
-	# sys.exit just throws an exception that can be caught. No catching allowed.
-	# pylint: disable=protected-access
-	os._exit(code)
+class ImportAfterStartWithToolStaticInitImportTest(FunctionalTest):
+	"""Import after start with tool static init import should succeed"""
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Basic tool test"""
+		self.assertMakeSucceeds()

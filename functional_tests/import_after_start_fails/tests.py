@@ -19,12 +19,19 @@
 # SOFTWARE.
 
 """
-.. package:: functional_tests
-	:synopsis: Empty init file to allow unit tests to descend into subdirectories and find files.
+.. module:: tests
+	:synopsis: Test that importing a module after the build has started will throw an exception
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-#Empty
+from csbuild._testing.functional_test import FunctionalTest
+
+class ImportAfterStartTest(FunctionalTest):
+	"""Import after start should fail with an exception"""
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Test import after start fails"""
+		self.assertMakeRaises(ImportError)

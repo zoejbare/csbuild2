@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,49 +19,36 @@
 # SOFTWARE.
 
 """
-.. module:: system
-	:synopsis: functions with functionality analogous to the sys module, but specialized for csbuild
+.. module:: make
+	:synopsis: Makefile for this test
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import imp
-import os
 import csbuild
-import sys
+import os
+from csbuild.toolchain import Tool, language
 
-from . import shared_globals
-from .. import log
-
-def Exit(code = 0):
+@language.LanguageBaseClass("NullTool")
+class NullTool(Tool):
 	"""
-	Exit the build process early
-
-	:param code: Exit code to exit with
-	:type code: int
+	Simple base class to test language contexts
 	"""
 
-	if not imp.lock_held():
-		imp.acquire_lock()
+	inputFiles=set(".in")
 
-	sys.meta_path = []
+	def Run(self, project, inputFile):
+		import csbimporttest
+		assert csbimporttest.foo == 0
+		outFile = os.path.join(project.outputDir, project.outputName + ".out")
+		with open(outFile, "w") as f:
+			f.write("you're out-a here")
+		return outFile
 
-	if shared_globals.runMode == csbuild.RunMode.Normal:
-		log.Build("Cleaning up")
+csbuild.RegisterToolchain("NullTool", "", NullTool)
+csbuild.SetDefaultToolchain("NullTool")
 
-	for proj in shared_globals.projectBuildList:
-		proj.artifactsFile.flush()
-		proj.artifactsFile.close()
-
-	if not imp.lock_held():
-		imp.acquire_lock()
-
-	# TODO: Kill running subprocesses
-	# TODO: Exit events for plugins
-
-	# Die hard, we don't need python to clean up and we want to make sure this exits.
-	# sys.exit just throws an exception that can be caught. No catching allowed.
-	# pylint: disable=protected-access
-	os._exit(code)
+with csbuild.Project("TestProject", "."):
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

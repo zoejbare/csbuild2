@@ -97,6 +97,9 @@ class Project(object):
 		#: type: str
 		self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
 
+		if not os.path.exists(self.csbuildDir):
+			os.makedirs(self.csbuildDir)
+
 		#: type: str
 		self.artifactsFileName = os.path.join(
 			self.csbuildDir,

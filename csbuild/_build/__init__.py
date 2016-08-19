@@ -34,6 +34,9 @@ import imp
 import math
 import multiprocessing
 import time
+import encodings
+import importlib
+import pkgutil
 
 from . import project_plan, project, input_file
 from .. import log
@@ -391,6 +394,11 @@ def _build(numThreads, projectBuildList):
 		try:
 			callback()
 		except thread_pool.ThreadedTaskException as e:
+			_runningBuilds -= 1
+			if _runningBuilds == 0:
+				# We have no builds running and finishing this build did not spawn a new one
+				# Time to exit.
+				pool.Stop()
 			failures += 1
 			try:
 				toReraise = e
@@ -705,6 +713,16 @@ def Run():
 	totaltime = time.time() - preparationStart
 	log.Build("Build preparation took {}".format(FormatTime(totaltime)))
 
+
+	# Encodings are handled by trying to import a module and then failing to encode if they can't
+	# Import all encodings and cache before releasing the import lock to make sure this can be done in a safe way
+	sys.modules.update(
+		{
+			name: importlib.import_module('encodings.' + name)
+			for loader, name, _ in pkgutil.walk_packages(encodings.__path__)
+		}
+	)
+
 	# Note:
 	# The reason for this line of code is that the import lock, in the way that CSBuild operates, prevents
 	# us from being able to call subprocess.Popen() or any other process execution function other than os.popen().
@@ -713,6 +731,40 @@ def Run():
 	# thread objects are defined in so they're completed in full on the main thread before that thread starts.
 	#
 	# After this point, the LOCK IS RELEASED. Importing is NO LONGER THREAD-SAFE. DON'T DO IT.
+
+	#Past this point, disable importing entirely! Anything not already in the cache will raise an error on import
+	class _importBlocker(object):
+		"""
+		This import hook prevents any module from being imported. Ever.
+		"""
+		#pylint: disable=invalid-name, unused-argument
+		def find_module(self, fullname, path=None):
+			"""
+			Find the module loader, always returns self so the load_module will be called
+			:param fullname: name of module
+			:type fullname: str
+			:param path: path to look in
+			:type path: str
+			:return: self
+			:rtype: _importBlocker
+			"""
+			return self
+
+		def load_module(self, name):
+			"""
+			Always raises import error
+			:param name: name of module
+			:type name: str
+			:raises ImportError: always
+			"""
+			raise ImportError(
+				"All modules must be imported prior to build starting. If you need local imports, "
+				"make a global import first, or import in a pre-build step, or in plugin/tool static "
+				"init, so that it is cached."
+			)
+
+	sys.meta_path.insert(0, _importBlocker())
+
 	if imp.lock_held():
 		imp.release_lock()
 
