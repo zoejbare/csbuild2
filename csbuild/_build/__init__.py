@@ -713,13 +713,15 @@ def Run():
 	totaltime = time.time() - preparationStart
 	log.Build("Build preparation took {}".format(FormatTime(totaltime)))
 
+	def _ignoreError(_):
+		pass
 
 	# Encodings are handled by trying to import a module and then failing to encode if they can't
 	# Import all encodings and cache before releasing the import lock to make sure this can be done in a safe way
 	sys.modules.update(
 		{
 			name: importlib.import_module('encodings.' + name)
-			for loader, name, _ in pkgutil.walk_packages(encodings.__path__)
+			for loader, name, _ in pkgutil.walk_packages(encodings.__path__, onerror=_ignoreError)
 		}
 	)
 
