@@ -53,7 +53,7 @@ else:
 		:param dirname: Directory name
 		:type dirname: str
 		"""
-		dirfd = os.open(dirname, os.O_RDWR)
+		dirfd = os.open(dirname, os.O_DIRECTORY)
 		os.fsync(dirfd)
 		os.close(dirfd)
 
