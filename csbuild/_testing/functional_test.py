@@ -65,7 +65,7 @@ if platform.system() == "Windows":
 		"""Represents a named synchronization primitive - a named mutex in windows, a file lock in linux"""
 		def __init__(self, name):
 			# Backslashes not ok. Forward slashes are fine.
-			self.name = name.replace("\\", "/")
+			self.name = "csbuild/"+name.replace("\\", "/")
 			if sys.version_info[0] >= 3:
 				self.name = self.name.encode("UTF-8")
 			ret = _CreateMutex(None, False, self.name)
@@ -137,7 +137,7 @@ class FunctionalTest(TestCase):
 		module = __import__(self.__class__.__module__)
 		path = os.path.dirname(module.__file__)
 
-		self.mtx = _namedMutex(os.path.join("csbuild", path, "lock"))
+		self.mtx = _namedMutex(os.path.join(path, "lock"))
 		self.mtx.acquire()
 
 		if PlatformString("CSBUILD_NO_AUTO_RUN") in os.environ:
