@@ -19,41 +19,26 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. module:: tests
+	:synopsis: Test to ensure inter-tool dependencies with files not taken as input files work correctly
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
-import os
-from csbuild.toolchain import Tool, language
+from csbuild._testing.functional_test import FunctionalTest
 
-@language.LanguageBaseClass("NullTool")
-class NullTool(Tool):
-	"""
-	Simple base class to test language contexts
-	"""
-
-	inputFiles=set(".in")
-	supportedArchitectures=None
-
-	def __init__(self, projectSettings):
-		import csbimporttest #pylint: disable=unused-variable
-		Tool.__init__(self, projectSettings)
-
-	def Run(self, project, inputFile):
-		import csbimporttest
-		assert csbimporttest.foo == 0
-		outFile = os.path.join(project.outputDir, project.outputName + ".out")
-		with open(outFile, "w") as f:
-			f.write("you're out-a here")
-		return outFile
-
-csbuild.RegisterToolchain("NullTool", "", NullTool)
-csbuild.SetDefaultToolchain("NullTool")
-
-with csbuild.Project("TestProject", "."):
-	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+class ToolDependencyTest(FunctionalTest):
+	"""Tool dependency test"""
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Tool dependency test"""
+		self.assertMakeSucceeds()
+		for i in range(1, 11):
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*3))
+			self.assertFileContents("./intermediate/{}.firstcopy".format(i), str(i))
+			self.assertFileContents("./intermediate/{}.secondcopy".format(i), str(i*3))
+		#This is (1..10) * 6 despite the above assertions counting them seven times
+		#Reason for this is that firstcopy is already counted in second and not added into third again
+		self.assertFileContents("./out/Foo.third", "330")

@@ -82,12 +82,19 @@ class Tool(object):
 	#  set this value to None. An empty set implies it supports no architectures and can never be run.
 	supportedArchitectures = set()
 
+	#: Set of supported platforms. If this toolchain supports all possible platforms,
+	#  set this value to None. An empty set implies it supports no platforms and can never be run.
+	supportedPlatforms = None
+
+	_initialized = False
+
 	def __init__(self, projectSettings):
 		pass
 
 	@staticmethod
 	def __static_init__():
-		pass
+		assert not Tool._initialized
+		Tool._initialized = True
 
 	def Run(self, project, inputFile):
 		"""

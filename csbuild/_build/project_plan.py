@@ -36,6 +36,7 @@ import collections
 
 import csbuild
 from . import project
+from .. import log
 from .._utils import ordered_set
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
@@ -346,6 +347,40 @@ class ProjectPlan(object):
 
 		self._flattenOverrides(settings, self._settings.get("overrides"), toolchainName, architectureName, targetName)
 
+		tools = settings.get("tools", [])
+		for tool in tools:
+			if tool.supportedArchitectures is not None and architectureName not in tool.supportedArchitectures:
+				log.Info("Tool {} does not support architecture {}", tool.__name__, architectureName)
+				return None
+			if tool.supportedPlatforms is not None and platform.system() not in tool.supportedPlatforms:
+				log.Info("Tool {} does not support platform {}", tool.__name__, platform.system())
+				return None
+
+		supportedToolchains = settings.get("supportedToolchains", None)
+		if supportedToolchains and toolchainName not in supportedToolchains:
+			log.Info("Project {} does not support toolchain {}", self.name, toolchainName)
+			return None
+
+		supportedPlatforms = settings.get("supportedPlatforms", None)
+		if supportedPlatforms and platform.system() not in supportedPlatforms:
+			log.Info("Project {} does not support platform {}", self.name, platform.system())
+			return None
+
+		supportedArchitectures = settings.get("supportedArchitectures", None)
+		if supportedArchitectures and architectureName not in supportedArchitectures:
+			log.Info("Project {} does not support architecture {}", self.name, architectureName)
+			return None
+
+		supportedTargets = settings.get("supportedTargets", None)
+		if supportedTargets and targetName not in supportedTargets:
+			log.Info("Project {} does not support target {}", self.name, targetName)
+			return None
+
+		targets = settings.get("targets", None)
+		if targets and targetName not in targets:
+			log.Info("Project {} does not know about target {}", self.name, targetName)
+			return None
+
 		return project.Project(
 			self._name,
 			self._workingDirectory,
@@ -446,7 +481,7 @@ class ProjectPlan(object):
 		if toolchain.currentToolId is not None:
 			key = "{}!{}".format(toolchain.currentToolId, key)
 		for settings in self._currentSettingsDicts:
-			settings.setdefault(key, ordered_set.OrderedSet()).union(value)
+			settings.setdefault(key, ordered_set.OrderedSet()).update(value)
 
 	@TypeChecked(key=String, value=object)
 	def AddToSet(self, key, value):
@@ -515,9 +550,11 @@ class TestProjectPlan(testcase.TestCase):
 	def setUp(self):
 		from .._utils import shared_globals
 		self._oldVerbosity = shared_globals.verbosity
+		#INFO logging in ExecutePlan is a little noisy for tests, quieting it down for this test and popping it back up later is good.
 		shared_globals.verbosity = shared_globals.Verbosity.Quiet
 		from csbuild.toolchain import Tool
 		class _nullTool(Tool):
+			supportedArchitectures = None
 			def Run(self, inputProject, inputFiles):
 				pass
 
@@ -541,6 +578,7 @@ class TestProjectPlan(testcase.TestCase):
 		csbuild.currentPlan.SetValue("tools", ordered_set.OrderedSet((_nullTool,)))
 
 		csbuild.currentPlan.LeaveContext()
+		csbuild.currentPlan.SetValue("projectType", csbuild.ProjectType.Application)
 
 		self._oldPlan = csbuild.currentPlan
 

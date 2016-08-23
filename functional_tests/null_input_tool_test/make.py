@@ -30,27 +30,16 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 from csbuild.toolchain import Tool, language
 import os
+import glob
 
-@language.LanguageBaseClass("AddDoubles")
-class AddDoubles(Tool):
+@language.LanguageBaseClass("NullInput")
+class NullInput(Tool):
 	"""
 	Simple base class to test language contexts
 	"""
 	supportedArchitectures=None
-	def __init__(self, projectSettings):
-		assert "foo" not in projectSettings._settingsDict #pylint: disable=protected-access
-		assert "{}!foo".format(id(AddDoubles)) in projectSettings._settingsDict #pylint: disable=protected-access
-		self._foo = projectSettings.get("foo", False)
-		Tool.__init__(self, projectSettings)
 
-	@staticmethod
-	def SetFoo():
-		"""
-		Set foo to true, yay testing.
-		"""
-		csbuild.currentPlan.SetValue("foo", True) #pylint: disable=protected-access
-
-class Doubler(AddDoubles):
+class Doubler(NullInput):
 	"""
 	Simple tool that opens a file, doubles its contents numerically, and writes a new file.
 	"""
@@ -59,7 +48,6 @@ class Doubler(AddDoubles):
 	outputFiles = {".second"}
 
 	def Run(self, project, inputFile):
-		assert self._foo is True
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
@@ -68,7 +56,7 @@ class Doubler(AddDoubles):
 			f.write(str(value))
 		return outFile
 
-class Adder(AddDoubles):
+class Adder(NullInput):
 	"""
 	Simple tool that opens multiple doubled files and adds their contents together numerically, outputting a final file.
 	"""
@@ -76,7 +64,6 @@ class Adder(AddDoubles):
 	outputFiles = {".third"}
 
 	def RunGroup(self, project, inputFiles):
-		assert self._foo is True
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
@@ -86,11 +73,41 @@ class Adder(AddDoubles):
 			f.write(str(value))
 		return outFile
 
-csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
-csbuild.SetDefaultToolchain("AddDoubles")
+class NullInputMakes20(NullInput):
+	"""
+	This tool replaces the input processing of 10.first from basic_tool_test by directly creating 10.second
+	"""
+	inputFiles = None
+	outputFiles = {".second"}
 
-with csbuild.Language("AddDoubles"):
-	csbuild.SetFoo()
+	def Run(self, project, _):
+		outFile = os.path.join(project.intermediateDir, "10.second")
+		with open(outFile, "w") as f:
+			f.write("20")
+		return outFile
 
-	with csbuild.Project("TestProject", "."):
-		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+class NullInputAdds(NullInput):
+	"""
+	This tool replaces Adder and manually iterates the .second files to add them together.
+	If the 'dependencies' parameter is broken, this will fail!
+	"""
+	inputFiles = None
+	dependencies = {".second"}
+	outputFiles = {".third"}
+
+	def Run(self, project, _):
+		value = 0
+		for inputFile in glob.glob(os.path.join(project.intermediateDir, "*.second")):
+			with open(inputFile, "r") as f:
+				value += int(f.read())
+		outFile = os.path.join(project.outputDir, project.outputName + ".third")
+		with open(outFile, "w") as f:
+			f.write(str(value))
+		return outFile
+
+csbuild.RegisterToolchain("NullInput", "", NullInputMakes20, Doubler, Adder)
+csbuild.RegisterToolchain("NullInputWithDepends", "", NullInputAdds, Doubler)
+csbuild.SetDefaultToolchain("NullInput")
+
+with csbuild.Project("TestProject", "."):
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

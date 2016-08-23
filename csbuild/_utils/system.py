@@ -31,9 +31,31 @@ import imp
 import os
 import csbuild
 import sys
+import platform
 
 from . import shared_globals
 from .. import log
+
+if platform.system() == "Windows":
+	def SyncDir(_):
+		"""
+		Synchronize a directory to ensure its contents are visible to other applications.
+		Does nothing on Windows.
+		:param _: Directory name
+		:type _: str
+		"""
+		pass
+else:
+	def SyncDir(dirname):
+		"""
+		Synchronize a directory to ensure its contents are visible to other applications.
+		Does nothing on Windows.
+		:param dirname: Directory name
+		:type dirname: str
+		"""
+		dirfd = os.open(dirname, os.O_RDWR)
+		os.fsync(dirfd)
+		os.close(dirfd)
 
 def Exit(code = 0):
 	"""
@@ -52,8 +74,12 @@ def Exit(code = 0):
 		log.Build("Cleaning up")
 
 	for proj in shared_globals.projectBuildList:
-		proj.artifactsFile.flush()
-		proj.artifactsFile.close()
+		if proj.artifactsFile is not None:
+			proj.artifactsFile.flush()
+			os.fsync(proj.artifactsFile.fileno())
+			proj.artifactsFile.close()
+
+			SyncDir(os.path.dirname(proj.artifactsFileName))
 
 	if not imp.lock_held():
 		imp.acquire_lock()

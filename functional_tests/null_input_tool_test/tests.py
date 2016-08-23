@@ -19,41 +19,30 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. module:: tests
+	:synopsis: Test that null input tools work
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
-import os
-from csbuild.toolchain import Tool, language
+from csbuild._testing.functional_test import FunctionalTest
 
-@language.LanguageBaseClass("NullTool")
-class NullTool(Tool):
-	"""
-	Simple base class to test language contexts
-	"""
+class NullInputToolTest(FunctionalTest):
+	"""Test of null input tools"""
+	# pylint: disable=invalid-name
+	def testNullInputToolsWork(self):
+		"""Test that null input tools basically work"""
+		self.assertMakeSucceeds("--toolchain", "NullInput")
+		for i in range(1, 11):
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
+		self.assertFileContents("./out/Foo.third", "110")
 
-	inputFiles=set(".in")
-	supportedArchitectures=None
-
-	def __init__(self, projectSettings):
-		import csbimporttest #pylint: disable=unused-variable
-		Tool.__init__(self, projectSettings)
-
-	def Run(self, project, inputFile):
-		import csbimporttest
-		assert csbimporttest.foo == 0
-		outFile = os.path.join(project.outputDir, project.outputName + ".out")
-		with open(outFile, "w") as f:
-			f.write("you're out-a here")
-		return outFile
-
-csbuild.RegisterToolchain("NullTool", "", NullTool)
-csbuild.SetDefaultToolchain("NullTool")
-
-with csbuild.Project("TestProject", "."):
-	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+	def testNullInputToolsWorkWithDependencies(self):
+		"""Test that null input tools basically work"""
+		self.assertMakeSucceeds("--toolchain", "NullInputWithDepends")
+		for i in range(1, 10):
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
+		self.assertFileContents("./out/Foo.third", "90")
+		self.assertMakeSucceeds("--toolchain", "NullInputWithDepends", "--clean")

@@ -37,29 +37,15 @@ class AddDoubles(Tool):
 	Simple base class to test language contexts
 	"""
 	supportedArchitectures=None
-	def __init__(self, projectSettings):
-		assert "foo" not in projectSettings._settingsDict #pylint: disable=protected-access
-		assert "{}!foo".format(id(AddDoubles)) in projectSettings._settingsDict #pylint: disable=protected-access
-		self._foo = projectSettings.get("foo", False)
-		Tool.__init__(self, projectSettings)
-
-	@staticmethod
-	def SetFoo():
-		"""
-		Set foo to true, yay testing.
-		"""
-		csbuild.currentPlan.SetValue("foo", True) #pylint: disable=protected-access
 
 class Doubler(AddDoubles):
 	"""
 	Simple tool that opens a file, doubles its contents numerically, and writes a new file.
 	"""
 	inputFiles = {".first"}
-
 	outputFiles = {".second"}
 
 	def Run(self, project, inputFile):
-		assert self._foo is True
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
@@ -73,15 +59,24 @@ class Adder(AddDoubles):
 	Simple tool that opens multiple doubled files and adds their contents together numerically, outputting a final file.
 	"""
 	inputGroups = {".second"}
-	outputFiles = {".third"}
+	waitForDependentExtensions = {".thirdlib"}
+	outputFiles = {".thirdlib", ".thirdapp"}
 
 	def RunGroup(self, project, inputFiles):
-		assert self._foo is True
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
 				value += int(f.read())
-		outFile = os.path.join(project.outputDir, project.outputName + ".third")
+
+		if project.projectType == csbuild.ProjectType.Application:
+			for dep in project.dependencies:
+				libFile = os.path.join(dep.outputDir, dep.outputName + ".thirdlib")
+				with open(libFile, "r") as f:
+					value += int(f.read())
+			outFile = os.path.join(project.outputDir, project.outputName + ".thirdapp")
+		else:
+			outFile = os.path.join(project.outputDir, project.outputName + ".thirdlib")
+
 		with open(outFile, "w") as f:
 			f.write(str(value))
 		return outFile
@@ -89,8 +84,8 @@ class Adder(AddDoubles):
 csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Language("AddDoubles"):
-	csbuild.SetFoo()
+with csbuild.Project("TestProject", "."):
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
 
-	with csbuild.Project("TestProject", "."):
-		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+with csbuild.Project("TestProject2", ".", ["TestProject"]):
+	csbuild.SetOutput("Bar", csbuild.ProjectType.Application)

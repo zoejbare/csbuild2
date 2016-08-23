@@ -38,6 +38,7 @@ class NullTool(Tool):
 	"""
 
 	inputFiles=set(".in")
+	supportedArchitectures=None
 
 	@staticmethod
 	def __static_init__():

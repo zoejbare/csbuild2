@@ -31,7 +31,6 @@ from . import dag
 
 errors = []
 warnings = []
-quiet = 0
 colorSupported = False
 logFile = None
 

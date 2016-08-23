@@ -109,6 +109,9 @@ class Toolchain(object):
 				# List of reachable extensions given currently active or pending tools
 				self.reachability = {}
 
+				# List of null input tools that have been processed
+				self.finishedNullInputs = set()
+
 		_classTrackr = _classTrackrClass()
 
 		_threadSafeClassTrackr = threading.local()
@@ -147,13 +150,13 @@ class Toolchain(object):
 			if base.__init__ not in _classTrackr.overloadedInits:
 				oldinit = base.__init__
 
-				def _initwrap(self, projectSettings):
+				def _initwrap(self, *args, **kwargs):
 					# Don't re-init if already initialized
 					if base not in _classTrackr.initialized:
 						_classTrackr.initialized.add(base)
 						# Track the current class for __setattr__
 						with Use(base):
-							oldinit(self, projectSettings)
+							oldinit(self, *args, **kwargs)
 
 				# Replace existing init and set the memoization value
 				base.__init__ = _initwrap
@@ -163,13 +166,14 @@ class Toolchain(object):
 				oldstaticinit = base.__static_init__
 
 				@staticmethod
-				def _staticinitwrap():
+				def _staticinitwrap(*args, **kwargs):
 					# Don't re-init if already initialized
 					if oldstaticinit not in staticInitsRun:
 						staticInitsRun.add(oldstaticinit)
-						oldstaticinit()
+						oldstaticinit(*args, **kwargs)
 				base.__static_init__ = _staticinitwrap
 				base.__old_static_init__ = oldstaticinit
+				base.__old_static_init_owner__ = base
 
 		# Collect a list of all the base classes
 		bases = set()
@@ -179,11 +183,11 @@ class Toolchain(object):
 			for base in cls.mro():
 				if base is cls:
 					continue
-				if base is ToolClass:
-					break
 				# Replace the base class's __init__ so we can track members properly
 				if runInit:
 					_setinit(base)
+				if base is ToolClass:
+					break
 				bases.add(base)
 
 		# Create paths for each tool, showing the total path a file will take from this tool to its final output
@@ -200,11 +204,12 @@ class Toolchain(object):
 					if cls2 in path:
 						continue
 
-					for inputFile in cls2.inputFiles:
-						if inputFile in outputs:
-							path.add(cls2)
-							outputs.update(cls2.outputFiles)
-							needAnotherPass = True
+					if cls2.inputFiles is not None:
+						for inputFile in cls2.inputFiles:
+							if inputFile in outputs:
+								path.add(cls2)
+								outputs.update(cls2.outputFiles)
+								needAnotherPass = True
 					for inputFile in cls2.inputGroups:
 						if inputFile in outputs:
 							path.add(cls2)
@@ -349,7 +354,10 @@ class Toolchain(object):
 				if runInit:
 					# Initialize all dynamically created bases.
 					for cls in _classTrackr.classes:
-						if cls.__static_init__ not in staticInitsRun:
+						actualStaticInitMethod = cls.__static_init__
+						if hasattr(cls, "__old_static_init__") and cls.__old_static_init_owner__ is cls:
+							actualStaticInitMethod = cls.__old_static_init__
+						if actualStaticInitMethod not in staticInitsRun:
 							cls.__static_init__()
 						with Use(cls):
 							cls.__init__(self, ReadOnlySettingsView(projectSettings))
@@ -358,8 +366,8 @@ class Toolchain(object):
 					for base in bases:
 						base.__init__ = base.__oldInit__
 						del base.__oldInit__
-						base.__static_init__ = base.__old_static_init__
-						del base.__old_static_init__
+						#base.__static_init__ = base.__old_static_init__
+						#del base.__old_static_init__
 
 			@TypeChecked(tool=(_classType, _typeType))
 			def Use(self, tool):
@@ -461,7 +469,27 @@ class Toolchain(object):
 				"""
 				return _classTrackr.classes
 
-			@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
+			@TypeChecked(tool=(_typeType, _classType))
+			def MarkNullInputToolFinished(self, tool):
+				"""
+				Mark a null-input tool as having been used to avoid using it again
+				:param tool: null-input tool
+				:type tool: class
+				"""
+				_classTrackr.finishedNullInputs.add(tool)
+
+			@TypeChecked(tool=(_typeType, _classType))
+			def IsNullInputToolFinished(self, tool):
+				"""
+				Check if a null-input tool is finished or not
+				:param tool: null-input tool
+				:type tool: class
+				:return: true if finished, false otherwise
+				:rtype: bool
+				"""
+				return tool in _classTrackr.finishedNullInputs
+
+			@TypeChecked(extension=(String, type(None)), generatingTool=(_typeType, _classType, type(None)))
 			def GetToolsFor(self, extension, generatingTool=None):
 				"""
 				Get all tools that take a given input. If a generatingTool is specified, it will be excluded from the result.
@@ -474,14 +502,16 @@ class Toolchain(object):
 					It's up to the caller to inspect the object to determine which type of input to provide.
 					It's also up to the caller to not call group input tools until IsOutputActive() returns False
 					for ALL of that tool's group inputs.
-				:rtype: set[type]
+				:rtype: ordered_set.OrderedSet[type]
 				"""
-				ret = set()
+				ret = ordered_set.OrderedSet()
 				for cls in _classTrackr.classes:
 					if cls is generatingTool:
 						continue
 
-					if extension in cls.inputFiles:
+					if extension is None and cls.inputFiles is None and cls not in _classTrackr.finishedNullInputs:
+						ret.add(cls)
+					elif cls.inputFiles is not None and extension in cls.inputFiles:
 						ret.add(cls)
 
 				return ret
@@ -523,7 +553,8 @@ class Toolchain(object):
 				"""
 				ret = set()
 				for cls in _classTrackr.classes:
-					ret |= cls.inputFiles
+					if cls.inputFiles is not None:
+						ret |= cls.inputFiles
 					ret |= cls.inputGroups
 				return ret
 
@@ -797,6 +828,26 @@ class Toolchain(object):
 		"""
 		pass
 
+	@TypeChecked(tool=(_typeType, _classType))
+	def MarkNullInputToolFinished(self, tool):
+		"""
+		Mark a null-input tool as having been used to avoid using it again
+		:param tool: null-input tool
+		:type tool: class
+		"""
+		pass
+
+	@TypeChecked(tool=(_typeType, _classType))
+	def IsNullInputToolFinished(self, tool):
+		"""
+		Check if a null-input tool is finished or not
+		:param tool: null-input tool
+		:type tool: class
+		:return: true if finished, false otherwise
+		:rtype: bool
+		"""
+		pass
+
 	@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
 	def GetToolsFor(self, extension, generatingTool=None):
 		"""
@@ -870,6 +921,10 @@ class TestToolchainMixin(testcase.TestCase):
 	def setUp(self):
 		"""Test the toolchain mixin"""
 		# pylint: disable=missing-docstring
+		global staticInitsRun
+		staticInitsRun = set()
+		# pylint: disable=protected-access
+		ToolClass._initialized = False
 
 		self.maxDiff = None
 

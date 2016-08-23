@@ -111,7 +111,7 @@ _mainThread = threading.currentThread()
 
 def _logMsg(color, level, msg, quietThreshold):
 	"""Print a message to stdout"""
-	if shared_globals.quiet < quietThreshold:
+	if shared_globals.verbosity < quietThreshold:
 		if isinstance(msg, BytesType):
 			msg = msg.decode("UTF-8")
 		if threading.currentThread() == _mainThread:
@@ -141,10 +141,8 @@ def Error(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity >= Verbosity.Quiet:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.RED, "ERROR", msg, 3)
+	_logMsg(terminfo.TermColor.RED, "ERROR", msg, Verbosity.Mute)
 	shared_globals.errors.append(msg)
 
 
@@ -159,10 +157,8 @@ def Warn(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity >= Verbosity.Quiet:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, 3)
+	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, Verbosity.Mute)
 	shared_globals.warnings.append(msg)
 
 
@@ -177,10 +173,8 @@ def WarnNoPush(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity > Verbosity.Quiet:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, 3)
+	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, Verbosity.Mute)
 
 
 def Info(msg, *args, **kwargs):
@@ -194,10 +188,8 @@ def Info(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity > Verbosity.Verbose:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.CYAN, "INFO", msg, 1)
+	_logMsg(terminfo.TermColor.CYAN, "INFO", msg, Verbosity.Normal)
 
 
 def Build(msg, *args, **kwargs):
@@ -211,10 +203,8 @@ def Build(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity > Verbosity.Normal:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.MAGENTA, "BUILD", msg, 2)
+	_logMsg(terminfo.TermColor.MAGENTA, "BUILD", msg, Verbosity.Quiet)
 
 
 def Test(msg, *args, **kwargs):
@@ -229,10 +219,8 @@ def Test(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity > Verbosity.Normal:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.MAGENTA, "TEST", msg, 2)
+	_logMsg(terminfo.TermColor.MAGENTA, "TEST", msg, Verbosity.Quiet)
 
 
 def Linker(msg, *args, **kwargs):
@@ -246,10 +234,8 @@ def Linker(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity > Verbosity.Normal:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.GREEN, "LINKER", msg, 2)
+	_logMsg(terminfo.TermColor.GREEN, "LINKER", msg, Verbosity.Quiet)
 
 
 def Thread(msg, *args, **kwargs):
@@ -263,10 +249,8 @@ def Thread(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity > Verbosity.Normal:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.BLUE, "THREAD", msg, 2)
+	_logMsg(terminfo.TermColor.BLUE, "THREAD", msg, Verbosity.Quiet)
 
 
 def Install(msg, *args, **kwargs):
@@ -280,7 +264,5 @@ def Install(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	if shared_globals.verbosity > Verbosity.Normal:
-		return
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.WHITE, "INSTALL", msg, 2)
+	_logMsg(terminfo.TermColor.WHITE, "INSTALL", msg, Verbosity.Quiet)

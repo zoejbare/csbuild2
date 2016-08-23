@@ -32,7 +32,7 @@ from csbuild.toolchain import Tool
 
 class NullClass(Tool):
 	"""Empty tool just to make things work."""
-	pass
+	supportedArchitectures=None
 
 csbuild.RegisterToolchain("msvc", "dummy", NullClass)
 csbuild.RegisterToolchain("gcc", "dummy", NullClass)
@@ -45,7 +45,7 @@ with csbuild.Project("hello_world_2", "./", ["hello_world"]):
 		csbuild.SetOutput("hello_world_2")
 
 with csbuild.Project("hello_world", "./"):
-	with csbuild.Target("debug"):
-		csbuild.SetOutput("hello_world_debug")
+	with csbuild.Target("release"):
+		csbuild.SetOutput("hello_world_release")
 
 	csbuild.SetOutput("hello_world")

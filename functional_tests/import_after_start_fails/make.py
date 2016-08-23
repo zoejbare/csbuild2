@@ -38,6 +38,7 @@ class NullTool(Tool):
 	"""
 
 	inputFiles=set(".in")
+	supportedArchitectures=None
 
 	def Run(self, project, inputFile):
 		import csbimporttest

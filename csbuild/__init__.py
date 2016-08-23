@@ -223,7 +223,8 @@ def RegisterToolchain(name, defaultArchitecture, *tools):
 	currentPlan.LeaveContext()
 
 	for tool in tools:
-		shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
+		if tool.supportedArchitectures is not None:
+			shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
 
 @TypeChecked(toolchainName=String)
 def SetDefaultToolchain(toolchainName):
@@ -251,6 +252,38 @@ def SetDefaultTarget(targetName):
 	:type targetName: str, bytes
 	"""
 	currentPlan.defaultTarget = targetName
+
+def SetSupportedArchitectures(*args):
+	"""
+	Set the supported architectures for the enclosing scope
+	:param args: Architectures to support
+	:type args: str
+	"""
+	currentPlan.UnionSet("supportedArchitectures", args)
+
+def SetSupportedToolchains(*args):
+	"""
+	Set the supported toolchains for the enclosing scope
+	:param args: Toolchains to support
+	:type args: str
+	"""
+	currentPlan.UnionSet("supportedToolchains", args)
+
+def SetSupportedTargets(*args):
+	"""
+	Set the supported targets for the enclosing scope
+	:param args: Targets to support
+	:type args: str
+	"""
+	currentPlan.UnionSet("supportedTargets", args)
+
+def SetSupportedPlatforms(*args):
+	"""
+	Set the supported platforms for the enclosing scope
+	:param args: Platforms to support
+	:type args: str
+	"""
+	currentPlan.UnionSet("supportedPlatforms", args)
 
 class Scope(ContextManager):
 	"""
@@ -318,6 +351,7 @@ class Target(ContextManager):
 	"""
 	def __init__(self, *targetNames):
 		shared_globals.allTargets.update(targetNames)
+		currentPlan.UnionSet("targets", targetNames)
 		ContextManager.__init__(self, "target", targetNames)
 
 class Language(ContextManager):

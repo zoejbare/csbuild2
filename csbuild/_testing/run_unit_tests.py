@@ -57,7 +57,6 @@ def RunTests(include, exclude):
 			modulepath = os.path.join("functional_tests", testdir, "tests.py")
 			if os.path.exists(modulepath):
 				log.Test("Loading {}", modulepath)
-				log.Test("{}", dir(imp.load_source("{}_tests".format(testdir), modulepath)))
 				tests.addTest(unittest.defaultTestLoader.loadTestsFromModule(imp.load_source("{}_tests".format(testdir), modulepath)))
 	testRunner = testcase.TestRunner(xmlfile="result.xml", stream=sys.stdout, verbosity=0)
 
@@ -74,7 +73,7 @@ def RunTests(include, exclude):
 			delIndexes = []
 			# pylint: disable=protected-access
 			for idx, test3 in enumerate(test2._tests):
-				baseId = test3.id().rsplit('.', 3)[2]
+				baseId = test3.id().rsplit('.', 2)[1]
 				# pylint: disable=protected-access
 				simpleTestId = "{}.{}".format(baseId, test3._testMethodName)
 				match = True

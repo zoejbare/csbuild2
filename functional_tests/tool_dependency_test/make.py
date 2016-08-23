@@ -37,35 +37,56 @@ class AddDoubles(Tool):
 	Simple base class to test language contexts
 	"""
 	supportedArchitectures=None
-	def __init__(self, projectSettings):
-		assert "foo" not in projectSettings._settingsDict #pylint: disable=protected-access
-		assert "{}!foo".format(id(AddDoubles)) in projectSettings._settingsDict #pylint: disable=protected-access
-		self._foo = projectSettings.get("foo", False)
-		Tool.__init__(self, projectSettings)
 
-	@staticmethod
-	def SetFoo():
-		"""
-		Set foo to true, yay testing.
-		"""
-		csbuild.currentPlan.SetValue("foo", True) #pylint: disable=protected-access
+class FirstCopier(AddDoubles):
+	"""
+	Simple tool that copies a .first file as a .copy file
+	"""
+	inputFiles = {".first"}
+
+	outputFiles = {".firstcopy"}
+
+	def Run(self, project, inputFile):
+		with open(inputFile.filename, "r") as f:
+			value = f.read()
+		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".firstcopy")
+		with open(outFile, "w") as f:
+			f.write(value)
+		return outFile
 
 class Doubler(AddDoubles):
 	"""
 	Simple tool that opens a file, doubles its contents numerically, and writes a new file.
 	"""
 	inputFiles = {".first"}
-
+	dependencies = {".firstcopy"}
 	outputFiles = {".second"}
 
 	def Run(self, project, inputFile):
-		assert self._foo is True
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
+		with open(os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".firstcopy"), "r") as f:
+			value += int(f.read())
 		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+		return outFile
+
+class SecondCopier(AddDoubles):
+	"""
+	Copy the .first files as .copy files, which will be included in the adder's calculations but not sent to it as input files
+	"""
+	inputFiles = {".second"}
+
+	outputFiles = {".secondcopy"}
+
+	def Run(self, project, inputFile):
+		with open(inputFile.filename, "r") as f:
+			value = f.read()
+		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".secondcopy")
+		with open(outFile, "w") as f:
+			f.write(value)
 		return outFile
 
 class Adder(AddDoubles):
@@ -73,24 +94,23 @@ class Adder(AddDoubles):
 	Simple tool that opens multiple doubled files and adds their contents together numerically, outputting a final file.
 	"""
 	inputGroups = {".second"}
+	dependencies = {".secondcopy"}
 	outputFiles = {".third"}
 
 	def RunGroup(self, project, inputFiles):
-		assert self._foo is True
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
+				value += int(f.read())
+			with open(os.path.splitext(inputFile.filename)[0] + ".secondcopy", "r") as f:
 				value += int(f.read())
 		outFile = os.path.join(project.outputDir, project.outputName + ".third")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 		return outFile
 
-csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
+csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder, FirstCopier, SecondCopier)
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Language("AddDoubles"):
-	csbuild.SetFoo()
-
-	with csbuild.Project("TestProject", "."):
-		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+with csbuild.Project("TestProject", "."):
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

@@ -19,41 +19,24 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. module:: tests
+	:synopsis: Test to ensure that dependencies between projects (as required by linking) properly wait on their
+		depencendies before building
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
-import os
-from csbuild.toolchain import Tool, language
+from csbuild._testing.functional_test import FunctionalTest
 
-@language.LanguageBaseClass("NullTool")
-class NullTool(Tool):
-	"""
-	Simple base class to test language contexts
-	"""
-
-	inputFiles=set(".in")
-	supportedArchitectures=None
-
-	def __init__(self, projectSettings):
-		import csbimporttest #pylint: disable=unused-variable
-		Tool.__init__(self, projectSettings)
-
-	def Run(self, project, inputFile):
-		import csbimporttest
-		assert csbimporttest.foo == 0
-		outFile = os.path.join(project.outputDir, project.outputName + ".out")
-		with open(outFile, "w") as f:
-			f.write("you're out-a here")
-		return outFile
-
-csbuild.RegisterToolchain("NullTool", "", NullTool)
-csbuild.SetDefaultToolchain("NullTool")
-
-with csbuild.Project("TestProject", "."):
-	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+class ProjectDependencyTest(FunctionalTest):
+	"""Project dependency test"""
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Project dependency test"""
+		self.assertMakeSucceeds()
+		for i in range(1, 11):
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
+		self.assertFileContents("./out/Foo.thirdlib", "110")
+		self.assertFileContents("./out/Bar.thirdapp", "220")

@@ -75,7 +75,7 @@ _runningBuilds = 0
 	buildProject=project.Project,
 	toolUsed=(_classType, _typeType),
 	inputExtension=(String, type(None)),
-	inputFiles=(list, ordered_set.OrderedSet),
+	inputFiles=(list, ordered_set.OrderedSet, type(None)),
 	outputFiles=(String, tuple)
 )
 def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, inputFiles, outputFiles):
@@ -103,7 +103,12 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 		buildProject.AddArtifact(outputFile)
 		global _runningBuilds
 		_runningBuilds -= 1
-		log.Info("Finished building {} => {}", [os.path.basename(f.filename) for f in inputFiles], os.path.basename(outputFile))
+		log.Info(
+			"Finished building {} => {}",
+			 "null-input for {}".format(toolUsed.__name__) if inputFiles is None
+			 	else [os.path.basename(f.filename) for f in inputFiles],
+			os.path.basename(outputFile)
+		)
 
 		outputExtension = os.path.splitext(outputFile)[1]
 		if inputExtension == outputExtension:
@@ -135,7 +140,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 			buildProject.toolchain.CreateReachability(tool)
 			newInput.AddUsedTool(tool)
 			_runningBuilds += 1
-			log.Info("Enqueuing build for {}", newInput)
+			log.Info("Enqueuing build for {} using {}", newInput, tool.__name__)
 			pool.AddTask(
 				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, newInput),
 				(_buildFinished, pool, projectList, buildProject, tool, outputExtension, [newInput])
@@ -185,7 +190,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 					inputFile.AddUsedTool(tool)
 
 				_runningBuilds += 1
-				log.Info("Enqueuing multi-build task for {}", fileList)
+				log.Info("Enqueuing multi-build task for {} using {}", fileList, tool.__name__)
 				pool.AddTask(
 					(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, fileList),
 					(_buildFinished, pool, projectList, buildProject, tool, None, fileList)
@@ -206,16 +211,28 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 					except MultiBreak:
 						continue
 
-					for inputFile in tool.inputFiles:
-						for projectInput in [x for x in proj.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)]:
-							proj.toolchain.CreateReachability(tool)
-							inputFile.AddUsedTool(tool)
-							_runningBuilds += 1
-							log.Info("Enqueuing build for {}", projectInput)
-							pool.AddTask(
-								(_logThenRun, tool.Run, tool, proj.toolchain, proj, projectInput),
-								(_buildFinished, pool, projectList, proj, tool, inputFile, [projectInput])
-							)
+					if tool.inputFiles is None:
+						if proj.toolchain.IsNullInputToolFinished(tool):
+							continue
+						proj.toolchain.MarkNullInputToolFinished(tool)
+						proj.toolchain.CreateReachability(tool)
+						_runningBuilds += 1
+						log.Info("Enqueuing null-input build for {}", tool.__name__)
+						pool.AddTask(
+							(_logThenRun, tool.Run, tool, proj.toolchain, proj, None),
+							(_buildFinished, pool, projectList, proj, tool, None, None)
+						)
+					else:
+						for inputFile in tool.inputFiles:
+							for projectInput in [x for x in proj.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)]:
+								proj.toolchain.CreateReachability(tool)
+								projectInput.AddUsedTool(tool)
+								_runningBuilds += 1
+								log.Info("Enqueuing build for {} using {}", projectInput, tool.__name__)
+								pool.AddTask(
+									(_logThenRun, tool.Run, tool, proj.toolchain, proj, projectInput),
+									(_buildFinished, pool, projectList, proj, tool, inputFile, [projectInput])
+								)
 
 					fileList = ordered_set.OrderedSet()
 					try:
@@ -235,7 +252,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 						inputFile.AddUsedTool(tool)
 
 					_runningBuilds += 1
-					log.Info("Enqueuing multi-build task for {}", fileList)
+					log.Info("Enqueuing multi-build task for {} using {}", fileList, tool.__name__)
 					pool.AddTask(
 						(_logThenRun, tool.RunGroup, tool, proj.toolchain, proj, fileList),
 						(_buildFinished, pool, projectList, proj, tool, None, fileList)
@@ -248,7 +265,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 
 
 def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles):
-	log.Build("Processing {}", inputFiles)
+	log.Build("Processing {} with {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__)
 	with buildToolchain.Use(buildTool):
 		return function(buildToolchain, buildProject, inputFiles)
 
@@ -271,7 +288,7 @@ def _build(numThreads, projectBuildList):
 	pool = thread_pool.ThreadPool(numThreads, callbackQueue)
 	queuedSomething = False
 	for buildProject in projectBuildList:
-		for extension, fileList in buildProject.inputFiles.items():
+		for extension, fileList in [(None, None)] + list(buildProject.inputFiles.items()):
 			log.Info("Enqueuing tasks for extension {}", extension)
 			tools = buildProject.toolchain.GetToolsFor(extension)
 			for tool in tools:
@@ -282,7 +299,10 @@ def _build(numThreads, projectBuildList):
 					for dependProject in buildProject.dependencies:
 						for dependency in tool.waitForDependentExtensions:
 							for otherTool in dependProject.toolchain.GetAllTools():
-								extensionSet = otherTool.inputFiles | otherTool.inputGroups
+								if otherTool.inputFiles is None:
+									extensionSet = otherTool.inputGroups
+								else:
+									extensionSet = otherTool.inputFiles | otherTool.inputGroups
 								hasExtension = False
 								for dependentExtension in extensionSet:
 									if dependProject.inputFiles.get(dependentExtension):
@@ -293,7 +313,10 @@ def _build(numThreads, projectBuildList):
 
 					for dependency in tool.dependencies:
 						for otherTool in buildProject.toolchain.GetAllTools():
-							extensionSet = otherTool.inputFiles | otherTool.inputGroups
+							if otherTool.inputFiles is None:
+								extensionSet = otherTool.inputGroups
+							else:
+								extensionSet = otherTool.inputFiles | otherTool.inputGroups
 							hasExtension = False
 							for dependentExtension in extensionSet:
 								if buildProject.inputFiles.get(dependentExtension):
@@ -304,17 +327,31 @@ def _build(numThreads, projectBuildList):
 				except MultiBreak:
 					continue
 
-				log.Info("Looking at files {}", fileList)
-				for inputFile in fileList:
-					log.Info("Enqueuing build for {}", inputFile)
+				if fileList is None and extension is None:
+					if buildProject.toolchain.IsNullInputToolFinished(tool):
+						continue
+
+					buildProject.toolchain.MarkNullInputToolFinished(tool)
 					buildProject.toolchain.CreateReachability(tool)
-					inputFile.AddUsedTool(tool)
 					_runningBuilds += 1
+					log.Info("Enqueuing null-input build for {}", tool.__name__)
 					pool.AddTask(
-						(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, inputFile),
-						(_buildFinished, pool, projectBuildList, buildProject, tool, extension, [inputFile])
+						(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, None),
+						(_buildFinished, pool, projectBuildList, buildProject, tool, None, None)
 					)
 					queuedSomething = True
+				else:
+					log.Info("Looking at files {}", fileList)
+					for inputFile in fileList:
+						log.Info("Enqueuing build for {} using {}", inputFile, tool.__name__)
+						buildProject.toolchain.CreateReachability(tool)
+						inputFile.AddUsedTool(tool)
+						_runningBuilds += 1
+						pool.AddTask(
+							(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, inputFile),
+							(_buildFinished, pool, projectBuildList, buildProject, tool, extension, [inputFile])
+						)
+						queuedSomething = True
 
 		tools = buildProject.toolchain.GetAllTools()
 		log.Info("Checking for group inputs we can run already")
@@ -327,7 +364,10 @@ def _build(numThreads, projectBuildList):
 				for dependProject in buildProject.dependencies:
 					for dependency in tool.waitForDependentExtensions:
 						for otherTool in dependProject.toolchain.GetAllTools():
-							extensionSet = otherTool.inputFiles | otherTool.inputGroups
+							if otherTool.inputFiles is None:
+								extensionSet = otherTool.inputGroups
+							else:
+								extensionSet = otherTool.inputFiles | otherTool.inputGroups
 							hasExtension = False
 							for extension in extensionSet:
 								if dependProject.inputFiles.get(extension):
@@ -337,7 +377,10 @@ def _build(numThreads, projectBuildList):
 								raise MultiBreak()
 				for dependency in tool.dependencies:
 					for otherTool in buildProject.toolchain.GetAllTools():
-						extensionSet = otherTool.inputFiles | otherTool.inputGroups
+						if otherTool.inputFiles is None:
+							extensionSet = otherTool.inputGroups
+						else:
+							extensionSet = otherTool.inputFiles | otherTool.inputGroups
 						hasExtension = False
 						for extension in extensionSet:
 							if buildProject.inputFiles.get(extension):
@@ -371,7 +414,7 @@ def _build(numThreads, projectBuildList):
 				inputFile.AddUsedTool(tool)
 
 			_runningBuilds += 1
-			log.Info("Enqueuing multi-build task for {}", fileList)
+			log.Info("Enqueuing multi-build task for {} using {}", fileList, tool.__name__)
 			pool.AddTask(
 				(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, fileList),
 				(_buildFinished, pool, projectBuildList, buildProject, tool, None, fileList)
@@ -433,8 +476,30 @@ def _clean(projectCleanList):
 	"""
 	for cleanProject in projectCleanList:
 		for artifact in cleanProject.lastRunArtifacts:
-			log.Build("Removing {}", artifact)
-			os.remove(artifact)
+			if os.path.exists(artifact):
+				log.Build("Removing {}", artifact)
+				os.remove(artifact)
+
+		cleanProject.artifactsFile.flush()
+		os.fsync(cleanProject.artifactsFile.fileno())
+		cleanProject.artifactsFile.close()
+
+		system.SyncDir(os.path.dirname(cleanProject.artifactsFileName))
+
+		cleanProject.artifactsFile = None
+
+		log.Build("Removing {}", cleanProject.artifactsFileName)
+		os.remove(cleanProject.artifactsFileName)
+
+		def _rmDirIfPossible(dirname):
+			if os.path.exists(dirname) and not os.listdir(dirname):
+				log.Build("Removing {}", dirname)
+				os.rmdir(dirname)
+
+		_rmDirIfPossible(cleanProject.csbuildDir)
+		_rmDirIfPossible(cleanProject.intermediateDir)
+		_rmDirIfPossible(cleanProject.outputDir)
+
 
 def _execfile(filename, glob, loc):
 	with open(filename, "r") as f:
@@ -537,10 +602,10 @@ def Run():
 	parser.add_argument('--version', action = "store_true", help = "Print version information and exit")
 
 	group = parser.add_mutually_exclusive_group()
-	group.add_argument('-t', '--target', action='append', choices=shared_globals.allTargets, help = 'Target(s) for build', default=[])
+	group.add_argument('-t', '--target', action='append', help = 'Target(s) for build', default=[])
 	group.add_argument('--at', "--all-targets", action = "store_true", help = "Build all targets")
 
-	parser.add_argument("-p", "--project", choices=[x.name for x in shared_globals.sortedProjects],
+	parser.add_argument("-p", "--project",
 						action="append", help = "Build only the specified project. May be specified multiple times.")
 
 	group = parser.add_mutually_exclusive_group()
@@ -576,7 +641,7 @@ def Run():
 
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('-o', '--toolchain', help = "Toolchain to use for compiling.",
-		choices = shared_globals.allToolchains, default=[], action = "append")
+		default=[], action = "append")
 	group.add_argument("--ao", '--all-toolchains', help="Build with all toolchains", action = "store_true")
 
 	group = parser.add_mutually_exclusive_group()
@@ -586,7 +651,7 @@ def Run():
 	#	archStringShort = "--" + toolchainArchStrings[1]
 	#	parser.add_argument(archStringLong, archStringShort, help = "Architecture to compile for the {} toolchain.".format(toolchainName), action = "append")
 
-	group.add_argument("-a", "--architecture", "--arch", choices=shared_globals.allArchitectures, help = 'Architecture to compile for each toolchain.', action = "append")
+	group.add_argument("-a", "--architecture", "--arch", help = 'Architecture to compile for each toolchain.', action = "append")
 	group.add_argument("--aa", "--all-architectures", "--all-arch", action = "store_true", help = "Build all architectures supported by this toolchain")
 
 	parser.add_argument("--stop-on-error", help = "Stop compilation after the first error is encountered.", action = "store_true")
@@ -668,9 +733,9 @@ def Run():
 	else:
 		targetList = [project_plan.useDefault]
 
-	if args.aa:
+	if hasattr(args, "aa") and args.aa:
 		archList = list(shared_globals.allArchitectures)
-	elif args.architecture:
+	elif hasattr(args, "architecture") and args.architecture:
 		archList = args.architecture
 	else:
 		archList = [project_plan.useDefault]
@@ -700,10 +765,16 @@ def Run():
 				for plan in shared_globals.sortedProjects:
 					log.Info("------ {}", plan.name)
 					proj = plan.ExecutePlan(toolchainName, archName, targetName)
+					if proj is None:
+						continue
 					shared_globals.projectMap.setdefault(proj.toolchainName, {}) \
-						.setdefault(proj.archName, {}). \
-						setdefault(proj.targetName, {})[plan.name] = proj
+						.setdefault(proj.architectureName, {}) \
+						.setdefault(proj.targetName, {})[plan.name] = proj
 					projectBuildList.append(proj)
+
+	if not projectBuildList:
+		log.Error("No projects were found supporting the requested architecture, toolchain, target, and platform combination")
+		system.Exit(1)
 
 	for proj in projectBuildList:
 		proj.ResolveDependencies()
@@ -767,11 +838,14 @@ def Run():
 
 	sys.meta_path.insert(0, _importBlocker())
 
-	if imp.lock_held():
-		imp.release_lock()
-
 	if args.clean or args.rebuild:
 		_clean(projectBuildList)
 
 	if not args.clean or args.rebuild:
+		if imp.lock_held():
+			imp.release_lock()
+
 		_build(args.jobs, projectBuildList)
+
+	totaltime = time.time() - preparationStart
+	log.Build("Build took {}".format(FormatTime(totaltime)))

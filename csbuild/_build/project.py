@@ -73,8 +73,10 @@ class Project(object):
 		self.settings = projectSettings
 
 		self.toolchainName = toolchainName
-		self.archName = archName
+		self.architectureName = archName
 		self.targetName = targetName
+
+		self.projectType = projectSettings["projectType"]
 
 		log.Build("Preparing build tasks for {}", self)
 
@@ -106,7 +108,7 @@ class Project(object):
 			"{}_{}_{}_{}.artifacts".format(
 				self.name,
 				self.toolchainName,
-				self.archName,
+				self.architectureName,
 				self.targetName
 			)
 		)
@@ -140,14 +142,14 @@ class Project(object):
 		self.RediscoverFiles()
 
 	def __repr__(self):
-		return "{} ({}/{}/{})".format(self.name, self.toolchainName, self.archName, self.targetName)
+		return "{} ({}/{}/{})".format(self.name, self.toolchainName, self.architectureName, self.targetName)
 
 	def ResolveDependencies(self):
 		"""
 		Called after shared_globals.projectMap is filled out, this will populate the dependencies map.
 		"""
 		for name in self.dependencyNames:
-			self.dependencies.append(shared_globals.projectMap[self.toolchainName][self.archName][self.targetName][name])
+			self.dependencies.append(shared_globals.projectMap[self.toolchainName][self.architectureName][self.targetName][name])
 
 	@TypeChecked(artifact=String)
 	def AddArtifact(self, artifact):
