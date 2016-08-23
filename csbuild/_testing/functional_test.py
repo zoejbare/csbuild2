@@ -39,11 +39,10 @@ from .. import log
 from .._utils import PlatformString
 from .._utils.string_abc import String
 
-import ctypes
-from ctypes import wintypes
-
 if platform.system() == "Windows":
 	# pylint: disable=import-error
+	import ctypes
+	from ctypes import wintypes
 	# Create ctypes wrapper for Win32 functions we need, with correct argument/return types
 	_CreateMutex = ctypes.windll.kernel32.CreateMutexA
 	_CreateMutex.argtypes = [wintypes.LPCVOID, wintypes.BOOL, wintypes.LPCSTR]
