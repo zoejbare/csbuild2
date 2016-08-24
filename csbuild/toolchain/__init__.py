@@ -86,6 +86,10 @@ class Tool(object):
 	#  set this value to None. An empty set implies it supports no platforms and can never be run.
 	supportedPlatforms = None
 
+	#: Set this to a positive non-zero value to prevent this tool from being run in parallel.
+	#  This is a global setting; multiple instances of this tool will not run concurrently, even for different projects
+	maxParallel = 0
+
 	_initialized = False
 
 	def __init__(self, projectSettings):
