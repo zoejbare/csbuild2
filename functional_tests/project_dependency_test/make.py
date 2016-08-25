@@ -59,7 +59,7 @@ class Adder(AddDoubles):
 	Simple tool that opens multiple doubled files and adds their contents together numerically, outputting a final file.
 	"""
 	inputGroups = {".second"}
-	waitForDependentExtensions = {".thirdlib"}
+	crossProjectDependencies = {".thirdlib"}
 	outputFiles = {".thirdlib", ".thirdapp"}
 
 	def RunGroup(self, project, inputFiles):

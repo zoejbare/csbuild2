@@ -76,7 +76,7 @@ class Tool(object):
 	#  generating files of type {".dll", ".lib"} or {".so", ".a"} before running itself. Any projects in the
 	#  dependency chain that generate files of that type will prevent this tool from running until it no longer
 	#  has any valid inputs for tools that will generate that output, and the outputs have all been generated.
-	waitForDependentExtensions = set()
+	crossProjectDependencies = set()
 
 	#: Set of supported architectures. If this toolchain supports all possible --architecture arguments,
 	#  set this value to None. An empty set implies it supports no architectures and can never be run.

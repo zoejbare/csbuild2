@@ -69,6 +69,85 @@ class MultiBreak(Exception):
 
 _runningBuilds = 0
 
+def _canRun(tool):
+	return tool.maxParallel <= 0 or tool.curParallel < tool.maxParallel
+
+def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExtension):
+	global _runningBuilds
+	_runningBuilds += 1
+	tool.curParallel += 1
+
+	buildProject.toolchain.CreateReachability(tool)
+
+	if buildInput is None:
+		buildProject.toolchain.MarkNullInputToolFinished(tool)
+		log.Info("Enqueuing null-input build for {}", tool.__name__)
+		pool.AddTask(
+			(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, None),
+			(_buildFinished, pool, projectList, buildProject, tool, None, None)
+		)
+	elif isinstance(buildInput, input_file.InputFile):
+		buildInput.AddUsedTool(tool)
+		log.Info("Enqueuing build for {} using {}", buildInput, tool.__name__)
+		pool.AddTask(
+			(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, buildInput),
+			(_buildFinished, pool, projectList, buildProject, tool, outputExtension, [buildInput])
+		)
+	else:
+		for inputFile in buildInput:
+			inputFile.AddUsedTool(tool)
+
+		log.Info("Enqueuing multi-build task for {} using {}", buildInput, tool.__name__)
+		pool.AddTask(
+			(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, buildInput),
+			(_buildFinished, pool, projectList, buildProject, tool, None, buildInput)
+		)
+
+def _dependenciesMet(buildProject, tool):
+	log.Info("Checking if we can enqueue a new build for tool {}", tool.__name__)
+	for dependProject in buildProject.dependencies:
+		for dependency in tool.crossProjectDependencies:
+			if dependProject.toolchain.IsOutputActive(dependency):
+				return False
+
+	for dependency in tool.dependencies:
+		if buildProject.toolchain.IsOutputActive(dependency):
+			return False
+	return True
+
+def _getGroupInputFiles(buildProject, tool):
+	fileList = ordered_set.OrderedSet()
+	for inputFile in tool.inputGroups:
+		log.Info("Checking if all builds for {} are done yet", inputFile)
+		if buildProject.toolchain.IsOutputActive(inputFile):
+			log.Info("Extension {} is still active, can't build yet.", inputFile)
+			return None
+		log.Info("{} is ok to build.", inputFile)
+		fileList.update([x for x in buildProject.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)])
+	return fileList
+
+def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles):
+	log.Build("Processing {} with {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__)
+	with buildToolchain.Use(buildTool):
+		return function(buildToolchain, buildProject, inputFiles)
+
+def _checkDependenciesPreBuild(checkProject, tool, dependencies):
+	log.Info("Checking if we can enqueue a new build for tool {}", tool.__name__)
+	for dependency in dependencies:
+		for tool in checkProject.toolchain.GetAllTools():
+			if tool.inputFiles is None:
+				extensionSet = tool.inputGroups
+			else:
+				extensionSet = tool.inputFiles | tool.inputGroups
+			hasExtension = False
+			for dependentExtension in extensionSet:
+				if checkProject.inputFiles.get(dependentExtension):
+					hasExtension = True
+					break
+			if hasExtension and checkProject.toolchain.CanCreateOutput(tool, dependency):
+				return False
+	return True
+
 @TypeChecked(
 	pool=thread_pool.ThreadPool,
 	projectList=list,
@@ -98,12 +177,13 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 	:type outputFiles: tuple, str, bytes
 	"""
 	toolUsed.curParallel -= 1
+	global _runningBuilds
+	_runningBuilds -= 1
+
 	if not isinstance(outputFiles, tuple):
 		outputFiles = (outputFiles, )
 	for outputFile in outputFiles:
 		buildProject.AddArtifact(outputFile)
-		global _runningBuilds
-		_runningBuilds -= 1
 		log.Info(
 			"Finished building {} => {}",
 			 "null-input for {}".format(toolUsed.__name__) if inputFiles is None
@@ -112,10 +192,12 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 		)
 
 		outputExtension = os.path.splitext(outputFile)[1]
+
 		if inputExtension == outputExtension:
 			newInput = input_file.InputFile(outputFile, inputFiles)
 		else:
 			newInput = input_file.InputFile(outputFile)
+
 		buildProject.inputFiles.setdefault(outputExtension, ordered_set.OrderedSet()).add(newInput)
 
 		buildProject.toolchain.ReleaseReachability(toolUsed)
@@ -123,172 +205,79 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 		# Enqueue this file immediately in any tools that take it as a single input, unless they're marked to delay.
 		tools = buildProject.toolchain.GetToolsFor(outputExtension)
 		for tool in tools:
-			if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+			if not _canRun(tool):
 				continue
 
-			try:
-				for dependProject in buildProject.dependencies:
-					for dependency in tool.waitForDependentExtensions:
-						if dependProject.toolchain.IsOutputActive(dependency):
-							raise MultiBreak()
-
-				for dependency in tool.dependencies:
-					if buildProject.toolchain.IsOutputActive(dependency):
-						raise MultiBreak()
-			except MultiBreak:
+			if not _dependenciesMet(buildProject, tool):
 				continue
 
 			if newInput.WasToolUsed(tool):
 				continue
 
-			buildProject.toolchain.CreateReachability(tool)
-			newInput.AddUsedTool(tool)
-			_runningBuilds += 1
-			log.Info("Enqueuing build for {} using {}", newInput, tool.__name__)
-			tool.curParallel += 1
-			pool.AddTask(
-				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, newInput),
-				(_buildFinished, pool, projectList, buildProject, tool, outputExtension, [newInput])
-			)
+			_enqueueBuild(buildProject, tool, newInput, pool, projectList, outputExtension)
 
-
-		log.Info("Checking if {} is still active... {}", outputExtension, "yes" if buildProject.toolchain.IsOutputActive(outputExtension) else "no")
+		isActive = buildProject.toolchain.IsOutputActive(outputExtension)
+		log.Info("Checking if {} is still active... {}", outputExtension, "yes" if isActive else "no")
 
 		# If this was the last file being built of its extension, check whether we can pass it and maybe others to relevant group input tools
-		if not buildProject.toolchain.IsOutputActive(outputExtension):
+		if not isActive:
 			tools = buildProject.toolchain.GetAllTools()
 			for tool in tools:
-				if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+				if not _canRun(tool):
 					continue
 
 				if not tool.inputGroups:
 					continue
 
-				try:
-					log.Info("Checking if we can build {} for tool {}", tool.inputGroups, tool.__name__)
-					for dependProject in buildProject.dependencies:
-						for dependency in tool.waitForDependentExtensions:
-							if dependProject.toolchain.IsOutputActive(dependency):
-								raise MultiBreak()
-					for dependency in tool.dependencies:
-						if buildProject.toolchain.IsOutputActive(dependency):
-							raise MultiBreak()
-				except MultiBreak:
+				if not _dependenciesMet(buildProject, tool):
 					continue
 
 				# Check for group inputs that have been freed and queue up if all are free
-				log.Info("Collecting files...")
-				fileList = ordered_set.OrderedSet()
-				try:
-					for inputFile in tool.inputGroups:
-						log.Info("Checking if all builds for {} are done yet", inputFile)
-						if buildProject.toolchain.IsOutputActive(inputFile):
-							log.Info("Extension {} is still active, can't build yet.", inputFile)
-							raise MultiBreak()
-						log.Info("{} is ok to build.", inputFile)
-						fileList.update([x for x in buildProject.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)])
-				except MultiBreak:
-					continue
+				fileList = _getGroupInputFiles(buildProject, tool)
 
 				if not fileList:
 					continue
 
-				buildProject.toolchain.CreateReachability(tool)
-
-				for inputFile in fileList:
-					inputFile.AddUsedTool(tool)
-
-				_runningBuilds += 1
-				log.Info("Enqueuing multi-build task for {} using {}", fileList, tool.__name__)
-				tool.curParallel += 1
-				pool.AddTask(
-					(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, fileList),
-					(_buildFinished, pool, projectList, buildProject, tool, None, fileList)
-				)
+				_enqueueBuild(buildProject, tool, fileList, pool, projectList, None)
 
 			# Check to see if we've freed up any pending builds in other projects as well
 			for proj in projectList:
 				tools = proj.toolchain.GetAllTools()
 				for tool in tools:
 
-					try:
-						for dependProject in proj.dependencies:
-							for dependency in tool.waitForDependentExtensions:
-								if dependProject.toolchain.IsOutputActive(dependency):
-									raise MultiBreak()
-						for dependency in tool.dependencies:
-							if proj.toolchain.IsOutputActive(dependency):
-								raise MultiBreak()
-					except MultiBreak:
+					if not _dependenciesMet(proj, tool):
 						continue
 
 					if tool.inputFiles is None:
-						if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+						if not _canRun(tool):
 							continue
+
 						if proj.toolchain.IsNullInputToolFinished(tool):
 							continue
-						proj.toolchain.MarkNullInputToolFinished(tool)
-						proj.toolchain.CreateReachability(tool)
-						_runningBuilds += 1
-						log.Info("Enqueuing null-input build for {}", tool.__name__)
-						tool.curParallel += 1
-						pool.AddTask(
-							(_logThenRun, tool.Run, tool, proj.toolchain, proj, None),
-							(_buildFinished, pool, projectList, proj, tool, None, None)
-						)
+
+						_enqueueBuild(proj, tool, None, pool, projectList, None)
 					else:
-						for inputFile in tool.inputFiles:
-							for projectInput in [x for x in proj.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)]:
-								if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+						for inputExtension in tool.inputFiles:
+							for projectInput in [x for x in proj.inputFiles.get(inputExtension, []) if not x.WasToolUsed(tool)]:
+								if not _canRun(tool):
 									break
-								proj.toolchain.CreateReachability(tool)
-								projectInput.AddUsedTool(tool)
-								_runningBuilds += 1
-								log.Info("Enqueuing build for {} using {}", projectInput, tool.__name__)
-								tool.curParallel += 1
-								pool.AddTask(
-									(_logThenRun, tool.Run, tool, proj.toolchain, proj, projectInput),
-									(_buildFinished, pool, projectList, proj, tool, inputFile, [projectInput])
-								)
+								_enqueueBuild(proj, tool, projectInput, pool, projectList, inputExtension)
 
-					if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+					if not _canRun(tool):
 						continue
 
-					fileList = ordered_set.OrderedSet()
-					try:
-						for inputFile in tool.inputGroups:
-							if proj.toolchain.IsOutputActive(inputFile):
-								raise MultiBreak()
-							fileList.update([x for x in proj.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)])
-					except MultiBreak:
-						continue
+					fileList = _getGroupInputFiles(proj, tool)
 
 					if not fileList:
 						continue
 
-					proj.toolchain.CreateReachability(tool)
-
-					for inputFile in fileList:
-						inputFile.AddUsedTool(tool)
-
-					_runningBuilds += 1
-					log.Info("Enqueuing multi-build task for {} using {}", fileList, tool.__name__)
-					tool.curParallel += 1
-					pool.AddTask(
-						(_logThenRun, tool.RunGroup, tool, proj.toolchain, proj, fileList),
-						(_buildFinished, pool, projectList, proj, tool, None, fileList)
-					)
+					_enqueueBuild(proj, tool, fileList, pool, projectList, None)
 
 	if _runningBuilds == 0:
 		# We have no builds running and finishing this build did not spawn a new one
 		# Time to exit.
 		pool.Stop()
 
-
-def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles):
-	log.Build("Processing {} with {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__)
-	with buildToolchain.Use(buildTool):
-		return function(buildToolchain, buildProject, inputFiles)
 
 @TypeChecked(numThreads=int, projectBuildList=list)
 def _build(numThreads, projectBuildList):
@@ -312,6 +301,7 @@ def _build(numThreads, projectBuildList):
 		for tool in buildProject.toolchain.GetAllTools():
 			tool.curParallel = 0
 
+
 	for buildProject in projectBuildList:
 		for extension, fileList in [(None, None)] + list(buildProject.inputFiles.items()):
 			log.Info("Enqueuing tasks for extension {}", extension)
@@ -320,142 +310,61 @@ def _build(numThreads, projectBuildList):
 				try:
 					# For the first pass, if ANY tool in the toolchain is capable of producing this output
 					# anywhere in its path, AND any inputs exist for that tool, we won't queue up a build
-					log.Info("Checking if we can build {} for tool {}", extension, tool.__name__)
 					for dependProject in buildProject.dependencies:
-						for dependency in tool.waitForDependentExtensions:
-							for otherTool in dependProject.toolchain.GetAllTools():
-								if otherTool.inputFiles is None:
-									extensionSet = otherTool.inputGroups
-								else:
-									extensionSet = otherTool.inputFiles | otherTool.inputGroups
-								hasExtension = False
-								for dependentExtension in extensionSet:
-									if dependProject.inputFiles.get(dependentExtension):
-										hasExtension = True
-										break
-								if hasExtension and dependProject.toolchain.CanCreateOutput(otherTool, dependency):
-									raise MultiBreak()
+						if not _checkDependenciesPreBuild(dependProject, tool, tool.crossProjectDependencies):
+							raise MultiBreak
 
-					for dependency in tool.dependencies:
-						for otherTool in buildProject.toolchain.GetAllTools():
-							if otherTool.inputFiles is None:
-								extensionSet = otherTool.inputGroups
-							else:
-								extensionSet = otherTool.inputFiles | otherTool.inputGroups
-							hasExtension = False
-							for dependentExtension in extensionSet:
-								if buildProject.inputFiles.get(dependentExtension):
-									hasExtension = True
-									break
-							if hasExtension and buildProject.toolchain.CanCreateOutput(otherTool, dependency):
-								raise MultiBreak()
+					if not _checkDependenciesPreBuild(buildProject, tool, tool.dependencies):
+						raise MultiBreak
+
 				except MultiBreak:
 					continue
 
 				if fileList is None and extension is None:
-					if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+					if not _canRun(tool):
 						continue
 
 					if buildProject.toolchain.IsNullInputToolFinished(tool):
 						continue
 
-					buildProject.toolchain.MarkNullInputToolFinished(tool)
-					buildProject.toolchain.CreateReachability(tool)
-					_runningBuilds += 1
-					log.Info("Enqueuing null-input build for {}", tool.__name__)
-					tool.curParallel += 1
-					pool.AddTask(
-						(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, None),
-						(_buildFinished, pool, projectBuildList, buildProject, tool, None, None)
-					)
+					_enqueueBuild(buildProject, tool, None, pool, projectBuildList, None)
 					queuedSomething = True
 				else:
 					log.Info("Looking at files {}", fileList)
 					for inputFile in fileList:
-						if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+						if not _canRun(tool):
 							break
-						log.Info("Enqueuing build for {} using {}", inputFile, tool.__name__)
-						buildProject.toolchain.CreateReachability(tool)
-						inputFile.AddUsedTool(tool)
-						_runningBuilds += 1
-						tool.curParallel += 1
-						pool.AddTask(
-							(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, inputFile),
-							(_buildFinished, pool, projectBuildList, buildProject, tool, extension, [inputFile])
-						)
+						_enqueueBuild(buildProject, tool, inputFile, pool, projectBuildList, extension)
 						queuedSomething = True
 
 		tools = buildProject.toolchain.GetAllTools()
 		log.Info("Checking for group inputs we can run already")
 		for tool in tools:
-			if tool.maxParallel != 0 and tool.curParallel >= tool.maxParallel:
+			if not _canRun(tool):
 				continue
 
 			if not tool.inputGroups:
 				continue
 
 			try:
-				log.Info("Checking if we can build {} for tool {}", tool.inputGroups, tool.__name__)
 				for dependProject in buildProject.dependencies:
-					for dependency in tool.waitForDependentExtensions:
-						for otherTool in dependProject.toolchain.GetAllTools():
-							if otherTool.inputFiles is None:
-								extensionSet = otherTool.inputGroups
-							else:
-								extensionSet = otherTool.inputFiles | otherTool.inputGroups
-							hasExtension = False
-							for extension in extensionSet:
-								if dependProject.inputFiles.get(extension):
-									hasExtension = True
-									break
-							if hasExtension and dependProject.toolchain.CanCreateOutput(otherTool, dependency):
-								raise MultiBreak()
-				for dependency in tool.dependencies:
-					for otherTool in buildProject.toolchain.GetAllTools():
-						if otherTool.inputFiles is None:
-							extensionSet = otherTool.inputGroups
-						else:
-							extensionSet = otherTool.inputFiles | otherTool.inputGroups
-						hasExtension = False
-						for extension in extensionSet:
-							if buildProject.inputFiles.get(extension):
-								hasExtension = True
-								break
-						if hasExtension and buildProject.toolchain.CanCreateOutput(otherTool, dependency):
-							raise MultiBreak()
-			except MultiBreak:
-				continue
-
-			log.Info("Collecting files...")
-			fileList = ordered_set.OrderedSet()
-
-			try:
-				for inputFile in tool.inputGroups:
-					log.Info("Checking if all builds for {} are done yet", inputFile)
-					if buildProject.toolchain.IsOutputActive(inputFile):
-						log.Info("Extension {} is still active, can't build yet.", inputFile)
+					if not _checkDependenciesPreBuild(dependProject, tool, tool.crossProjectDependencies):
 						raise MultiBreak()
-					log.Info("{} is ok to build.", inputFile)
-					fileList.update(buildProject.inputFiles.get(inputFile, []))
+
+				if not _checkDependenciesPreBuild(buildProject, tool, tool.dependencies):
+					raise MultiBreak()
+
 			except MultiBreak:
 				continue
+
+			fileList = _getGroupInputFiles(buildProject, tool)
 
 			if not fileList:
 				break
 
-			buildProject.toolchain.CreateReachability(tool)
-
-			for inputFile in fileList:
-				inputFile.AddUsedTool(tool)
-
-			_runningBuilds += 1
-			log.Info("Enqueuing multi-build task for {} using {}", fileList, tool.__name__)
-			tool.curParallel += 1
-			pool.AddTask(
-				(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, fileList),
-				(_buildFinished, pool, projectBuildList, buildProject, tool, None, fileList)
-			)
+			_enqueueBuild(buildProject, tool, fileList, pool, projectBuildList, None)
 			queuedSomething = True
+
 	if not queuedSomething:
 		log.Build("Nothing to build.")
 		return

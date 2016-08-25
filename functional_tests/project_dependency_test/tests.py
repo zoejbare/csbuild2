@@ -35,7 +35,7 @@ class ProjectDependencyTest(FunctionalTest):
 	# pylint: disable=invalid-name
 	def test(self):
 		"""Project dependency test"""
-		self.assertMakeSucceeds()
+		self.assertMakeSucceeds("-v")
 		for i in range(1, 11):
 			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
 		self.assertFileContents("./out/Foo.thirdlib", "110")
