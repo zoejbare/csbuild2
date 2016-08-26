@@ -28,16 +28,20 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
-import subprocess
 import sys
 import threading
 import shutil
 import platform
 
 from .testcase import TestCase
-from .. import log
+from .. import log, commands
 from .._utils import PlatformString
 from .._utils.string_abc import String
+
+if sys.version_info[0] >= 3:
+	import queue
+else:
+	import Queue as queue
 
 if platform.system() == "Windows":
 	# pylint: disable=import-error
@@ -174,38 +178,43 @@ class FunctionalTest(TestCase):
 		:return: Tuple of returncode, stdout and stderr output from the process
 		:rtype: tuple[int, str, str]
 		"""
-		cmd = [sys.executable, "make.py"]
-		cmd.extend(args)
-		log.Test("Executing {} (cwd: {})", cmd, os.getcwd())
-		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-		running = True
-		output = []
-		errors = []
-		def _streamOutput(pipe, outlist, sysbuffer):
-			while running:
-				try:
-					line = PlatformString(pipe.readline())
-				except IOError:
-					continue
-				if not line:
-					break
-				sysbuffer.write("            {}".format(line))
-				outlist.append(line)
-
-		outputThread = threading.Thread(target=_streamOutput, args=(proc.stdout, output, sys.stdout))
-		errorThread = threading.Thread(target=_streamOutput, args=(proc.stderr, errors, sys.stderr))
-
+		outputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		outputThread.start()
-		errorThread.start()
 
-		proc.wait()
-		running = False
+		callbackQueue = queue.Queue()
+		log.SetCallbackQueue(callbackQueue)
 
+		class _shared(object):
+			ret = None
+
+		def _runCommand():
+			cmd = [sys.executable, "make.py"]
+			cmd.extend(args)
+
+			def _handleStdout(shared, msg):
+				commands.DefaultStdoutHandler(shared, "            {}".format(msg))
+
+			def _handleStderr(shared, msg):
+				commands.DefaultStderrHandler(shared, "            {}".format(msg))
+
+			_shared.ret = commands.Run(cmd, stdout=_handleStdout, stderr=_handleStderr)
+			callbackQueue.put(commands.stopEvent)
+
+		commandThread = threading.Thread(target=_runCommand)
+		commandThread.start()
+		while True:
+			callback = callbackQueue.get()
+			if callback is commands.stopEvent:
+				break
+			callback()
+
+		commands.queueOfLogQueues.put(commands.stopEvent)
 		outputThread.join()
-		errorThread.join()
+		log.SetCallbackQueue(None)
 
-		return proc.returncode, "".join(output), "".join(errors)
+		commandThread.join()
+		return _shared.ret
 
 	# pylint: disable=invalid-name
 	def assertMakeSucceeds(self, *args):

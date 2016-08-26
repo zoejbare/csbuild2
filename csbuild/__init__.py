@@ -475,8 +475,7 @@ def Run():
 		_build.Run()
 		system.Exit(0)
 	except:
-		if not imp.lock_held():
-			imp.acquire_lock()
+		system.CleanUp()
 		raise
 
 if os.getenv(PlatformString("CSBUILD_NO_AUTO_RUN")) != "1":

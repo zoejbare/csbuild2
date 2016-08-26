@@ -43,30 +43,34 @@ _logQueue = queue.Queue()
 _stopEvent = object()
 _callbackQueue = None
 
-def _writeLog(color, level, msg):
-	if shared_globals.colorSupported:
+Color = terminfo.TermColor
+
+def _writeLog(color, level, msg, destination=sys.stdout):
+	if shared_globals.colorSupported and color is not None:
 		terminfo.TermInfo.SetColor(color)
-		sys.stdout.write("{}: ".format(level))
-		sys.stdout.flush()
+		if level is not None:
+			destination.write("{}: ".format(level))
+		destination.flush()
 		terminfo.TermInfo.ResetColor()
 
 		split = re.split(R"(<&\w*>)(.*?)(</&>|$)", msg)
 		for piece in split:
 			match = re.match(R"<&(\w*)>", piece)
 			if match:
-				color = getattr(terminfo.TermColor, match.group(1))
+				color = getattr(Color, match.group(1))
 				terminfo.TermInfo.SetColor(color)
 			elif piece == "</&>":
 				terminfo.TermInfo.ResetColor()
 			else:
-				sys.stdout.write(piece)
-				sys.stdout.flush()
+				destination.write(piece)
+				destination.flush()
 
-		sys.stdout.write("\n")
-		sys.stdout.flush()
+		destination.write("\n")
+		destination.flush()
 		terminfo.TermInfo.ResetColor()
 	else:
-		sys.stdout.write("{}: ".format(level))
+		if level is not None:
+			destination.write("{}: ".format(level))
 
 		split = re.split(R"(<&\w*>)(.*?)(</&>|$)", msg)
 		for piece in split:
@@ -74,10 +78,10 @@ def _writeLog(color, level, msg):
 			if match or piece == "</&>":
 				continue
 			else:
-				sys.stdout.write(piece)
+				destination.write(piece)
 
-		sys.stdout.write("\n")
-		sys.stdout.flush()
+		destination.write("\n")
+		destination.flush()
 	if shared_globals.logFile:
 		shared_globals.logFile.write("{0}: {1}\n".format(level, msg))
 
@@ -121,6 +125,18 @@ def _logMsg(color, level, msg, quietThreshold):
 			_logQueue.put((color, level, msg), block=False)
 			_callbackQueue.put(Pump)
 
+def _logMsgToStderr(color, level, msg, quietThreshold):
+	"""Print a message to stdout"""
+	if shared_globals.verbosity < quietThreshold:
+		if isinstance(msg, BytesType):
+			msg = msg.decode("UTF-8")
+		if threading.currentThread() == _mainThread:
+			_writeLog(color, level, msg, sys.stderr)
+		else:
+			assert _callbackQueue is not None, "Threaded logging requires a callback queue (shared with ThreadPool)"
+			_logQueue.put((color, level, msg, sys.stderr), block=False)
+			_callbackQueue.put(Pump)
+
 
 def _formatMsg(msg, *args, **kwargs):
 	if not isinstance(msg, BytesType) and not isinstance(msg, StrType):
@@ -142,7 +158,7 @@ def Error(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.RED, "ERROR", msg, Verbosity.Mute)
+	_logMsg(Color.RED, "ERROR", msg, Verbosity.Mute)
 	shared_globals.errors.append(msg)
 
 
@@ -158,7 +174,7 @@ def Warn(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, Verbosity.Mute)
+	_logMsg(Color.YELLOW, "WARN", msg, Verbosity.Mute)
 	shared_globals.warnings.append(msg)
 
 
@@ -174,7 +190,7 @@ def WarnNoPush(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.YELLOW, "WARN", msg, Verbosity.Mute)
+	_logMsg(Color.YELLOW, "WARN", msg, Verbosity.Mute)
 
 
 def Info(msg, *args, **kwargs):
@@ -189,7 +205,7 @@ def Info(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.CYAN, "INFO", msg, Verbosity.Normal)
+	_logMsg(Color.CYAN, "INFO", msg, Verbosity.Normal)
 
 
 def Build(msg, *args, **kwargs):
@@ -204,7 +220,7 @@ def Build(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.MAGENTA, "BUILD", msg, Verbosity.Quiet)
+	_logMsg(Color.MAGENTA, "BUILD", msg, Verbosity.Quiet)
 
 
 def Test(msg, *args, **kwargs):
@@ -220,7 +236,7 @@ def Test(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.MAGENTA, "TEST", msg, Verbosity.Quiet)
+	_logMsg(Color.MAGENTA, "TEST", msg, Verbosity.Quiet)
 
 
 def Linker(msg, *args, **kwargs):
@@ -235,7 +251,7 @@ def Linker(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.GREEN, "LINKER", msg, Verbosity.Quiet)
+	_logMsg(Color.GREEN, "LINKER", msg, Verbosity.Quiet)
 
 
 def Thread(msg, *args, **kwargs):
@@ -250,7 +266,7 @@ def Thread(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.BLUE, "THREAD", msg, Verbosity.Quiet)
+	_logMsg(Color.BLUE, "THREAD", msg, Verbosity.Quiet)
 
 
 def Install(msg, *args, **kwargs):
@@ -265,4 +281,66 @@ def Install(msg, *args, **kwargs):
 	:type kwargs: any
 	"""
 	msg = _formatMsg(msg, *args, **kwargs)
-	_logMsg(terminfo.TermColor.WHITE, "INSTALL", msg, Verbosity.Quiet)
+	_logMsg(Color.WHITE, "INSTALL", msg, Verbosity.Quiet)
+
+
+def Command(msg, *args, **kwargs):
+	"""
+	Log info related to executing commands
+
+	:param msg: Text to log
+	:type msg: str
+	:param args: Args to str.format
+	:type args: any
+	:param kwargs: args to str.format
+	:type kwargs: any
+	"""
+	msg = _formatMsg(msg, *args, **kwargs)
+	_logMsg(Color.YELLOW, "COMMAND", msg, Verbosity.Quiet)
+
+
+def Custom(color, name, msg, *args, **kwargs):
+	"""
+	Log info related to some custom aspect of a build tool
+
+	:param color: Color to log with, taken from csbuild.log.Color
+	:type color: varies by platform. Options are documented in csbuild._utils.terminfo.TermColor, but exposed through log via log.Color
+	:param name: Name of the log level (i.e., "BUILD", "INSTALL", etc)
+	:type name: str
+	:param msg: Text to log
+	:type msg: str
+	:param args: Args to str.format
+	:type args: any
+	:param kwargs: args to str.format
+	:type kwargs: any
+	"""
+	msg = _formatMsg(msg, *args, **kwargs)
+	_logMsg(color, name, msg, Verbosity.Quiet)
+
+def Stdout(msg, *args, **kwargs):
+	"""
+	Log info related to the installer
+
+	:param msg: Text to log
+	:type msg: str
+	:param args: Args to str.format
+	:type args: any
+	:param kwargs: args to str.format
+	:type kwargs: any
+	"""
+	msg = _formatMsg(msg, *args, **kwargs)
+	_logMsg(None, None, msg, Verbosity.Mute)
+
+def Stderr(msg, *args, **kwargs):
+	"""
+	Log info related to the installer
+
+	:param msg: Text to log
+	:type msg: str
+	:param args: Args to str.format
+	:type args: any
+	:param kwargs: args to str.format
+	:type kwargs: any
+	"""
+	msg = _formatMsg(msg, *args, **kwargs)
+	_logMsgToStderr(None, None, msg, Verbosity.Mute)

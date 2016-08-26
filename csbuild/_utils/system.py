@@ -34,7 +34,7 @@ import sys
 import platform
 
 from . import shared_globals
-from .. import log
+from .. import log, commands
 
 if platform.system() == "Windows":
 	def SyncDir(_):
@@ -57,21 +57,19 @@ else:
 		os.fsync(dirfd)
 		os.close(dirfd)
 
-def Exit(code = 0):
+def CleanUp():
 	"""
-	Exit the build process early
-
-	:param code: Exit code to exit with
-	:type code: int
+	Clean up the various plates we're spinning so they don't crash to the ground or spin forever
 	"""
-
 	if not imp.lock_held():
 		imp.acquire_lock()
 
-	sys.meta_path = []
-
 	if shared_globals.runMode == csbuild.RunMode.Normal:
 		log.Build("Cleaning up")
+
+	if shared_globals.commandOutputThread is not None:
+		commands.queueOfLogQueues.put(commands.stopEvent)
+		shared_globals.commandOutputThread.join()
 
 	for proj in shared_globals.projectBuildList:
 		if proj.artifactsFile is not None:
@@ -81,12 +79,19 @@ def Exit(code = 0):
 
 			SyncDir(os.path.dirname(proj.artifactsFileName))
 
-	if not imp.lock_held():
-		imp.acquire_lock()
+	sys.meta_path = []
 
 	# TODO: Kill running subprocesses
 	# TODO: Exit events for plugins
 
+def Exit(code = 0):
+	"""
+	Exit the build process early
+
+	:param code: Exit code to exit with
+	:type code: int
+	"""
+	CleanUp()
 	# Die hard, we don't need python to clean up and we want to make sure this exits.
 	# sys.exit just throws an exception that can be caught. No catching allowed.
 	# pylint: disable=protected-access

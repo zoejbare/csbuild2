@@ -37,9 +37,10 @@ import time
 import encodings
 import importlib
 import pkgutil
+import threading
 
 from . import project_plan, project, input_file
-from .. import log
+from .. import log, commands
 from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
@@ -790,6 +791,8 @@ def Run():
 		if imp.lock_held():
 			imp.release_lock()
 
+		shared_globals.commandOutputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
+		shared_globals.commandOutputThread.start()
 		_build(args.jobs, projectBuildList)
 
 	totaltime = time.time() - preparationStart

@@ -50,6 +50,7 @@ def RunTests(include, exclude):
 	:rtype: int
 	"""
 	shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
+	shared_globals.showCommands = True
 	tests = unittest.defaultTestLoader.discover("csbuild", "*.py", ".")
 	for testdir in os.listdir("functional_tests"):
 		log.Test("Loading functional tests from {}", testdir)

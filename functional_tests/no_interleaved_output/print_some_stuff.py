@@ -19,54 +19,17 @@
 # SOFTWARE.
 
 """
-.. module:: shared_globals
-	:synopsis: Global variables that need to be accessed by multiple modules
+.. module:: print_some_stuff
+	:synopsis: Prints some stuff, sleeping for random durations in between each message.
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from . import dag
+import time
+import random
 
-errors = []
-warnings = []
-colorSupported = False
-logFile = None
-
-toolchains = {}
-
-sortedProjects = dag.DAG(lambda x: x.name)
-allTargets = set()
-allToolchains = set()
-allArchitectures = set()
-
-projectFilter = None
-
-runMode = None
-
-defaultTarget = "release"
-
-parser = None
-
-class Verbosity(object):
-	"""
-	'enum' representing verbosity
-	"""
-	Verbose = 0
-	Normal = 1
-	Quiet = 2
-	Mute = 3
-
-#Has to default to Verbose for tests to print Info since they don't take command line params
-verbosity = Verbosity.Verbose
-
-showCommands = False
-
-projectMap = {}
-
-projectBuildList = []
-
-languages = {}
-
-commandOutputThread = None
+for i in range(10):
+	print(i)
+	time.sleep(random.random())
