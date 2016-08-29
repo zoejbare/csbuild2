@@ -29,7 +29,9 @@ from __future__ import unicode_literals, division, print_function
 
 import time
 import random
+import sys
 
 for i in range(10):
 	print(i)
+	sys.stdout.flush()
 	time.sleep(random.random())

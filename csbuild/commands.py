@@ -134,16 +134,16 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 
 	output = []
 	errors = []
-	running = True
 	shared = _sharedStreamProcessingData()
 
 	def _streamOutput(pipe, outlist, callback):
-		while running:
+		while True:
 			try:
 				line = PlatformString(pipe.readline())
 			except IOError:
 				continue
-			#Empty string means pipe was closed. A blank line output by the pipe would be returned as "\n"
+			# Empty string means pipe was closed, possibly due to process exit, and we can leave the loop.
+			# A blank line output by the pipe would be returned as "\n"
 			if not line:
 				break
 			#Callback excludes newline
@@ -157,7 +157,6 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 	errorThread.start()
 
 	proc.wait()
-	running = False
 
 	outputThread.join()
 	errorThread.join()
