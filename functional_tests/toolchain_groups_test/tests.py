@@ -19,56 +19,32 @@
 # SOFTWARE.
 
 """
-.. module:: shared_globals
-	:synopsis: Global variables that need to be accessed by multiple modules
+.. module:: tests
+	:synopsis: Test for toolchain groups
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from . import dag
+from csbuild._testing.functional_test import FunctionalTest
 
-errors = []
-warnings = []
-colorSupported = False
-logFile = None
+class ToolchainGroupsTest(FunctionalTest):
+	"""Toolchain groups test"""
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Toolchain groups test"""
+		self.assertMakeSucceeds("--ao", "-v")
 
-toolchains = {}
+		for i in range(1, 11):
+			self.assertFileContents("./intermediate/FirstThree/AddDoubles/{}.second".format(i), str(i*2))
+			self.assertFileContents("./intermediate/FirstThree/AddDoubles2/{}.second".format(i), str(i*2))
+			self.assertFileContents("./intermediate/FirstThree/AddDoubles3/{}.second".format(i), str(i*2))
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
 
-sortedProjects = dag.DAG(lambda x: x.name)
-allTargets = set()
-allToolchains = set()
-allArchitectures = set()
+		self.assertFileContents("./out/Foo.third", "110")
+		self.assertFileContents("./out/LastThree/AddDoubles2/MiddleFoo.third", "110")
+		self.assertFileContents("./out/LastThree/AddDoubles3/MiddleFoo.third", "110")
+		self.assertFileContents("./out/LastThree/AddDoubles4/Foo.third", "110")
 
-toolchainGroups = {}
-
-projectFilter = None
-
-runMode = None
-
-defaultTarget = "release"
-
-parser = None
-
-class Verbosity(object):
-	"""
-	'enum' representing verbosity
-	"""
-	Verbose = 0
-	Normal = 1
-	Quiet = 2
-	Mute = 3
-
-#Has to default to Verbose for tests to print Info since they don't take command line params
-verbosity = Verbosity.Verbose
-
-showCommands = False
-
-projectMap = {}
-
-projectBuildList = []
-
-languages = {}
-
-commandOutputThread = None
+		self.assertMakeSucceeds("--ao", "--clean")

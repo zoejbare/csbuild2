@@ -26,6 +26,8 @@
 # Import this stuff to appease pylint
 from __future__ import unicode_literals, division, print_function
 
+import shutil
+
 import csbuild
 import argparse
 import os
@@ -438,9 +440,20 @@ def _clean(projectCleanList):
 		os.remove(cleanProject.artifactsFileName)
 
 		def _rmDirIfPossible(dirname):
-			if os.path.exists(dirname) and not os.listdir(dirname):
-				log.Build("Removing {}", dirname)
-				os.rmdir(dirname)
+			if os.path.exists(dirname):
+				containsOnlyDirs = True
+				for _, _, files in os.walk(dirname):
+					if files:
+						containsOnlyDirs = False
+						break
+				if containsOnlyDirs:
+					log.Build("Removing {}", dirname)
+					#If it contains only directories and no files, remove everything
+					shutil.rmtree(dirname)
+					#Then if its parent directory is empty, remove it and any dirs above it that are also empty
+					parentDir = os.path.dirname(dirname)
+					if not os.listdir(parentDir):
+						os.removedirs(parentDir)
 
 		_rmDirIfPossible(cleanProject.csbuildDir)
 		_rmDirIfPossible(cleanProject.intermediateDir)
@@ -672,6 +685,8 @@ def Run():
 	if args.project:
 		shared_globals.projectFilter = set(args.project)
 
+	_execfile(mainFile, makefileDict, makefileDict)
+
 	if args.at:
 		targetList = list(shared_globals.allTargets)
 	elif args.target:
@@ -699,8 +714,6 @@ def Run():
 	projectBuildList = []
 
 	preparationStart = time.time()
-
-	_execfile(mainFile, makefileDict, makefileDict)
 
 	for toolchainName in toolchainList:
 		log.Info("Collecting projects for toolchain {}", toolchainName)

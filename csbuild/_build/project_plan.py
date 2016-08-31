@@ -460,8 +460,8 @@ class ProjectPlan(object):
 
 		:param key: The setting key
 		:type key: str, bytes
-		:param value: The value
-		:type value: Any
+		:param value: The key/value pair to add to the named dict
+		:type value: dict
 		"""
 		if toolchain.currentToolId is not None:
 			key = "{}!{}".format(toolchain.currentToolId, key)

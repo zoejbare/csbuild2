@@ -58,7 +58,7 @@ class NoInterleavedOutputTest(FunctionalTest):
 		self.oldLogStdout = log.Stdout
 		log.Stdout = self._stdoutOverride
 
-		FunctionalTest.setUp(self)
+		FunctionalTest.setUp(self, cleanAtEnd=False)
 
 	def tearDown(self):
 		log.Stdout = self.oldLogStdout

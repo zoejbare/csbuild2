@@ -19,56 +19,27 @@
 # SOFTWARE.
 
 """
-.. module:: shared_globals
-	:synopsis: Global variables that need to be accessed by multiple modules
+.. module:: tests
+	:synopsis: Basic test of macro formatting to ensure it works correctly, including userData formatting
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from . import dag
+import platform
 
-errors = []
-warnings = []
-colorSupported = False
-logFile = None
+from csbuild._testing.functional_test import FunctionalTest
 
-toolchains = {}
+class MacroFormattingtest(FunctionalTest):
+	"""Macro formatting test"""
+	def setUp(self):
+		FunctionalTest.setUp(self, outDir="./out/AddDoubles/{}/True".format(platform.system()))
 
-sortedProjects = dag.DAG(lambda x: x.name)
-allTargets = set()
-allToolchains = set()
-allArchitectures = set()
-
-toolchainGroups = {}
-
-projectFilter = None
-
-runMode = None
-
-defaultTarget = "release"
-
-parser = None
-
-class Verbosity(object):
-	"""
-	'enum' representing verbosity
-	"""
-	Verbose = 0
-	Normal = 1
-	Quiet = 2
-	Mute = 3
-
-#Has to default to Verbose for tests to print Info since they don't take command line params
-verbosity = Verbosity.Verbose
-
-showCommands = False
-
-projectMap = {}
-
-projectBuildList = []
-
-languages = {}
-
-commandOutputThread = None
+	# pylint: disable=invalid-name
+	def test(self):
+		"""Macro formatting test"""
+		self.assertMakeSucceeds()
+		for i in range(1, 11):
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
+		self.assertFileContents("{}/Foo.third".format(self.outDir), "110")

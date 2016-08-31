@@ -226,6 +226,10 @@ def RegisterToolchain(name, defaultArchitecture, *tools):
 		if tool.supportedArchitectures is not None:
 			shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
 
+@TypeChecked(name=String)
+def RegisterToolchainGroup(name, *toolchains):
+	shared_globals.toolchainGroups[name] = set(toolchains)
+
 @TypeChecked(toolchainName=String)
 def SetDefaultToolchain(toolchainName):
 	"""
@@ -285,6 +289,43 @@ def SetSupportedPlatforms(*args):
 	"""
 	currentPlan.UnionSet("supportedPlatforms", args)
 
+def SetUserData(key, value):
+	"""
+	Adds miscellaneous data to a project. This can be used later in a build event or in a format string.
+
+	This becomes an attribute on the project's userData member variable. As an example, to set a value:
+
+	csbuild.SetUserData("someData", "someValue")
+
+	Then to access it later:
+
+	project.userData.someData
+
+	:param key: name of the variable to set
+	:type key: str
+	:param value: value to set to that variable
+	:type value: any
+	"""
+	currentPlan.UpdateDict("_userData", {key : value})
+
+def SetOutputDirectory(outputDirectory):
+	"""
+	Specifies the directory in which to place the output file.
+
+	:param outputDirectory: The output directory, relative to the current script location, NOT to the project working directory.
+	:type outputDirectory: str
+	"""
+	currentPlan.SetValue("outputDir", os.path.abspath(outputDirectory))
+
+def SetIntermediateDirectory(intermediateDirectory):
+	"""
+	Specifies the directory in which to place the intermediate files.
+
+	:param intermediateDirectory: The output directory, relative to the current script location, NOT to the project working directory.
+	:type intermediateDirectory: str
+	"""
+	currentPlan.SetValue("intermediateDir", os.path.abspath(intermediateDirectory))
+
 class Scope(ContextManager):
 	"""
 	Enter a scope. Settings within this scope will be passed on to libraries that include this lib for intermediate,
@@ -321,6 +362,12 @@ class Toolchain(ContextManager):
 				return _runFuncs
 
 		ContextManager.__init__(self, "toolchain", toolchainNames, [_toolchainMethodResolver()])
+
+def ToolchainGroup(*names):
+	toolchains = set()
+	for name in names:
+		toolchains |= shared_globals.toolchainGroups[name]
+	return Toolchain(*toolchains)
 
 class Architecture(ContextManager):
 	"""

@@ -28,13 +28,21 @@ from __future__ import unicode_literals, division, print_function
 
 import os
 import fnmatch
+import collections
 
 from .. import log
-from .._utils import ordered_set, shared_globals
+from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._build import input_file
 from ..toolchain.toolchain import Toolchain
+
+class UserData(object):
+	def __init__(self, dataDict):
+		self.dataDict = dataDict
+
+	def __getattr__(self, item):
+		return object.__getattribute__(self, "dataDict")[item]
 
 class Project(object):
 	"""
@@ -70,18 +78,53 @@ class Project(object):
 		self.priority = priority
 		self.ignoreDependencyOrdering = ignoreDependencyOrdering
 		self.autoDiscoverSourceFiles = autoDiscoverSourceFiles
-		self.settings = projectSettings
 
 		self.toolchainName = toolchainName
 		self.architectureName = archName
 		self.targetName = targetName
 
-		self.projectType = projectSettings["projectType"]
-
 		log.Build("Preparing build tasks for {}", self)
 
 		#: type: list[Tool]
 		self.tools = projectSettings["tools"]
+
+		self.toolchain = Toolchain(projectSettings, *self.tools)
+
+		self.userData = UserData(projectSettings.get("_userData", {}))
+
+		def _convertSet(toConvert):
+			ret = toConvert.__class__()
+			for item in toConvert:
+				ret.add(_convertItem(item))
+			return ret
+
+		def _convertDict(toConvert):
+			for key, val in toConvert.items():
+				toConvert[key] = _convertItem(val)
+			return toConvert
+
+		def _convertList(toConvert):
+			for i, item in enumerate(toConvert):
+				toConvert[i] = _convertItem(item)
+			return toConvert
+
+		def _convertItem(toConvert):
+			if isinstance(toConvert, list):
+				return _convertList(toConvert)
+			elif isinstance(toConvert, dict) or isinstance(toConvert, collections.OrderedDict):
+				return _convertDict(toConvert)
+			elif isinstance(toConvert, set) or isinstance(toConvert, ordered_set.OrderedSet):
+				return _convertSet(toConvert)
+			elif isinstance(toConvert, StrType) or isinstance(toConvert, BytesType):
+				return self.FormatMacro(toConvert)
+			else:
+				return toConvert
+
+		# We set self.settings here because _convertItem calls FormatMacro and FormatMacro uses self.settings
+		self.settings = projectSettings
+		self.settings = _convertItem(projectSettings)
+
+		self.projectType = projectSettings["projectType"]
 
 		#: type: set[str]
 		self.extraDirs = projectSettings.get("extraDirs", set())
@@ -134,8 +177,6 @@ class Project(object):
 		if not os.path.exists(self.csbuildDir):
 			os.makedirs(self.csbuildDir)
 
-		self.toolchain = Toolchain(projectSettings, *self.tools)
-
 		#: type: dict[str, ordered_set.OrderedSet]
 		self.inputFiles = {}
 
@@ -143,6 +184,34 @@ class Project(object):
 
 	def __repr__(self):
 		return "{} ({}/{}/{})".format(self.name, self.toolchainName, self.architectureName, self.targetName)
+
+	def FormatMacro(self, toConvert):
+		# TODO: This could be optimized:
+		# Make a proxy class that gets items from the list of valid items
+		# and convert them as we come across them, using memoization to avoid redundant
+		# conversions. If we do that, we could do each string in one pass.
+		if "{" in toConvert:
+			prev = ""
+			while toConvert != prev:
+				log.Info("Formatting {}", toConvert)
+				prev = toConvert
+				toConvert = toConvert.format(
+					name=self.name,
+					workingDirectory=self.workingDirectory,
+					dependencyNames=self.dependencyNames,
+					priority=self.priority,
+					ignoreDependencyOrdering=self.ignoreDependencyOrdering,
+					autoDiscoverSourceFiles=self.autoDiscoverSourceFiles,
+					settings=self.settings,
+					toolchainName=self.toolchainName,
+					architectureName=self.architectureName,
+					targetName=self.targetName,
+					toolchain=self.toolchain,
+					userData=self.userData,
+					**self.settings
+				)
+				log.Info("  => {}", toConvert)
+		return PlatformString(toConvert)
 
 	def ResolveDependencies(self):
 		"""

@@ -679,7 +679,9 @@ class Toolchain(object):
 						assert val is not sentinel, "this shouldn't happen"
 						if isinstance(val, Callable):
 							def _runPrivateFunc(*args, **kwargs):
-								if isinstance(val, staticmethod):
+								if isinstance(func, property):
+									return func.__get__(self)
+								elif isinstance(val, staticmethod):
 									# pylint: disable=no-member
 									return val.__get__(cls)(*args, **kwargs)
 								else:
@@ -726,7 +728,9 @@ class Toolchain(object):
 						# Having collected all functions, iterate and call them
 						for func, cls in functions.items():
 							with Use(cls):
-								if isinstance(func, staticmethod):
+								if isinstance(func, property):
+									ret.append(func.__get__(self))
+								elif isinstance(func, staticmethod):
 									ret.append(func.__get__(cls)(*args, **kwargs))
 								else:
 									assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
@@ -741,7 +745,28 @@ class Toolchain(object):
 							return ret[0]
 						return ret
 
-					return _runMultiFunc
+					allProperties = True
+					for cls in _classTrackr.classes:
+						if _classTrackr.limit and cls not in _classTrackr.limit:
+							continue
+						if hasattr(cls, name):
+							# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
+							# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
+							func = None
+							for cls2 in cls.mro():
+								if name in cls2.__dict__:
+									func = cls2.__dict__[name]
+									break
+							assert func is not None, "this shouldn't happen"
+							if not isinstance(func, property):
+								allProperties = False
+								break
+
+					#If they're properties, call the function now instead of returning it
+					if allProperties:
+						return _runMultiFunc()
+					else:
+						return _runMultiFunc
 
 		return type(PlatformString("Toolchain"), classes, dict(ToolchainTemplate.__dict__))()
 

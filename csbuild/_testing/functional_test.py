@@ -136,7 +136,7 @@ class FunctionalTest(TestCase):
 	"""
 	Base class for running functional tests that invoke an actual makefile.
 	"""
-	def setUp(self):
+	def setUp(self, outDir="out", intermediateDir="intermediate", cleanAtEnd=True):
 		self._prevdir = os.getcwd()
 		module = __import__(self.__class__.__module__)
 		path = os.path.dirname(module.__file__)
@@ -152,17 +152,22 @@ class FunctionalTest(TestCase):
 
 		os.chdir(path)
 
+		self.outDir = outDir
+		self.intermediateDir = intermediateDir
+		self.cleanAtEnd = cleanAtEnd
+
 		# Make sure we start in a good state
-		if os.path.exists("out"):
-			shutil.rmtree("out")
-		if os.path.exists("intermediate"):
-			shutil.rmtree("intermediate")
+		if os.path.exists(outDir):
+			shutil.rmtree(outDir)
+		if os.path.exists(intermediateDir):
+			shutil.rmtree(intermediateDir)
 
 	def tearDown(self):
 		try:
-			self.RunMake("--clean")
-			self.assertFalse(os.path.exists("out"))
-			self.assertFalse(os.path.exists("intermediate"))
+			if self.cleanAtEnd:
+				self.RunMake("--clean")
+				self.assertFalse(os.path.exists(self.outDir))
+				self.assertFalse(os.path.exists(self.intermediateDir))
 		finally:
 			os.chdir(self._prevdir)
 			if self._oldenviron is not None:
@@ -268,17 +273,18 @@ class FunctionalTest(TestCase):
 		:type filename: str
 		"""
 
-		self.assertTrue(os.path.exists(filename))
+		self.assertTrue(os.path.exists(filename), "No such file: "+filename)
 
 	# pylint: disable=invalid-name
-	def assertFileContents(self, filename, contents):
+	def assertFileContents(self, filename, expectedContents):
 		"""
 		Assert that an expected file exists and its contents are as expected
 		:param filename: file to check
 		:type filename: str
-		:param contents: Contents to check against
-		:type contents: str
+		:param expectedContents: Contents to check against
+		:type expectedContents: str
 		"""
 		self.assertFileExists(filename)
 		with open(filename, "r") as f:
-			self.assertEqual(contents, f.read())
+			foundContents = f.read()
+			self.assertEqual(expectedContents, foundContents, "File {} did not contain expected contents (Expected {}, got {})".format(filename, expectedContents, foundContents))
