@@ -228,6 +228,15 @@ def RegisterToolchain(name, defaultArchitecture, *tools):
 
 @TypeChecked(name=String)
 def RegisterToolchainGroup(name, *toolchains):
+	"""
+	Add a toolchain group, a single identifier to serve as an alias for multiple toolchains
+
+	:param name: Name of the group
+	:type name: str
+	:param toolchains: Toolchain to alias
+	:type toolchains: str
+	:return:
+	"""
 	shared_globals.toolchainGroups[name] = set(toolchains)
 
 @TypeChecked(toolchainName=String)
@@ -364,6 +373,13 @@ class Toolchain(ContextManager):
 		ContextManager.__init__(self, "toolchain", toolchainNames, [_toolchainMethodResolver()])
 
 def ToolchainGroup(*names):
+	"""
+	Apply values to toolchains in a toolchain group
+	:param names: Toolchain group names
+	:type names: str
+	:return: A context manager for the toolchains in the group
+	:rtype: Toolchain
+	"""
 	toolchains = set()
 	for name in names:
 		toolchains |= shared_globals.toolchainGroups[name]

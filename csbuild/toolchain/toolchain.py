@@ -677,10 +677,11 @@ class Toolchain(object):
 								val = cls2.__dict__[name]
 								break
 						assert val is not sentinel, "this shouldn't happen"
-						if isinstance(val, Callable):
+						if isinstance(val, Callable) or isinstance(val, property) or isinstance(val, staticmethod):
 							def _runPrivateFunc(*args, **kwargs):
-								if isinstance(func, property):
-									return func.__get__(self)
+								if isinstance(val, property):
+									# pylint: disable=no-member
+									return val.__get__(self)
 								elif isinstance(val, staticmethod):
 									# pylint: disable=no-member
 									return val.__get__(cls)(*args, **kwargs)

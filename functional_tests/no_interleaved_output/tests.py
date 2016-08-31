@@ -47,7 +47,7 @@ else:
 class NoInterleavedOutputTest(FunctionalTest):
 	"""Ensure no interleaved output from commands"""
 	# pylint: disable=invalid-name
-	def setUp(self):
+	def setUp(self): #pylint: disable=arguments-differ
 		self.lastValue = -1
 		self.numTallies = 0
 		self.callbackQueue = queue.Queue()

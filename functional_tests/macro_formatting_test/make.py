@@ -46,7 +46,8 @@ class AddDoubles(Tool):
 		Tool.__init__(self, projectSettings)
 
 	@property
-	def foo(self):
+	def foo(self): #pylint: disable=blacklisted-name
+		"""Get foo"""
 		return self._foo
 
 	@staticmethod

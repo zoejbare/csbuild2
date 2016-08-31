@@ -136,7 +136,7 @@ class FunctionalTest(TestCase):
 	"""
 	Base class for running functional tests that invoke an actual makefile.
 	"""
-	def setUp(self, outDir="out", intermediateDir="intermediate", cleanAtEnd=True):
+	def setUp(self, outDir="out", intermediateDir="intermediate", cleanAtEnd=True): #pylint: disable=arguments-differ
 		self._prevdir = os.getcwd()
 		module = __import__(self.__class__.__module__)
 		path = os.path.dirname(module.__file__)

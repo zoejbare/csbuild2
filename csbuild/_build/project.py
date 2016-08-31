@@ -38,6 +38,11 @@ from .._build import input_file
 from ..toolchain.toolchain import Toolchain
 
 class UserData(object):
+	"""
+	Wrapper around a dict that allows its contents to be accessed as if they were class properties instead
+	:param dataDict: dict to wrap
+	:type dataDict: dict
+	"""
 	def __init__(self, dataDict):
 		self.dataDict = dataDict
 
@@ -186,6 +191,17 @@ class Project(object):
 		return "{} ({}/{}/{})".format(self.name, self.toolchainName, self.architectureName, self.targetName)
 
 	def FormatMacro(self, toConvert):
+		"""
+		Format a string containing macros with data from the project.
+		i.e., in a project with toolchainName = msvc, FormatMacro("{toolchainName}.foo") would return "msvc.foo"
+		This will also convert any values of type unicode (in python2) or bytes (in python3) to the platform-appropriate
+		str type.
+
+		:param toConvert: The macroized string to convert
+		:type toConvert: str, bytes
+		:return: The converted string
+		:rtype: str
+		"""
 		# TODO: This could be optimized:
 		# Make a proxy class that gets items from the list of valid items
 		# and convert them as we come across them, using memoization to avoid redundant

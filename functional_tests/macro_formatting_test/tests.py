@@ -33,7 +33,7 @@ from csbuild._testing.functional_test import FunctionalTest
 
 class MacroFormattingtest(FunctionalTest):
 	"""Macro formatting test"""
-	def setUp(self):
+	def setUp(self):  #pylint: disable=arguments-differ
 		FunctionalTest.setUp(self, outDir="./out/AddDoubles/{}/True".format(platform.system()))
 
 	# pylint: disable=invalid-name
