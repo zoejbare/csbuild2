@@ -67,4 +67,5 @@ def FormatTime(totaltime):
 	"""
 	totalmin = math.floor(totaltime / 60)
 	totalsec = math.floor(totaltime % 60)
-	return "{0}:{1:02}".format(int(totalmin), int(totalsec))
+	msec = math.floor((totaltime - math.floor(totaltime))*1000)
+	return "{}:{:02}.{:04}".format(int(totalmin), int(totalsec), int(msec))

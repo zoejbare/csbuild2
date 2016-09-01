@@ -107,18 +107,34 @@ with csbuild.Project("ProjectWithLimitedArchitectures", "."):
 	csbuild.SetSupportedArchitectures("A", "B", "C")
 	csbuild.SetOutput("arch", csbuild.ProjectType.Application)
 
+with csbuild.Architecture("A", "B", "C"):
+	with csbuild.Project("ProjectWithLimitedArchitectures2", "."):
+		csbuild.SetOutput("arch2", csbuild.ProjectType.Application)
+
 with csbuild.Project("ProjectWithExcludedTarget", "."):
 	csbuild.SetSupportedTargets("A")
 	csbuild.SetOutput("target", csbuild.ProjectType.Application)
+
+with csbuild.Target("A"):
+	with csbuild.Project("ProjectWithExcludedTarget2", "."):
+		csbuild.SetOutput("target2", csbuild.ProjectType.Application)
 
 with csbuild.Project("ProjectWithSpecialTarget", "."):
 	with csbuild.Target("special"):
 		csbuild.SetOutput("special", csbuild.ProjectType.Application)
 	csbuild.SetOutput("unspecial", csbuild.ProjectType.Application)
 
+with csbuild.Target("special", addToCurrentScope=False):
+	with csbuild.Project("ProjectWithSpecialTarget2", "."):
+		csbuild.SetOutput("special2", csbuild.ProjectType.Application)
+
 with csbuild.Project("LimitedToolchains", "."):
 	csbuild.SetSupportedToolchains("B", "C", "D")
 	csbuild.SetOutput("toolchain", csbuild.ProjectType.Application)
+
+with csbuild.Toolchain("B", "C", "D"):
+	with csbuild.Project("LimitedToolchains2", "."):
+		csbuild.SetOutput("toolchain2", csbuild.ProjectType.Application)
 
 with csbuild.Project("WindowsProject", "."):
 	csbuild.SetSupportedPlatforms("Windows")
@@ -127,3 +143,11 @@ with csbuild.Project("WindowsProject", "."):
 with csbuild.Project("LinuxProject", "."):
 	csbuild.SetSupportedPlatforms("Linux")
 	csbuild.SetOutput("Linux", csbuild.ProjectType.Application)
+
+with csbuild.Platform("Windows"):
+	with csbuild.Project("WindowsProject2", "."):
+		csbuild.SetOutput("Windows2", csbuild.ProjectType.Application)
+
+with csbuild.Platform("Linux"):
+	with csbuild.Project("LinuxProject2", "."):
+		csbuild.SetOutput("Linux2", csbuild.ProjectType.Application)

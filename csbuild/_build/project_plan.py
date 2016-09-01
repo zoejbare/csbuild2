@@ -96,12 +96,29 @@ class ProjectPlan(object):
 			self.defaultToolchain = csbuild.currentPlan.defaultToolchain
 			self.defaultArchitecture = csbuild.currentPlan.defaultArchitecture
 			self.defaultArchitectureMap = copy.deepcopy(csbuild.currentPlan.defaultArchitectureMap)
+
+			self.selfLimits = copy.deepcopy(csbuild.currentPlan.childLimits)
+			self.childLimits = copy.deepcopy(csbuild.currentPlan.childLimits)
+			self.knownTargets = set(csbuild.currentPlan.childTargets)
+			self.childTargets = set(self.knownTargets)
 		else:
 			self._settings = {}
 			self.defaultTarget = "release"
 			self.defaultToolchain = _getDefaultToolchain()
 			self.defaultArchitecture = useDefault
 			self.defaultArchitectureMap = {}
+
+			self.selfLimits = {
+				"toolchain" : set(),
+				"target" : set(),
+				"architecture" : set(),
+				"platform" : set()
+			}
+			self.childLimits = copy.deepcopy(self.selfLimits)
+			self.knownTargets = set()
+			self.childTargets = set()
+
+		self.oldChildLimits = None
 
 		self._workingSettingsStack = [[self._settings]]
 		self._currentSettingsDicts = self._workingSettingsStack[0]
@@ -125,8 +142,16 @@ class ProjectPlan(object):
 		:type contextTypes: tuple[str, tuple[*str]]
 		"""
 		newSettingsDicts = []
+		self.oldChildLimits = copy.deepcopy(self.childLimits)
 		for contextType, names in contextTypes:
 			assert contextType in ProjectPlan._validContextTypes, "Invalid context type!"
+
+			limits = self.childLimits.get(contextType, None)
+			if limits:
+				limits.intersection_update(names)
+			elif limits is not None:
+				limits.update(names)
+
 			for name in names:
 				for settings in self._currentSettingsDicts:
 					newSettingsDicts.append(settings.setdefault("overrides", {}).setdefault(contextType, {}).setdefault(name, {}))
@@ -137,6 +162,7 @@ class ProjectPlan(object):
 		"""Leave the context and return to the previous one"""
 		self._workingSettingsStack.pop()
 		self._currentSettingsDicts = self._workingSettingsStack[-1]
+		self.childLimits = self.oldChildLimits
 
 	def _absorbSettings(self, settings, overrideDict, toolchainName, architectureName, targetName, scopeType, inScope):
 		if overrideDict is None:
@@ -243,6 +269,30 @@ class ProjectPlan(object):
 			and "toolchain" in self._settings["overrides"] \
 			   and toolchainName in self._settings["overrides"]["toolchain"], \
 			"Toolchain {} has not been registered for project {}".format(toolchainName, self._name)
+
+		toolchains = self.selfLimits["toolchain"]
+		if toolchains and toolchainName not in toolchains:
+			log.Info("Project {} does not support toolchain {}", self.name, toolchainName)
+			return None
+
+		platforms = self.selfLimits["platform"]
+		if platforms and platform.system() not in platforms:
+			log.Info("Project {} does not support platform {}", self.name, platform.system())
+			return None
+
+		architectures = self.selfLimits["architecture"]
+		if architectures and architectureName not in architectures:
+			log.Info("Project {} does not support architecture {}", self.name, architectureName)
+			return None
+
+		targets = self.selfLimits["target"]
+		if targets and targetName not in targets:
+			log.Info("Project {} does not support target {}", self.name, targetName)
+			return None
+
+		if targetName not in self.knownTargets:
+			log.Info("Project {} does not know about target {}", self.name, targetName)
+			return None
 
 		projectType = self._settings.get("projectType", ProjectType.Application)
 		projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchainName, architectureName, targetName, projectType)
@@ -353,31 +403,6 @@ class ProjectPlan(object):
 			if tool.supportedPlatforms is not None and platform.system() not in tool.supportedPlatforms:
 				log.Info("Tool {} does not support platform {}", tool.__name__, platform.system())
 				return None
-
-		supportedToolchains = settings.get("supportedToolchains", None)
-		if supportedToolchains and toolchainName not in supportedToolchains:
-			log.Info("Project {} does not support toolchain {}", self.name, toolchainName)
-			return None
-
-		supportedPlatforms = settings.get("supportedPlatforms", None)
-		if supportedPlatforms and platform.system() not in supportedPlatforms:
-			log.Info("Project {} does not support platform {}", self.name, platform.system())
-			return None
-
-		supportedArchitectures = settings.get("supportedArchitectures", None)
-		if supportedArchitectures and architectureName not in supportedArchitectures:
-			log.Info("Project {} does not support architecture {}", self.name, architectureName)
-			return None
-
-		supportedTargets = settings.get("supportedTargets", None)
-		if supportedTargets and targetName not in supportedTargets:
-			log.Info("Project {} does not support target {}", self.name, targetName)
-			return None
-
-		targets = settings.get("targets", None)
-		if targets and targetName not in targets:
-			log.Info("Project {} does not know about target {}", self.name, targetName)
-			return None
 
 		return project.Project(
 			self._name,
@@ -561,6 +586,9 @@ class TestProjectPlan(testcase.TestCase):
 		# pylint: disable=protected-access
 		csbuild.currentPlan._settings = {}
 		csbuild.currentPlan = ProjectPlan("", "", [], 0, False, False)
+
+		csbuild.currentPlan.knownTargets.update({"target"})
+		csbuild.currentPlan.childTargets.update({"target"})
 
 		# Create some mocked in toolchains...
 		csbuild.currentPlan.EnterContext(

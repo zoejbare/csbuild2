@@ -272,7 +272,11 @@ def SetSupportedArchitectures(*args):
 	:param args: Architectures to support
 	:type args: str
 	"""
-	currentPlan.UnionSet("supportedArchitectures", args)
+	architectures = currentPlan.selfLimits["architecture"]
+	if architectures:
+		architectures.intersection_update(args)
+	else:
+		architectures.update(args)
 
 def SetSupportedToolchains(*args):
 	"""
@@ -280,7 +284,11 @@ def SetSupportedToolchains(*args):
 	:param args: Toolchains to support
 	:type args: str
 	"""
-	currentPlan.UnionSet("supportedToolchains", args)
+	toolchains = currentPlan.selfLimits["toolchain"]
+	if toolchains:
+		toolchains.intersection_update(args)
+	else:
+		toolchains.update(args)
 
 def SetSupportedTargets(*args):
 	"""
@@ -288,7 +296,11 @@ def SetSupportedTargets(*args):
 	:param args: Targets to support
 	:type args: str
 	"""
-	currentPlan.UnionSet("supportedTargets", args)
+	targets = currentPlan.selfLimits["target"]
+	if targets:
+		targets.intersection_update(args)
+	else:
+		targets.update(args)
 
 def SetSupportedPlatforms(*args):
 	"""
@@ -296,7 +308,11 @@ def SetSupportedPlatforms(*args):
 	:param args: Platforms to support
 	:type args: str
 	"""
-	currentPlan.UnionSet("supportedPlatforms", args)
+	platforms = currentPlan.selfLimits["platform"]
+	if platforms:
+		platforms.intersection_update(args)
+	else:
+		platforms.update(args)
 
 def SetUserData(key, value):
 	"""
@@ -411,11 +427,31 @@ class Target(ContextManager):
 
 	:param targetNames: target identifiers
 	:type targetNames: str, bytes
+	:param kwargs: if addToCurrentScope is set to False as a keyword argument, only projects inside the scope of this
+	               target will be made aware of this target's existence; other projects will be excluded
 	"""
-	def __init__(self, *targetNames):
+	def __init__(self, *targetNames, **kwargs):
+		def _processKwargs(addToCurrentScope=True):
+			if addToCurrentScope:
+				currentPlan.knownTargets.update(targetNames)
+				currentPlan.childTargets.update(targetNames)
+
+		_processKwargs(**kwargs)
+
+		self.oldChildTargets = set(currentPlan.childTargets)
+		self.targetNames = targetNames
+
 		shared_globals.allTargets.update(targetNames)
-		currentPlan.UnionSet("targets", targetNames)
+
 		ContextManager.__init__(self, (("target", targetNames),))
+
+	def __enter__(self):
+		currentPlan.childTargets.update(object.__getattribute__(self, "targetNames"))
+		ContextManager.__enter__(self)
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		currentPlan.childTargets = object.__getattribute__(self, "oldChildTargets")
+		return ContextManager.__exit__(self, exc_type, exc_val, exc_tb)
 
 class Language(ContextManager):
 	"""

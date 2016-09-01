@@ -707,6 +707,16 @@ def Run():
 	if args.project:
 		shared_globals.projectFilter = set(args.project)
 
+	#Create the default targets...
+	with csbuild.Target("release"):
+		pass
+
+	with csbuild.Target("debug"):
+		pass
+
+	with csbuild.Target("fastdebug"):
+		pass
+
 	_execfile(mainFile, makefileDict, makefileDict)
 
 	if args.at:

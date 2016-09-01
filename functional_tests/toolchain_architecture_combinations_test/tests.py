@@ -60,10 +60,14 @@ class ToolchainArchitectureTest(FunctionalTest):
 						if architecture in ["A", "B", "C"]:
 							self.assertTrue(os.path.exists("out/arch.{}.{}.{}".format(architecture, target, toolchain)))
 							os.remove("out/arch.{}.{}.{}".format(architecture, target, toolchain))
+							self.assertTrue(os.path.exists("out/arch2.{}.{}.{}".format(architecture, target, toolchain)))
+							os.remove("out/arch2.{}.{}.{}".format(architecture, target, toolchain))
 
 						if target == "A":
 							self.assertTrue(os.path.exists("out/target.{}.{}.{}".format(architecture, target, toolchain)))
 							os.remove("out/target.{}.{}.{}".format(architecture, target, toolchain))
+							self.assertTrue(os.path.exists("out/target2.{}.{}.{}".format(architecture, target, toolchain)))
+							os.remove("out/target2.{}.{}.{}".format(architecture, target, toolchain))
 
 						self.assertTrue(os.path.exists("out/unspecial.{}.{}.{}".format(architecture, target, toolchain)))
 						os.remove("out/unspecial.{}.{}.{}".format(architecture, target, toolchain))
@@ -71,12 +75,19 @@ class ToolchainArchitectureTest(FunctionalTest):
 						if toolchain in ["B", "C", "D"]:
 							self.assertTrue(os.path.exists("out/toolchain.{}.{}.{}".format(architecture, target, toolchain)))
 							os.remove("out/toolchain.{}.{}.{}".format(architecture, target, toolchain))
+							self.assertTrue(os.path.exists("out/toolchain2.{}.{}.{}".format(architecture, target, toolchain)))
+							os.remove("out/toolchain2.{}.{}.{}".format(architecture, target, toolchain))
 
 						self.assertTrue(os.path.exists("out/{}.{}.{}.{}".format(platform.system(), architecture, target, toolchain)))
 						os.remove("out/{}.{}.{}.{}".format(platform.system(), architecture, target, toolchain))
+						self.assertTrue(os.path.exists("out/{}2.{}.{}.{}".format(platform.system(), architecture, target, toolchain)))
+						os.remove("out/{}2.{}.{}.{}".format(platform.system(), architecture, target, toolchain))
+
 					else:
 						self.assertTrue(os.path.exists("out/special.{}.{}.{}".format(architecture, target, toolchain)))
 						os.remove("out/special.{}.{}.{}".format(architecture, target, toolchain))
+						self.assertTrue(os.path.exists("out/special2.{}.{}.{}".format(architecture, target, toolchain)))
+						os.remove("out/special2.{}.{}.{}".format(architecture, target, toolchain))
 
 					self.assertFalse(os.listdir("out"), "Out directory still contains {}".format(os.listdir("out")))
 
