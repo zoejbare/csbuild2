@@ -118,20 +118,18 @@ class ProjectPlan(object):
 
 	_validContextTypes = {"toolchain", "architecture", "platform", "target", "scope"}
 
-	@TypeChecked(contextType=String)
-	def EnterContext(self, contextType, *names):
+	def EnterContext(self, *contextTypes):
 		"""
 		Enter a context for storing settings overrides.
-		:param contextType: Must be in _validContextTypes
-		:type contextType: str, bytes
-		:param names: The identifiers for the context
-		:type names: str, bytes
+		:param contextTypes: list of iterables of (contextType, (list, of, context, names))
+		:type contextTypes: tuple[str, tuple[*str]]
 		"""
-		assert contextType in ProjectPlan._validContextTypes, "Invalid context type!"
 		newSettingsDicts = []
-		for name in names:
-			for settings in self._currentSettingsDicts:
-				newSettingsDicts.append(settings.setdefault("overrides", {}).setdefault(contextType, {}).setdefault(name, {}))
+		for contextType, names in contextTypes:
+			assert contextType in ProjectPlan._validContextTypes, "Invalid context type!"
+			for name in names:
+				for settings in self._currentSettingsDicts:
+					newSettingsDicts.append(settings.setdefault("overrides", {}).setdefault(contextType, {}).setdefault(name, {}))
 		self._currentSettingsDicts = newSettingsDicts
 		self._workingSettingsStack.append(self._currentSettingsDicts)
 
@@ -566,13 +564,17 @@ class TestProjectPlan(testcase.TestCase):
 
 		# Create some mocked in toolchains...
 		csbuild.currentPlan.EnterContext(
-			"toolchain",
-			"tc1",
-			"tc2",
-			"none",
-			"scope-then-toolchain",
-			"toolchain-then-scope",
-			"no-toolchain"
+			(
+				"toolchain",
+				(
+					"tc1",
+					"tc2",
+					"none",
+					"scope-then-toolchain",
+					"toolchain-then-scope",
+					"no-toolchain"
+				)
+			)
 		)
 
 		csbuild.currentPlan.SetValue("tools", ordered_set.OrderedSet((_nullTool,)))
@@ -598,7 +600,7 @@ class TestProjectPlan(testcase.TestCase):
 		plan.UpdateDict("dict", {4: 5})
 		plan.SetValue("hasTarget", False)
 
-		plan.EnterContext("toolchain", "tc1")
+		plan.EnterContext(("toolchain", ("tc1",)))
 		# pylint: disable=using-constant-test
 		# The constant tests here are just so I can add indents to make the contexts easier to see
 		if True:
@@ -609,7 +611,7 @@ class TestProjectPlan(testcase.TestCase):
 			plan.UpdateDict("dict", {9: 10})
 			plan.UpdateDict("dict", {4: 11})
 
-			plan.EnterContext("architecture", "ar1")
+			plan.EnterContext(("architecture", ("ar1",)))
 			if True:
 				plan.SetValue("value", 12)
 				plan.AppendList("list", 13)
@@ -620,7 +622,7 @@ class TestProjectPlan(testcase.TestCase):
 
 			plan.LeaveContext()
 
-			plan.EnterContext("architecture", "ar2")
+			plan.EnterContext(("architecture", ("ar2",)))
 			if True:
 				plan.SetValue("value", 18)
 				plan.AppendList("list", 19)
@@ -632,7 +634,7 @@ class TestProjectPlan(testcase.TestCase):
 				plan.LeaveContext()
 			plan.LeaveContext()
 
-		plan.EnterContext("architecture", "ar2")
+		plan.EnterContext(("architecture", ("ar2",)))
 		if True:
 			plan.AppendList("list", 24)
 			plan.AddToSet("set", 25)
@@ -640,7 +642,7 @@ class TestProjectPlan(testcase.TestCase):
 
 			plan.LeaveContext()
 
-		plan.EnterContext("architecture", "ar3")
+		plan.EnterContext(("architecture", ("ar3",)))
 		if True:
 
 			plan.SetValue("value", 28)
@@ -650,7 +652,7 @@ class TestProjectPlan(testcase.TestCase):
 			plan.UpdateDict("dict", {31: 32})
 			plan.UpdateDict("dict", {4: 33})
 
-			plan.EnterContext("toolchain", "tc2")
+			plan.EnterContext(("toolchain", ("tc2",)))
 			if True:
 				plan.SetValue("value", 34)
 				plan.AppendList("list", 35)
@@ -662,7 +664,7 @@ class TestProjectPlan(testcase.TestCase):
 				plan.LeaveContext()
 			plan.LeaveContext()
 
-		plan.EnterContext("toolchain", "tc2")
+		plan.EnterContext(("toolchain", ("tc2",)))
 		if True:
 			plan.AppendList("list", 40)
 			plan.AddToSet("set", 41)
@@ -670,7 +672,7 @@ class TestProjectPlan(testcase.TestCase):
 
 			plan.LeaveContext()
 
-		plan.EnterContext("target", "target")
+		plan.EnterContext(("target", ("target",)))
 		if True:
 			plan.SetValue("hasTarget", True)
 
@@ -774,43 +776,43 @@ class TestProjectPlan(testcase.TestCase):
 
 		third.AddToSet("libraries", "lib1")
 
-		first.EnterContext("scope", "final")
+		first.EnterContext(("scope", ("final",)))
 		# pylint: disable=using-constant-test
 		# The constant tests here are just so I can add indents to make the contexts easier to see
 		if True:
 			first.AddToSet("libraries", "lib2")
 			first.SetValue("should_be_one", 2)
 			first.AddToSet("someSet", "final")
-			first.EnterContext("toolchain", "scope-then-toolchain")
+			first.EnterContext(("toolchain", ("scope-then-toolchain",)))
 			if True:
 				first.AddToSet("otherSet", "final")
 				first.AddToSet("libraries", "lib3")
 				first.LeaveContext()
 			first.LeaveContext()
 
-		first.EnterContext("scope", "intermediate")
+		first.EnterContext(("scope", ("intermediate",)))
 		if True:
 			first.AddToSet("someSet", "intermediate")
-			first.EnterContext("toolchain", "scope-then-toolchain")
+			first.EnterContext(("toolchain", ("scope-then-toolchain",)))
 			if True:
 				first.AddToSet("otherSet", "intermediate")
 				first.LeaveContext()
 			first.LeaveContext()
 
-		first.EnterContext("toolchain", "toolchain-then-scope")
+		first.EnterContext(("toolchain", ("toolchain-then-scope",)))
 		if True:
-			first.EnterContext("scope", "final")
+			first.EnterContext(("scope", ("final",)))
 			if True:
 				first.AddToSet("thirdSet", "final")
 				first.AddToSet("libraries", "lib4")
 				first.LeaveContext()
 			if True:
-				first.EnterContext("scope", "intermediate")
+				first.EnterContext(("scope", ("intermediate",)))
 				first.AddToSet("thirdSet", "intermediate")
 				first.LeaveContext()
 			first.LeaveContext()
 
-		second.EnterContext("scope", "final")
+		second.EnterContext(("scope", ("final",)))
 		if True:
 			second.AddToSet("libraries", "lib5")
 			second.SetValue("should_be_one", 3)
@@ -882,7 +884,7 @@ class TestProjectPlan(testcase.TestCase):
 		"""Test that entering multiple contexts simultaneously works"""
 		first = ProjectPlan("first", "test", [], 0, False, True)
 		first.SetValue("a", 1)
-		first.EnterContext("toolchain", "tc1", "tc2")
+		first.EnterContext(("toolchain", ("tc1", "tc2")))
 		first.SetValue("a", 2)
 		first.LeaveContext()
 

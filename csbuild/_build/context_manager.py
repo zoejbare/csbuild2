@@ -31,9 +31,6 @@ import csbuild
 import sys
 import types
 
-from .._utils import StrType, BytesType
-from .._utils.decorators import TypeChecked
-
 if sys.version_info[0] >= 3:
 	_typeType = type
 	_classType = type
@@ -64,25 +61,31 @@ class NestedContext(object):
 class ContextManager(object):
 	"""
 	Base type for a context manager, used to set context for project plan settings
-	:param contextType: The type of context to manage
-	:type contextType: str, bytes
-	:param contextNames: list of contexts to activate within this manager's scope
-	:type contextNames: tuple(str, bytes)
+	:param contexts: list of contexts to activate within this manager's scope
+	:type contexts: tuple(tuple(str, tuple(str, bytes)))
 	:param methodResolvers: List of objects on which to look for additional methods for, i.e., csbuild.Toolchain("tc").ToolchainSpecificFunction()
 	:type methodResolvers: list(objects)
 	"""
 
 	methodResolvers = []
 
-	@TypeChecked(contextType=(StrType, BytesType, type(None)), contextNames=tuple, methodResolvers=list)
-	def __init__(self, contextType, contextNames, methodResolvers=None):
+	def __init__(self, contexts, methodResolvers=None):
 		object.__setattr__(self, "inself", True)
-		self._type = contextType
-		self._names = contextNames
+		self._contexts = contexts
 		self._methodResolvers = methodResolvers
 		self._previousResolver = None
 		self._parentContext = None
 		object.__setattr__(self, "inself", False)
+
+	@property
+	def contexts(self):
+		"""Get access to the contexts used for this manager"""
+		return self._contexts
+
+	@property
+	def resolvers(self):
+		"""Get access to the resolvers used for this manager"""
+		return self._methodResolvers
 
 	def __enter__(self):
 		"""
@@ -91,8 +94,8 @@ class ContextManager(object):
 		object.__setattr__(self, "inself", True)
 		if self._parentContext is not None:
 			object.__getattribute__(self._parentContext, "__enter__")()
-		if self._type is not None:
-			csbuild.currentPlan.EnterContext(self._type, *self._names)
+		if self._contexts is not None:
+			csbuild.currentPlan.EnterContext(*self._contexts)
 
 		if self._methodResolvers:
 			ContextManager.methodResolvers.append(self._methodResolvers)
@@ -122,7 +125,7 @@ class ContextManager(object):
 		if self._methodResolvers:
 			ContextManager.methodResolvers.pop()
 
-		if self._type is not None:
+		if self._contexts is not None:
 			csbuild.currentPlan.LeaveContext()
 
 		if self._parentContext is not None:

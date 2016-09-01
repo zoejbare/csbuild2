@@ -83,15 +83,15 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExten
 	buildProject.toolchain.CreateReachability(tool)
 
 	if buildInput is None:
-		buildProject.toolchain.MarkNullInputToolFinished(tool)
-		log.Info("Enqueuing null-input build for {}", tool.__name__)
+		buildProject.toolchain.DeactivateTool(tool)
+		log.Info("Enqueuing null-input build for {} for project {}", tool.__name__, buildProject)
 		pool.AddTask(
 			(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, None),
 			(_buildFinished, pool, projectList, buildProject, tool, None, None)
 		)
 	elif isinstance(buildInput, input_file.InputFile):
 		buildInput.AddUsedTool(tool)
-		log.Info("Enqueuing build for {} using {}", buildInput, tool.__name__)
+		log.Info("Enqueuing build for {} using {} for project {}", buildInput, tool.__name__, buildProject)
 		pool.AddTask(
 			(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, buildInput),
 			(_buildFinished, pool, projectList, buildProject, tool, outputExtension, [buildInput])
@@ -100,14 +100,14 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExten
 		for inputFile in buildInput:
 			inputFile.AddUsedTool(tool)
 
-		log.Info("Enqueuing multi-build task for {} using {}", buildInput, tool.__name__)
+		log.Info("Enqueuing multi-build task for {} using {} for project {}", buildProject, buildInput, tool.__name__, buildProject)
 		pool.AddTask(
 			(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, buildInput),
 			(_buildFinished, pool, projectList, buildProject, tool, None, buildInput)
 		)
 
 def _dependenciesMet(buildProject, tool):
-	log.Info("Checking if we can enqueue a new build for tool {}", tool.__name__)
+	log.Info("Checking if we can enqueue a new build for tool {} for project {}", tool.__name__, buildProject)
 	for dependProject in buildProject.dependencies:
 		for dependency in tool.crossProjectDependencies:
 			if dependProject.toolchain.IsOutputActive(dependency):
@@ -130,12 +130,12 @@ def _getGroupInputFiles(buildProject, tool):
 	return fileList
 
 def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles):
-	log.Build("Processing {} with {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__)
+	log.Build("Processing {} with {} for project {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__, buildProject)
 	with buildToolchain.Use(buildTool):
 		return function(buildToolchain, buildProject, inputFiles)
 
 def _checkDependenciesPreBuild(checkProject, tool, dependencies):
-	log.Info("Checking if we can enqueue a new build for tool {}", tool.__name__)
+	log.Info("Checking if we can enqueue a new build for tool {} for project {}", checkProject, tool.__name__, checkProject)
 	for dependency in dependencies:
 		for tool in checkProject.toolchain.GetAllTools():
 			if tool.inputFiles is None:
@@ -182,6 +182,31 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 	toolUsed.curParallel -= 1
 	global _runningBuilds
 	_runningBuilds -= 1
+	buildProject.toolchain.ReleaseReachability(toolUsed)
+
+	if buildProject.toolchain.IsToolActive(toolUsed):
+		done = True
+
+		remainingInputs = [x for x in buildProject.inputFiles.get(inputExtension, []) if not x.WasToolUsed(toolUsed)]
+
+		if not remainingInputs:
+			# Technically this will happen before the tool is finished building, so we need the
+			# above guard to keep from doing it twice and tossing up exceptions.
+			# The important thing here is that this will stop us from doing a lot of logic further
+			# down to see if we can build for tools that we know we can't build for.
+			if toolUsed.inputFiles is not None:
+				for inputFile in toolUsed.inputFiles:
+					if buildProject.toolchain.IsOutputActive(inputFile):
+						done = False
+						break
+			if done:
+				for inputFile in toolUsed.inputGroups:
+					if buildProject.toolchain.IsOutputActive(inputFile):
+						done = False
+						break
+			if done:
+				log.Info("Tool {} has finished building for project {}", toolUsed.__name__, buildProject)
+				buildProject.toolchain.DeactivateTool(toolUsed)
 
 	if not isinstance(outputFiles, tuple):
 		outputFiles = (outputFiles, )
@@ -189,7 +214,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 		buildProject.AddArtifact(outputFile)
 		log.Info(
 			"Finished building {} => {}",
-			 "null-input for {}".format(toolUsed.__name__) if inputFiles is None
+			 "null-input for {} for project {}".format(toolUsed.__name__, buildProject) if inputFiles is None
 			 	else [os.path.basename(f.filename) for f in inputFiles],
 			os.path.basename(outputFile)
 		)
@@ -203,11 +228,12 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 
 		buildProject.inputFiles.setdefault(outputExtension, ordered_set.OrderedSet()).add(newInput)
 
-		buildProject.toolchain.ReleaseReachability(toolUsed)
-
 		# Enqueue this file immediately in any tools that take it as a single input, unless they're marked to delay.
 		tools = buildProject.toolchain.GetToolsFor(outputExtension)
 		for tool in tools:
+			if not buildProject.toolchain.IsToolActive(tool):
+				continue
+
 			if not _canRun(tool):
 				continue
 
@@ -224,7 +250,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 
 		# If this was the last file being built of its extension, check whether we can pass it and maybe others to relevant group input tools
 		if not isActive:
-			tools = buildProject.toolchain.GetAllTools()
+			tools = buildProject.toolchain.GetActiveTools()
 			for tool in tools:
 				if not _canRun(tool):
 					continue
@@ -245,17 +271,13 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 
 			# Check to see if we've freed up any pending builds in other projects as well
 			for proj in projectList:
-				tools = proj.toolchain.GetAllTools()
+				tools = proj.toolchain.GetActiveTools()
 				for tool in tools:
-
 					if not _dependenciesMet(proj, tool):
 						continue
 
 					if tool.inputFiles is None:
 						if not _canRun(tool):
-							continue
-
-						if proj.toolchain.IsNullInputToolFinished(tool):
 							continue
 
 						_enqueueBuild(proj, tool, None, pool, projectList, None)
@@ -327,7 +349,7 @@ def _build(numThreads, projectBuildList):
 					if not _canRun(tool):
 						continue
 
-					if buildProject.toolchain.IsNullInputToolFinished(tool):
+					if not buildProject.toolchain.IsToolActive(tool):
 						continue
 
 					_enqueueBuild(buildProject, tool, None, pool, projectBuildList, None)

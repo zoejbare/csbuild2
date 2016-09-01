@@ -216,7 +216,7 @@ def RegisterToolchain(name, defaultArchitecture, *tools):
  	:return:
  	"""
 	shared_globals.allToolchains.add(name)
-	currentPlan.EnterContext("toolchain", name)
+	currentPlan.EnterContext(("toolchain", (name,)))
 	currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
 	currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False))
 	currentPlan.defaultArchitectureMap[name] = defaultArchitecture
@@ -224,7 +224,7 @@ def RegisterToolchain(name, defaultArchitecture, *tools):
 
 	for tool in tools:
 		if tool.supportedArchitectures is not None:
-			shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
+			shared_globals.allArchitectures.update(tool.supportedArchitectures)
 
 @TypeChecked(name=String)
 def RegisterToolchainGroup(name, *toolchains):
@@ -347,7 +347,7 @@ class Scope(ContextManager):
 	def __init__(self, *scopeTypes):
 		for scopeType in scopeTypes:
 			assert scopeType == Csbuild.ScopeDef.Intermediate or scopeType == Csbuild.ScopeDef.Final, "Invalid scope type"
-		ContextManager.__init__(self, "scope", scopeTypes)
+		ContextManager.__init__(self, (("scope", scopeTypes),))
 
 class Toolchain(ContextManager):
 	"""
@@ -370,7 +370,7 @@ class Toolchain(ContextManager):
 
 				return _runFuncs
 
-		ContextManager.__init__(self, "toolchain", toolchainNames, [_toolchainMethodResolver()])
+		ContextManager.__init__(self, (("toolchain", toolchainNames),), [_toolchainMethodResolver()])
 
 def ToolchainGroup(*names):
 	"""
@@ -393,7 +393,7 @@ class Architecture(ContextManager):
 	:type architectureNames: str, bytes
 	"""
 	def __init__(self, *architectureNames):
-		ContextManager.__init__(self, "architecture", architectureNames)
+		ContextManager.__init__(self, (("architecture", architectureNames),))
 
 class Platform(ContextManager):
 	"""
@@ -403,7 +403,7 @@ class Platform(ContextManager):
 	:type platformNames: str, bytes
 	"""
 	def __init__(self, *platformNames):
-		ContextManager.__init__(self, "platform", platformNames)
+		ContextManager.__init__(self, (("platform", platformNames),))
 
 class Target(ContextManager):
 	"""
@@ -415,7 +415,7 @@ class Target(ContextManager):
 	def __init__(self, *targetNames):
 		shared_globals.allTargets.update(targetNames)
 		currentPlan.UnionSet("targets", targetNames)
-		ContextManager.__init__(self, "target", targetNames)
+		ContextManager.__init__(self, (("target", targetNames),))
 
 class Language(ContextManager):
 	"""
@@ -438,7 +438,37 @@ class Language(ContextManager):
 
 				return _runFuncs
 
-		ContextManager.__init__(self, None, (), [_languageMethodResolver()])
+		ContextManager.__init__(self, None, [_languageMethodResolver()])
+
+class MultiContext(ContextManager):
+	"""
+	Combine multiple contexts into a single context where the code within it will apply if
+	ANY of the supplied contexts are valid
+
+	:param contexts: List of other context manager instances
+	:type contexts: ContextManager
+	"""
+	def __init__(self, *contexts):
+		contextsDict = {}
+		methodResolvers = set()
+
+		for contextManager in contexts:
+			object.__setattr__(contextManager, "inself", True)
+
+			contextTuple = contextManager.contexts
+			for subTuple in contextTuple:
+				contextsDict.setdefault(subTuple[0], set()).update(subTuple[1])
+
+			resolvers = contextManager.resolvers
+			if resolvers:
+				methodResolvers.update(resolvers)
+
+			object.__setattr__(contextManager, "inself", False)
+
+		if not methodResolvers:
+			methodResolvers = None
+
+		ContextManager.__init__(self, tuple(contextsDict.items()), methodResolvers)
 
 class Project(object):
 	"""

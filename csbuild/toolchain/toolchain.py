@@ -110,7 +110,7 @@ class Toolchain(object):
 				self.reachability = {}
 
 				# List of null input tools that have been processed
-				self.finishedNullInputs = set()
+				self.activeClasses = ordered_set.OrderedSet()
 
 		_classTrackr = _classTrackrClass()
 
@@ -224,6 +224,7 @@ class Toolchain(object):
 		classValues = {cls : {} for cls in set(classes) | bases}
 
 		_classTrackr.classes = ordered_set.OrderedSet(classes)
+		_classTrackr.activeClasses = ordered_set.OrderedSet(classes)
 
 		# Create a class so that we can call methods on that class
 		class LimitView(object):
@@ -469,25 +470,35 @@ class Toolchain(object):
 				"""
 				return _classTrackr.classes
 
-			@TypeChecked(tool=(_typeType, _classType))
-			def MarkNullInputToolFinished(self, tool):
+			def GetActiveTools(self):
 				"""
-				Mark a null-input tool as having been used to avoid using it again
-				:param tool: null-input tool
-				:type tool: class
+				Get the full list of active tools in this toolchain
+				:return: Tool list
+				:rtype: ordered_set.OrderedSet
 				"""
-				_classTrackr.finishedNullInputs.add(tool)
+				return _classTrackr.activeClasses
 
 			@TypeChecked(tool=(_typeType, _classType))
-			def IsNullInputToolFinished(self, tool):
+			def DeactivateTool(self, tool):
 				"""
-				Check if a null-input tool is finished or not
-				:param tool: null-input tool
-				:type tool: class
-				:return: true if finished, false otherwise
+				Remove the specified tool from the active tool list
+
+				:param tool: tool to remove
+				:type tool: type
+				"""
+				_classTrackr.activeClasses.remove(tool)
+
+			@TypeChecked(tool=(_typeType, _classType))
+			def IsToolActive(self, tool):
+				"""
+				Return whether or not the specified tool is active
+
+				:param tool: tool to remove
+				:type tool: type
+				:return: Whether or not the tool is active
 				:rtype: bool
 				"""
-				return tool in _classTrackr.finishedNullInputs
+				return tool in _classTrackr.activeClasses
 
 			@TypeChecked(extension=(String, type(None)), generatingTool=(_typeType, _classType, type(None)))
 			def GetToolsFor(self, extension, generatingTool=None):
@@ -505,11 +516,11 @@ class Toolchain(object):
 				:rtype: ordered_set.OrderedSet[type]
 				"""
 				ret = ordered_set.OrderedSet()
-				for cls in _classTrackr.classes:
+				for cls in _classTrackr.activeClasses:
 					if cls is generatingTool:
 						continue
 
-					if extension is None and cls.inputFiles is None and cls not in _classTrackr.finishedNullInputs:
+					if extension is None and cls.inputFiles is None:
 						ret.add(cls)
 					elif cls.inputFiles is not None and extension in cls.inputFiles:
 						ret.add(cls)
@@ -854,22 +865,32 @@ class Toolchain(object):
 		"""
 		pass
 
-	@TypeChecked(tool=(_typeType, _classType))
-	def MarkNullInputToolFinished(self, tool):
+	def GetActiveTools(self):
 		"""
-		Mark a null-input tool as having been used to avoid using it again
-		:param tool: null-input tool
-		:type tool: class
+		Get the full list of active tools in this toolchain
+		:return: Tool list
+		:rtype: ordered_set.OrderedSet
 		"""
 		pass
 
 	@TypeChecked(tool=(_typeType, _classType))
-	def IsNullInputToolFinished(self, tool):
+	def DeactivateTool(self, tool):
 		"""
-		Check if a null-input tool is finished or not
-		:param tool: null-input tool
-		:type tool: class
-		:return: true if finished, false otherwise
+		Remove the specified tool from the active tool list
+
+		:param tool: tool to remove
+		:type tool: type
+		"""
+		pass
+
+	@TypeChecked(tool=(_typeType, _classType))
+	def IsToolActive(self, tool):
+		"""
+		Return whether or not the specified tool is active
+
+		:param tool: tool to remove
+		:type tool: type
+		:return: Whether or not the tool is active
 		:rtype: bool
 		"""
 		pass
