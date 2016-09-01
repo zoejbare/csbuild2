@@ -130,8 +130,6 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 	if shared_globals.showCommands:
 		log.Command("Executing {}", cmd)
 
-	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
-
 	output = []
 	errors = []
 	shared = _sharedStreamProcessingData()
@@ -150,6 +148,7 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 			callback(shared, line.rstrip("\n\r"))
 			outlist.append(line)
 
+	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
 	outputThread = threading.Thread(target=_streamOutput, args=(proc.stdout, output, stdout))
 	errorThread = threading.Thread(target=_streamOutput, args=(proc.stderr, errors, stderr))
 

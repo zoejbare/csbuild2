@@ -27,8 +27,6 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import inspect
-import os
 import sys
 import warnings
 
@@ -68,12 +66,6 @@ def TypeChecked(**argtypes):
 
 	def _wrapOuter(oldFunc):
 		""" Outer decorator wrapper - set up the inner decorator """
-
-		# Get the filename and line number of the calling function for our error messages
-		caller = inspect.currentframe()
-		_, filename, line, _, _, _ = inspect.getouterframes(caller)[1]
-		filename = os.path.basename(filename)
-
 		# co_varnames includes both parameters and locals - trim it to just parameters
 		varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
 
@@ -90,14 +82,14 @@ def TypeChecked(**argtypes):
 			if name == "_return":
 				continue
 			if name not in varNames:
-				raise TypeError("Function {} ({}:{}) has no parameter {}".format(oldFunc.__name__, filename, line, name))
+				raise TypeError("Function {} has no parameter {}".format(oldFunc.__name__, name))
 
 		# Check that all the function's parameters are represented - for type checking, this is just a warning if they're not
 		for name in varNames:
 			if name == "self":
 				continue
 			if name not in argtypes:
-				warnings.warn("Function {} ({}:{}): Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, filename, line, name))
+				warnings.warn("Function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
 
 		oldFunc.__types__ = argtypes
 		oldFunc.__varNames__ = varNames
@@ -170,11 +162,6 @@ def Overload(**argtypes):
 	def _wrapOuter(oldFunc):
 		""" Outer decorator wrapper - set up the inner decorator """
 
-		# Get the filename and line number of the calling function for our error messages
-		caller = inspect.currentframe()
-		_, filename, line, _, _, _ = inspect.getouterframes(caller)[1]
-		filename = os.path.basename(filename)
-
 		# co_varnames includes both parameters and locals - trim it to just parameters
 
 		varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
@@ -189,14 +176,14 @@ def Overload(**argtypes):
 			if name == "_return":
 				continue
 			if name not in varNames:
-				raise TypeError("Overloaded function {} ({}:{}) has no parameter {}".format(oldFunc.__name__, filename, line, name))
+				raise TypeError("Overloaded function {} has no parameter {}".format(oldFunc.__name__, name))
 
 		# Check that all the function's parameters are represented - for overloads, error if they're not
 		for name in varNames:
 			if name == "self":
 				continue
 			if name not in argtypes:
-				raise TypeError("Overloaded function {} ({}:{}): Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, filename, line, name))
+				raise TypeError("Overloaded function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
 
 		oldFunc.__types__ = argtypes
 		oldFunc.__varNames__ = varNames
