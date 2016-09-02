@@ -315,7 +315,7 @@ def _build(numThreads, projectBuildList):
 	:type projectBuildList: list[project.Project]
 	:return:
 	"""
-	log.Build("Preparing build...")
+	log.Info("Starting builds")
 	buildStart = time.time()
 	global _runningBuilds
 	callbackQueue = queue.Queue()
@@ -326,6 +326,8 @@ def _build(numThreads, projectBuildList):
 		for tool in buildProject.toolchain.GetAllTools():
 			tool.curParallel = 0
 
+	failures = 0
+	pool.Start()
 
 	for buildProject in projectBuildList:
 		for extension, fileList in [(None, None)] + list(buildProject.inputFiles.items()):
@@ -392,11 +394,8 @@ def _build(numThreads, projectBuildList):
 
 	if not queuedSomething:
 		log.Build("Nothing to build.")
+		pool.Stop()
 		return
-
-	log.Info("Starting builds")
-	failures = 0
-	pool.Start()
 
 	while True:
 		callback = callbackQueue.get(block=True)
