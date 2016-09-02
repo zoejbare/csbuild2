@@ -643,7 +643,8 @@ class Toolchain(object):
 
 				_classTrackr.classes.add(tool)
 
-				shared_globals.allArchitectures.intersection_update(set(tool.supportedArchitectures))
+				if tool.supportedArchitectures is not None:
+					shared_globals.allArchitectures.update(set(tool.supportedArchitectures))
 
 				object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
 

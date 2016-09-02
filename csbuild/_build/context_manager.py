@@ -163,8 +163,13 @@ class ContextManager(object):
 
 				return _wrapResolverMethods
 
+		# pylint: disable=protected-access
+		# Don't infinitely recurse into resolvers that recurse into csbuild that recurse into resolvers...
+		previousResovler = csbuild._resolver
+		csbuild._resolver = None
 		if hasattr(csbuild, name):
 			obj = getattr(csbuild, name)
+			csbuild._resolver = previousResovler
 			if isinstance(obj, types.FunctionType):
 				def _wrapCsbuildMethod(*args, **kwargs):
 					with self:
@@ -176,4 +181,5 @@ class ContextManager(object):
 					return NestedContext(obj, self)
 				return obj
 
+		csbuild._resolver = previousResovler
 		return object.__getattribute__(self, name)

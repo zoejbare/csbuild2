@@ -33,6 +33,7 @@ import os
 
 fooSet = False
 barSet = False
+quxSet = False
 
 class AddDoubles(Tool):
 	"""
@@ -63,7 +64,7 @@ class AddDoubles(Tool):
 	@staticmethod
 	def SetBar():
 		"""
-		Set foo to true, yay testing.
+		Set bar to true, yay testing.
 		"""
 		global barSet
 		assert barSet is False
@@ -96,9 +97,27 @@ class Adder(AddDoubles):
 	inputGroups = {".second"}
 	outputFiles = {".third"}
 
+	def __init__(self, projectSettings):
+		assert "qux" not in projectSettings._settingsDict #pylint: disable=protected-access
+		assert "{}!qux".format(id(Adder)) in projectSettings._settingsDict #pylint: disable=protected-access
+		self._qux = projectSettings.get("qux", False)
+
+		AddDoubles.__init__(self, projectSettings)
+
+	@staticmethod
+	def SetQux():
+		"""
+		Set qux to true, yay testing.
+		"""
+		global quxSet
+		assert quxSet is False
+		quxSet = True
+		csbuild.currentPlan.SetValue("qux", True) #pylint: disable=protected-access
+
 	def RunGroup(self, project, inputFiles):
 		assert self._foo is True
 		assert self._bar is True
+		assert self._qux is True
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
@@ -108,13 +127,15 @@ class Adder(AddDoubles):
 			f.write(str(value))
 		return outFile
 
-csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
+csbuild.RegisterToolchain("AddDoubles", "", Doubler)
 csbuild.SetDefaultToolchain("AddDoubles")
 
 csbuild.SetFoo()
 
 with csbuild.Project("TestProject", "."):
 	with csbuild.Toolchain("AddDoubles"):
+		csbuild.AddTool(Adder)
+		csbuild.SetQux()
 		with csbuild.Target("release"):
 			csbuild.SetBar()
 	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

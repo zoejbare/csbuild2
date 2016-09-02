@@ -79,6 +79,7 @@ class Csbuild(object):
 					return object.__getattribute__(self, item)
 
 				for tempToolchain in allToolchains:
+					found = False
 					for tool in tempToolchain.GetAllTools():
 						if hasattr(tool, item):
 							cls = None
@@ -90,14 +91,20 @@ class Csbuild(object):
 
 							assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
 							funcs.add((tempToolchain, cls, func))
+							found = True
+					if not found and hasattr(tempToolchain, item):
+						funcs.add((tempToolchain, None, getattr(tempToolchain, item)))
 
 				if not funcs:
 					return object.__getattribute__(self, item)
 
 				def _runFuncs(*args, **kwargs):
 					for tempToolchain, tool, func in funcs:
-						with tempToolchain.Use(tool):
-							func.__get__(tool)(*args, **kwargs)
+						if tool is None:
+							func(*args, **kwargs)
+						else:
+							with tempToolchain.Use(tool):
+								func.__get__(tool)(*args, **kwargs)
 
 				return _runFuncs
 
@@ -415,6 +422,7 @@ class Toolchain(ContextManager):
 				funcs = set()
 				allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
 				for tempToolchain in allToolchains:
+					found = False
 					for tool in tempToolchain.GetAllTools():
 						if hasattr(tool, item):
 							cls = None
@@ -426,14 +434,20 @@ class Toolchain(ContextManager):
 
 							assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
 							funcs.add((tempToolchain, cls, func))
+							found = True
+					if not found and hasattr(tempToolchain, item):
+						funcs.add((tempToolchain, None, getattr(tempToolchain, item)))
 
 				if not funcs:
 					return object.__getattribute__(self, item)
 
 				def _runFuncs(*args, **kwargs):
 					for tempToolchain, tool, func in funcs:
-						with tempToolchain.Use(tool):
-							func.__get__(tool)(*args, **kwargs)
+						if tool is None:
+							func(*args, **kwargs)
+						else:
+							with tempToolchain.Use(tool):
+								func.__get__(tool)(*args, **kwargs)
 
 				return _runFuncs
 
