@@ -69,6 +69,4 @@ projectMap = {}
 
 projectBuildList = []
 
-languages = {}
-
 commandOutputThread = None

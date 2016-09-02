@@ -29,13 +29,12 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 import os
-from csbuild.toolchain import Tool, language
+from csbuild.toolchain import Tool
 import csbimporttest #pylint: disable=unused-import
 
-@language.LanguageBaseClass("NullTool")
 class NullTool(Tool):
 	"""
-	Simple base class to test language contexts
+	Simple base class that does nothing
 	"""
 
 	inputFiles=set(".in")

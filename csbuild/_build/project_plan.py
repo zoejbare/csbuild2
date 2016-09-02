@@ -533,9 +533,10 @@ class ProjectPlan(object):
 		if toolchain.currentToolId is not None:
 			key = "{}!{}".format(toolchain.currentToolId, key)
 		ret = []
-		for settings in self._currentSettingsDicts:
-			if key in settings:
-				ret.append(settings[key])
+		for settingsDict in self._workingSettingsStack:
+			for settings in settingsDict:
+				if key in settings:
+					ret.append(settings[key])
 		return ret
 
 	@TypeChecked(key=String, action=Callable)

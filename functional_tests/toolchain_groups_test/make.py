@@ -28,13 +28,12 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-from csbuild.toolchain import Tool, language
+from csbuild.toolchain import Tool
 import os
 
-@language.LanguageBaseClass("AddDoubles")
 class AddDoubles(Tool):
 	"""
-	Simple base class to test language contexts
+	Simple base class
 	"""
 	supportedArchitectures=None
 
@@ -83,16 +82,14 @@ csbuild.RegisterToolchainGroup("LastTwo", "AddDoubles3", "AddDoubles4")
 
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Language("AddDoubles"):
+with csbuild.Project("TestProject", "."):
+	with csbuild.ToolchainGroup("FirstTwo", "MiddleTwo"):
+		csbuild.SetIntermediateDirectory("intermediate/FirstThree/{toolchainName}")
 
-	with csbuild.Project("TestProject", "."):
-		with csbuild.ToolchainGroup("FirstTwo", "MiddleTwo"):
-			csbuild.SetIntermediateDirectory("intermediate/FirstThree/{toolchainName}")
+	with csbuild.ToolchainGroup("MiddleTwo", "LastTwo"):
+		csbuild.SetOutputDirectory("out/LastThree/{toolchainName}")
 
-		with csbuild.ToolchainGroup("MiddleTwo", "LastTwo"):
-			csbuild.SetOutputDirectory("out/LastThree/{toolchainName}")
+	with csbuild.ToolchainGroup("MiddleTwo"):
+		csbuild.SetOutput("MiddleFoo", csbuild.ProjectType.Application)
 
-		with csbuild.ToolchainGroup("MiddleTwo"):
-			csbuild.SetOutput("MiddleFoo", csbuild.ProjectType.Application)
-
-		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

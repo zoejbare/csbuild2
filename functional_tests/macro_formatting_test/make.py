@@ -30,13 +30,12 @@ from __future__ import unicode_literals, division, print_function
 import platform
 
 import csbuild
-from csbuild.toolchain import Tool, language
+from csbuild.toolchain import Tool
 import os
 
-@language.LanguageBaseClass("AddDoubles")
 class AddDoubles(Tool):
 	"""
-	Simple base class to test language contexts
+	Simple base class
 	"""
 	supportedArchitectures=None
 	def __init__(self, projectSettings):
@@ -96,10 +95,9 @@ class Adder(AddDoubles):
 csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Language("AddDoubles"):
-	csbuild.SetFoo()
+csbuild.SetFoo()
 
-	with csbuild.Project("TestProject", "."):
-		csbuild.SetUserData("platformFooStr", "{}/{{toolchain.foo}}".format(platform.system()))
-		csbuild.SetOutputDirectory("out/{toolchainName}/{userData.platformFooStr}")
-		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+with csbuild.Project("TestProject", "."):
+	csbuild.SetUserData("platformFooStr", "{}/{{toolchain.foo}}".format(platform.system()))
+	csbuild.SetOutputDirectory("out/{toolchainName}/{userData.platformFooStr}")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

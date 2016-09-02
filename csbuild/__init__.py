@@ -37,6 +37,8 @@ import imp
 import signal
 import os
 
+from ._utils import shared_globals
+
 __author__ = "Jaedyn K. Draper, Brandon M. Bare"
 __copyright__ = 'Copyright (C) 2012-2014 Jaedyn K. Draper'
 __credits__ = ["Jaedyn K. Draper", "Brandon M. Bare", "Jeff Grills", "Randy Culley"]
@@ -63,7 +65,43 @@ class Csbuild(object):
 	and the import machinery goes out of its way to intentionally support this behavior.
 	"""
 	def __init__(self):
-		self._resolver = None
+		class _toolchainMethodResolver(object):
+			def __getattribute__(self, item):
+				funcs = set()
+				try:
+					currentPlan.EnterContext(("toolchain", shared_globals.allToolchains))
+					allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
+					currentPlan.LeaveContext()
+				except NameError:
+					# Can and do get here before currentPlan is defined,
+					# in which case we don't care because we're not ready to look there anyway,
+					# so just go ahead and raise an error.
+					return object.__getattribute__(self, item)
+
+				for tempToolchain in allToolchains:
+					for tool in tempToolchain.GetAllTools():
+						if hasattr(tool, item):
+							cls = None
+							func = None
+							for cls in tool.mro():
+								if item in cls.__dict__:
+									func = cls.__dict__[item]
+									break
+
+							assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
+							funcs.add((tempToolchain, cls, func))
+
+				if not funcs:
+					return object.__getattribute__(self, item)
+
+				def _runFuncs(*args, **kwargs):
+					for tempToolchain, tool, func in funcs:
+						with tempToolchain.Use(tool):
+							func.__get__(tool)(*args, **kwargs)
+
+				return _runFuncs
+
+		self._resolver = _toolchainMethodResolver()
 		self._module = sys.modules["csbuild"]
 
 	def __getattr__(self, name):
@@ -85,8 +123,7 @@ from ._build import project_plan, project, input_file
 from . import _build, log
 from ._utils import system
 from ._utils.string_abc import String
-from ._utils.decorators import TypeChecked, Overload
-from ._utils import shared_globals
+from ._utils.decorators import TypeChecked
 from ._utils import ordered_set
 from ._utils import PlatformString
 
@@ -375,14 +412,28 @@ class Toolchain(ContextManager):
 	def __init__(self, *toolchainNames):
 		class _toolchainMethodResolver(object):
 			def __getattribute__(self, item):
-				funcs = []
+				funcs = set()
 				allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
 				for tempToolchain in allToolchains:
-					funcs.append(getattr(tempToolchain, item))
+					for tool in tempToolchain.GetAllTools():
+						if hasattr(tool, item):
+							cls = None
+							func = None
+							for cls in tool.mro():
+								if item in cls.__dict__:
+									func = cls.__dict__[item]
+									break
+
+							assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
+							funcs.add((tempToolchain, cls, func))
+
+				if not funcs:
+					return object.__getattribute__(self, item)
 
 				def _runFuncs(*args, **kwargs):
-					for func in funcs:
-						func(*args, **kwargs)
+					for tempToolchain, tool, func in funcs:
+						with tempToolchain.Use(tool):
+							func.__get__(tool)(*args, **kwargs)
 
 				return _runFuncs
 
@@ -452,29 +503,6 @@ class Target(ContextManager):
 	def __exit__(self, exc_type, exc_val, exc_tb):
 		currentPlan.childTargets = object.__getattribute__(self, "oldChildTargets")
 		return ContextManager.__exit__(self, exc_type, exc_val, exc_tb)
-
-class Language(ContextManager):
-	"""
-	Apply values within a specific language
-
-	:param langNames: Language identifier
-	:type langNames: str, bytes
-	"""
-	def __init__(self, *langNames):
-		langs = [shared_globals.languages[lang] for lang in langNames]
-		class _languageMethodResolver(object):
-			def __getattribute__(self, item):
-				funcs = []
-				for lang in langs:
-					funcs.append(getattr(lang, item))
-
-				def _runFuncs(*args, **kwargs):
-					for func in funcs:
-						func(*args, **kwargs)
-
-				return _runFuncs
-
-		ContextManager.__init__(self, None, [_languageMethodResolver()])
 
 class MultiContext(ContextManager):
 	"""

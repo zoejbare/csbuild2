@@ -28,19 +28,26 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-from csbuild.toolchain import Tool, language
+from csbuild.toolchain import Tool
 import os
 
-@language.LanguageBaseClass("AddDoubles")
+fooSet = False
+barSet = False
+
 class AddDoubles(Tool):
 	"""
-	Simple base class to test language contexts
+	Simple base class to test global toolchain contexts
 	"""
 	supportedArchitectures=None
 	def __init__(self, projectSettings):
 		assert "foo" not in projectSettings._settingsDict #pylint: disable=protected-access
 		assert "{}!foo".format(id(AddDoubles)) in projectSettings._settingsDict #pylint: disable=protected-access
 		self._foo = projectSettings.get("foo", False)
+
+		assert "bar" not in projectSettings._settingsDict #pylint: disable=protected-access
+		assert "{}!bar".format(id(AddDoubles)) in projectSettings._settingsDict #pylint: disable=protected-access
+		self._bar = projectSettings.get("bar", False)
+
 		Tool.__init__(self, projectSettings)
 
 	@staticmethod
@@ -48,7 +55,20 @@ class AddDoubles(Tool):
 		"""
 		Set foo to true, yay testing.
 		"""
+		global fooSet
+		assert fooSet is False
+		fooSet = True
 		csbuild.currentPlan.SetValue("foo", True) #pylint: disable=protected-access
+
+	@staticmethod
+	def SetBar():
+		"""
+		Set foo to true, yay testing.
+		"""
+		global barSet
+		assert barSet is False
+		barSet = True
+		csbuild.currentPlan.SetValue("bar", True) #pylint: disable=protected-access
 
 class Doubler(AddDoubles):
 	"""
@@ -60,6 +80,7 @@ class Doubler(AddDoubles):
 
 	def Run(self, project, inputFile):
 		assert self._foo is True
+		assert self._bar is True
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
@@ -77,6 +98,7 @@ class Adder(AddDoubles):
 
 	def RunGroup(self, project, inputFiles):
 		assert self._foo is True
+		assert self._bar is True
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
@@ -89,8 +111,10 @@ class Adder(AddDoubles):
 csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Language("AddDoubles"):
-	csbuild.SetFoo()
+csbuild.SetFoo()
 
-	with csbuild.Project("TestProject", "."):
-		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+with csbuild.Project("TestProject", "."):
+	with csbuild.Toolchain("AddDoubles"):
+		with csbuild.Target("release"):
+			csbuild.SetBar()
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

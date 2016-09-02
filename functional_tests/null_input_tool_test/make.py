@@ -28,14 +28,13 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-from csbuild.toolchain import Tool, language
+from csbuild.toolchain import Tool
 import os
 import glob
 
-@language.LanguageBaseClass("NullInput")
 class NullInput(Tool):
 	"""
-	Simple base class to test language contexts
+	Simple base class
 	"""
 	supportedArchitectures=None
 

@@ -28,13 +28,12 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-from csbuild.toolchain import Tool, language
+from csbuild.toolchain import Tool
 import os
 
-@language.LanguageBaseClass("AddDoubles")
 class AddDoubles(Tool):
 	"""
-	Simple base class to test language contexts
+	Simple base class
 	"""
 	supportedArchitectures={"foo", "bar"}
 
@@ -83,16 +82,14 @@ csbuild.RegisterToolchainGroup("LastTwo", "AddDoubles3", "AddDoubles4")
 
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Language("AddDoubles"):
+with csbuild.Project("TestProject", "."):
+	with csbuild.MultiContext(csbuild.ToolchainGroup("FirstTwo", "MiddleTwo"), csbuild.Target("debug"), csbuild.Architecture("foo")):
+		csbuild.SetIntermediateDirectory("intermediate/FirstThree/{targetName}/{architectureName}/{toolchainName}")
 
-	with csbuild.Project("TestProject", "."):
-		with csbuild.MultiContext(csbuild.ToolchainGroup("FirstTwo", "MiddleTwo"), csbuild.Target("debug"), csbuild.Architecture("foo")):
-			csbuild.SetIntermediateDirectory("intermediate/FirstThree/{targetName}/{architectureName}/{toolchainName}")
+	with csbuild.MultiContext(csbuild.ToolchainGroup("MiddleTwo", "LastTwo"), csbuild.Target("release"), csbuild.Architecture("bar")):
+		csbuild.SetOutputDirectory("out/LastThree/{targetName}/{architectureName}/{toolchainName}")
 
-		with csbuild.MultiContext(csbuild.ToolchainGroup("MiddleTwo", "LastTwo"), csbuild.Target("release"), csbuild.Architecture("bar")):
-			csbuild.SetOutputDirectory("out/LastThree/{targetName}/{architectureName}/{toolchainName}")
+	with csbuild.MultiContext(csbuild.Toolchain("AddDoubles"), csbuild.Architecture("foo")):
+		csbuild.SetOutput("{architectureName}Foo", csbuild.ProjectType.Application)
 
-		with csbuild.MultiContext(csbuild.Toolchain("AddDoubles"), csbuild.Architecture("foo")):
-			csbuild.SetOutput("{architectureName}Foo", csbuild.ProjectType.Application)
-
-		csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
