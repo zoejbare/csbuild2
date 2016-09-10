@@ -30,7 +30,7 @@ import os
 import fnmatch
 import collections
 
-from .. import log
+from .. import log, perf_timer
 from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
@@ -76,116 +76,117 @@ class Project(object):
 	:type targetName: str, bytes
 	"""
 	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings, toolchainName, archName, targetName):
-		self.name = name
-		self.workingDirectory = workingDirectory
-		self.dependencyNames = depends
-		self.dependencies = []
-		self.priority = priority
-		self.ignoreDependencyOrdering = ignoreDependencyOrdering
-		self.autoDiscoverSourceFiles = autoDiscoverSourceFiles
+		with perf_timer.PerfTimer("Project init"):
+			self.name = name
+			self.workingDirectory = workingDirectory
+			self.dependencyNames = depends
+			self.dependencies = []
+			self.priority = priority
+			self.ignoreDependencyOrdering = ignoreDependencyOrdering
+			self.autoDiscoverSourceFiles = autoDiscoverSourceFiles
 
-		self.toolchainName = toolchainName
-		self.architectureName = archName
-		self.targetName = targetName
+			self.toolchainName = toolchainName
+			self.architectureName = archName
+			self.targetName = targetName
 
-		log.Build("Preparing build tasks for {}", self)
+			log.Build("Preparing build tasks for {}", self)
 
-		#: type: list[Tool]
-		self.tools = projectSettings["tools"]
+			#: type: list[Tool]
+			self.tools = projectSettings["tools"]
 
-		self.toolchain = Toolchain(projectSettings, *self.tools)
+			self.toolchain = Toolchain(projectSettings, *self.tools)
 
-		self.userData = UserData(projectSettings.get("_userData", {}))
+			self.userData = UserData(projectSettings.get("_userData", {}))
 
-		def _convertSet(toConvert):
-			ret = toConvert.__class__()
-			for item in toConvert:
-				ret.add(_convertItem(item))
-			return ret
+			def _convertSet(toConvert):
+				ret = toConvert.__class__()
+				for item in toConvert:
+					ret.add(_convertItem(item))
+				return ret
 
-		def _convertDict(toConvert):
-			for key, val in toConvert.items():
-				toConvert[key] = _convertItem(val)
-			return toConvert
-
-		def _convertList(toConvert):
-			for i, item in enumerate(toConvert):
-				toConvert[i] = _convertItem(item)
-			return toConvert
-
-		def _convertItem(toConvert):
-			if isinstance(toConvert, list):
-				return _convertList(toConvert)
-			elif isinstance(toConvert, dict) or isinstance(toConvert, collections.OrderedDict):
-				return _convertDict(toConvert)
-			elif isinstance(toConvert, set) or isinstance(toConvert, ordered_set.OrderedSet):
-				return _convertSet(toConvert)
-			elif isinstance(toConvert, StrType) or isinstance(toConvert, BytesType):
-				return self.FormatMacro(toConvert)
-			else:
+			def _convertDict(toConvert):
+				for key, val in toConvert.items():
+					toConvert[key] = _convertItem(val)
 				return toConvert
 
-		# We set self.settings here because _convertItem calls FormatMacro and FormatMacro uses self.settings
-		self.settings = projectSettings
-		self.settings = _convertItem(projectSettings)
+			def _convertList(toConvert):
+				for i, item in enumerate(toConvert):
+					toConvert[i] = _convertItem(item)
+				return toConvert
 
-		self.projectType = projectSettings["projectType"]
+			def _convertItem(toConvert):
+				if isinstance(toConvert, list):
+					return _convertList(toConvert)
+				elif isinstance(toConvert, dict) or isinstance(toConvert, collections.OrderedDict):
+					return _convertDict(toConvert)
+				elif isinstance(toConvert, set) or isinstance(toConvert, ordered_set.OrderedSet):
+					return _convertSet(toConvert)
+				elif isinstance(toConvert, StrType) or isinstance(toConvert, BytesType):
+					return self.FormatMacro(toConvert)
+				else:
+					return toConvert
 
-		#: type: set[str]
-		self.extraDirs = projectSettings.get("extraDirs", set())
-		#: type: set[str]
-		self.excludeDirs = projectSettings.get("excludeDirs", set())
-		#: type: set[str]
-		self.excludeFiles = projectSettings.get("excludeFiles", set())
-		#: type: set[str]
-		self.sourceFiles = projectSettings.get("sourceFiles", set())
+			# We set self.settings here because _convertItem calls FormatMacro and FormatMacro uses self.settings
+			self.settings = projectSettings
+			self.settings = _convertItem(projectSettings)
 
-		#: type: str
-		self.intermediateDir = projectSettings.get("intermediateDir", os.path.join(self.workingDirectory, "intermediate"))
-		#: type: str
-		self.outputDir = projectSettings.get("outputDir", os.path.join(self.workingDirectory, "out"))
-		#: type: str
-		self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
+			self.projectType = projectSettings["projectType"]
 
-		if not os.path.exists(self.csbuildDir):
-			os.makedirs(self.csbuildDir)
+			#: type: set[str]
+			self.extraDirs = projectSettings.get("extraDirs", set())
+			#: type: set[str]
+			self.excludeDirs = projectSettings.get("excludeDirs", set())
+			#: type: set[str]
+			self.excludeFiles = projectSettings.get("excludeFiles", set())
+			#: type: set[str]
+			self.sourceFiles = projectSettings.get("sourceFiles", set())
 
-		#: type: str
-		self.artifactsFileName = os.path.join(
-			self.csbuildDir,
-			"{}_{}_{}_{}.artifacts".format(
-				self.name,
-				self.toolchainName,
-				self.architectureName,
-				self.targetName
+			#: type: str
+			self.intermediateDir = projectSettings.get("intermediateDir", os.path.join(self.workingDirectory, "intermediate"))
+			#: type: str
+			self.outputDir = projectSettings.get("outputDir", os.path.join(self.workingDirectory, "out"))
+			#: type: str
+			self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
+
+			if not os.path.exists(self.csbuildDir):
+				os.makedirs(self.csbuildDir)
+
+			#: type: str
+			self.artifactsFileName = os.path.join(
+				self.csbuildDir,
+				"{}_{}_{}_{}.artifacts".format(
+					self.name,
+					self.toolchainName,
+					self.architectureName,
+					self.targetName
+				)
 			)
-		)
 
-		if os.path.exists(self.artifactsFileName):
-			with open(self.artifactsFileName, "r") as f:
-				self.lastRunArtifacts = ordered_set.OrderedSet(f.read().splitlines())
-		else:
-			self.lastRunArtifacts = ordered_set.OrderedSet()
+			if os.path.exists(self.artifactsFileName):
+				with open(self.artifactsFileName, "r") as f:
+					self.lastRunArtifacts = ordered_set.OrderedSet(f.read().splitlines())
+			else:
+				self.lastRunArtifacts = ordered_set.OrderedSet()
 
-		self.artifacts = ordered_set.OrderedSet()
-		self.artifactsFile = open(
-			self.artifactsFileName,
-			"w"
-		)
+			self.artifacts = ordered_set.OrderedSet()
+			self.artifactsFile = open(
+				self.artifactsFileName,
+				"w"
+			)
 
-		self.outputName = projectSettings.get("outputName", self.name)
+			self.outputName = projectSettings.get("outputName", self.name)
 
-		if not os.path.exists(self.intermediateDir):
-			os.makedirs(self.intermediateDir)
-		if not os.path.exists(self.outputDir):
-			os.makedirs(self.outputDir)
-		if not os.path.exists(self.csbuildDir):
-			os.makedirs(self.csbuildDir)
+			if not os.path.exists(self.intermediateDir):
+				os.makedirs(self.intermediateDir)
+			if not os.path.exists(self.outputDir):
+				os.makedirs(self.outputDir)
+			if not os.path.exists(self.csbuildDir):
+				os.makedirs(self.csbuildDir)
 
-		#: type: dict[str, ordered_set.OrderedSet]
-		self.inputFiles = {}
+			#: type: dict[str, ordered_set.OrderedSet]
+			self.inputFiles = {}
 
-		self.RediscoverFiles()
+			self.RediscoverFiles()
 
 	def __repr__(self):
 		return "{} ({}/{}/{})".format(self.name, self.toolchainName, self.architectureName, self.targetName)
@@ -206,28 +207,29 @@ class Project(object):
 		# Make a proxy class that gets items from the list of valid items
 		# and convert them as we come across them, using memoization to avoid redundant
 		# conversions. If we do that, we could do each string in one pass.
-		if "{" in toConvert:
-			prev = ""
-			while toConvert != prev:
-				log.Info("Formatting {}", toConvert)
-				prev = toConvert
-				toConvert = toConvert.format(
-					name=self.name,
-					workingDirectory=self.workingDirectory,
-					dependencyNames=self.dependencyNames,
-					priority=self.priority,
-					ignoreDependencyOrdering=self.ignoreDependencyOrdering,
-					autoDiscoverSourceFiles=self.autoDiscoverSourceFiles,
-					settings=self.settings,
-					toolchainName=self.toolchainName,
-					architectureName=self.architectureName,
-					targetName=self.targetName,
-					toolchain=self.toolchain,
-					userData=self.userData,
-					**self.settings
-				)
-				log.Info("  => {}", toConvert)
-		return PlatformString(toConvert)
+		with perf_timer.PerfTimer("Macro formatting"):
+			if "{" in toConvert:
+				prev = ""
+				while toConvert != prev:
+					log.Info("Formatting {}", toConvert)
+					prev = toConvert
+					toConvert = toConvert.format(
+						name=self.name,
+						workingDirectory=self.workingDirectory,
+						dependencyNames=self.dependencyNames,
+						priority=self.priority,
+						ignoreDependencyOrdering=self.ignoreDependencyOrdering,
+						autoDiscoverSourceFiles=self.autoDiscoverSourceFiles,
+						settings=self.settings,
+						toolchainName=self.toolchainName,
+						architectureName=self.architectureName,
+						targetName=self.targetName,
+						toolchain=self.toolchain,
+						userData=self.userData,
+						**self.settings
+					)
+					log.Info("  => {}", toConvert)
+			return PlatformString(toConvert)
 
 	def ResolveDependencies(self):
 		"""
@@ -258,48 +260,49 @@ class Project(object):
 		Note that even if autoDiscoverSourceFiles is disabled, this must be called again in order to update the source
 		file list after a preBuildStep.
 		"""
-		log.Info("Discovering files for {}...", self)
-		self.inputFiles = {}
+		with perf_timer.PerfTimer("File discovery"):
+			log.Info("Discovering files for {}...", self)
+			self.inputFiles = {}
 
-		if self.autoDiscoverSourceFiles:
-			extensionList = self.toolchain.GetSearchExtensions()
+			if self.autoDiscoverSourceFiles:
+				extensionList = self.toolchain.GetSearchExtensions()
 
-			for sourceDir in ordered_set.OrderedSet([self.workingDirectory]) | self.extraDirs:
-				log.Build("Collecting files from {}", sourceDir)
-				for root, _, filenames in os.walk(sourceDir):
-					absroot = os.path.abspath(root)
-					if absroot in self.excludeDirs:
-						if absroot != self.csbuildDir:
-							log.Info("Skipping dir {}", root)
-						continue
-					if ".csbuild" in root \
-							or root.startswith(self.intermediateDir) \
-							or (root.startswith(self.outputDir) and self.outputDir != self.workingDirectory):
-						continue
-					if absroot == self.csbuildDir or absroot.startswith(self.csbuildDir):
-						continue
-					bFound = False
-					for testDir in self.excludeDirs:
-						if absroot.startswith(testDir):
-							bFound = True
+				for sourceDir in ordered_set.OrderedSet([self.workingDirectory]) | self.extraDirs:
+					log.Build("Collecting files from {}", sourceDir)
+					for root, _, filenames in os.walk(sourceDir):
+						absroot = os.path.abspath(root)
+						if absroot in self.excludeDirs:
+							if absroot != self.csbuildDir:
+								log.Info("Skipping dir {}", root)
 							continue
-					if bFound:
-						if not absroot.startswith(self.csbuildDir):
-							log.Info("Skipping directory {}", root)
-						continue
-					log.Info("Looking in directory {}", root)
-					for extension in extensionList:
-						log.Info("Checking for {}", extension)
-						self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
-							[
-								input_file.InputFile(
-									os.path.join(absroot, filename)
-								) for filename in fnmatch.filter(filenames, "*{}".format(extension))
-								if os.path.join(absroot, filename) not in self.lastRunArtifacts
-							]
-						)
+						if ".csbuild" in root \
+								or root.startswith(self.intermediateDir) \
+								or (root.startswith(self.outputDir) and self.outputDir != self.workingDirectory):
+							continue
+						if absroot == self.csbuildDir or absroot.startswith(self.csbuildDir):
+							continue
+						found = False
+						for testDir in self.excludeDirs:
+							if absroot.startswith(testDir):
+								found = True
+								continue
+						if found:
+							if not absroot.startswith(self.csbuildDir):
+								log.Info("Skipping directory {}", root)
+							continue
+						log.Info("Looking in directory {}", root)
+						for extension in extensionList:
+							log.Info("Checking for {}", extension)
+							self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
+								[
+									input_file.InputFile(
+										os.path.join(absroot, filename)
+									) for filename in fnmatch.filter(filenames, "*{}".format(extension))
+									if os.path.join(absroot, filename) not in self.lastRunArtifacts
+								]
+							)
 
-		for filename in self.sourceFiles:
-			extension = os.path.splitext(filename)[1]
-			self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(filename)
-		log.Info("Discovered {}", self.inputFiles)
+			for filename in self.sourceFiles:
+				extension = os.path.splitext(filename)[1]
+				self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(filename)
+			log.Info("Discovered {}", self.inputFiles)

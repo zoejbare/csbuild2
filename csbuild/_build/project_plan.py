@@ -36,7 +36,7 @@ import collections
 
 import csbuild
 from . import project
-from .. import log
+from .. import log, perf_timer
 from .._utils import ordered_set
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
@@ -246,163 +246,165 @@ class ProjectPlan(object):
 		:return: A concrete project
 		:rtype: project.Project
 		"""
-		assert len(self._workingSettingsStack) == 1 and \
-				len(self._workingSettingsStack[0]) == 1 and \
-				self._workingSettingsStack[0][0] == self._settings and \
-				len(self._currentSettingsDicts) == 1 and \
-				self._currentSettingsDicts[0] == self._settings, \
-				"ExecutePlan() called from within a context!"
+		with perf_timer.PerfTimer("Project plan validation"):
+			assert len(self._workingSettingsStack) == 1 and \
+					len(self._workingSettingsStack[0]) == 1 and \
+					self._workingSettingsStack[0][0] == self._settings and \
+					len(self._currentSettingsDicts) == 1 and \
+					self._currentSettingsDicts[0] == self._settings, \
+					"ExecutePlan() called from within a context!"
 
-		from .. import ProjectType
+			from .. import ProjectType
 
-		if targetName is useDefault:
-			targetName = self.defaultTarget
-		if toolchainName is useDefault:
-			toolchainName = self.defaultToolchain
-		if architectureName is useDefault:
-			if self.defaultArchitecture is useDefault:
-				architectureName = self.defaultArchitectureMap[toolchainName]
-			else:
-				architectureName = self.defaultArchitecture
+			if targetName is useDefault:
+				targetName = self.defaultTarget
+			if toolchainName is useDefault:
+				toolchainName = self.defaultToolchain
+			if architectureName is useDefault:
+				if self.defaultArchitecture is useDefault:
+					architectureName = self.defaultArchitectureMap[toolchainName]
+				else:
+					architectureName = self.defaultArchitecture
 
-		assert "overrides" in self._settings \
-			and "toolchain" in self._settings["overrides"] \
-			   and toolchainName in self._settings["overrides"]["toolchain"], \
-			"Toolchain {} has not been registered for project {}".format(toolchainName, self._name)
+			assert "overrides" in self._settings \
+				and "toolchain" in self._settings["overrides"] \
+				   and toolchainName in self._settings["overrides"]["toolchain"], \
+				"Toolchain {} has not been registered for project {}".format(toolchainName, self._name)
 
-		toolchains = self.selfLimits["toolchain"]
-		if toolchains and toolchainName not in toolchains:
-			log.Info("Project {} does not support toolchain {}", self.name, toolchainName)
-			return None
-
-		platforms = self.selfLimits["platform"]
-		if platforms and platform.system() not in platforms:
-			log.Info("Project {} does not support platform {}", self.name, platform.system())
-			return None
-
-		architectures = self.selfLimits["architecture"]
-		if architectures and architectureName not in architectures:
-			log.Info("Project {} does not support architecture {}", self.name, architectureName)
-			return None
-
-		targets = self.selfLimits["target"]
-		if targets and targetName not in targets:
-			log.Info("Project {} does not support target {}", self.name, targetName)
-			return None
-
-		if targetName not in self.knownTargets:
-			log.Info("Project {} does not know about target {}", self.name, targetName)
-			return None
-
-		projectType = self._settings.get("projectType", ProjectType.Application)
-		projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchainName, architectureName, targetName, projectType)
-
-		settings = {}
-		for key, value in self._settings.items():
-			if key == "overrides":
-				continue
-			settings[key] = copy.deepcopy(value)
-
-		flattenedDepends = ordered_set.OrderedSet()
-		self._flattenDepends(flattenedDepends, self)
-
-		libraries = ordered_set.OrderedSet()
-		if "libraries" in settings:
-			libraries = settings["libraries"]
-			del settings["libraries"]
-
-		self._flattenOverrides(
-			settings,
-			self._settings.get("overrides", {}),
-			toolchainName,
-			architectureName,
-			targetName,
-			"all"
-		)
-
-		for depend in flattenedDepends:
-			# pylint: disable=protected-access
-			dependObj = allPlans[depend]
-			# type: ProjectPlan
-
-			if projectType == ProjectType.Application:
-				settings["libraries"] = ordered_set.OrderedSet(settings.get("libraries")) | ordered_set.OrderedSet(
-					[
-						dependObj._getFinalValue(
-							dependObj._settings.get("overrides"),
-							"outputName",
-							toolchainName,
-							architectureName,
-							targetName,
-							dependObj._name
-						)
-					]
-				)
-				self._flattenOverrides(
-					settings,
-					dependObj._settings.get("overrides", {}),
-					toolchainName,
-					architectureName,
-					targetName,
-					"all"
-				)
-				self._flattenOverrides(
-					settings,
-					dependObj._settings.get("overrides", {}),
-					toolchainName,
-					architectureName,
-					targetName,
-					"children"
-				)
-				self._flattenOverrides(
-					settings,
-					dependObj._settings.get("overrides", {}),
-					toolchainName,
-					architectureName,
-					targetName,
-					"final"
-				)
-			else:
-				self._flattenOverrides(
-					settings,
-					dependObj._settings.get("overrides", {}),
-					toolchainName,
-					architectureName,
-					targetName,
-					"all"
-				)
-				self._flattenOverrides(
-					settings,
-					dependObj._settings.get("overrides", {}),
-					toolchainName,
-					architectureName,
-					targetName,
-					"children"
-				)
-				self._flattenOverrides(
-					settings,
-					dependObj._settings.get("overrides", {}),
-					toolchainName,
-					architectureName,
-					targetName,
-					"scope"
-				)
-
-		if "libraries" in settings:
-			settings["libraries"] |= libraries
-		else:
-			settings["libraries"] = libraries
-
-		self._flattenOverrides(settings, self._settings.get("overrides"), toolchainName, architectureName, targetName)
-
-		tools = settings.get("tools", [])
-		for tool in tools:
-			if tool.supportedArchitectures is not None and architectureName not in tool.supportedArchitectures:
-				log.Info("Tool {} does not support architecture {}", tool.__name__, architectureName)
+			toolchains = self.selfLimits["toolchain"]
+			if toolchains and toolchainName not in toolchains:
+				log.Info("Project {} does not support toolchain {}", self.name, toolchainName)
 				return None
-			if tool.supportedPlatforms is not None and platform.system() not in tool.supportedPlatforms:
-				log.Info("Tool {} does not support platform {}", tool.__name__, platform.system())
+
+			platforms = self.selfLimits["platform"]
+			if platforms and platform.system() not in platforms:
+				log.Info("Project {} does not support platform {}", self.name, platform.system())
 				return None
+
+			architectures = self.selfLimits["architecture"]
+			if architectures and architectureName not in architectures:
+				log.Info("Project {} does not support architecture {}", self.name, architectureName)
+				return None
+
+			targets = self.selfLimits["target"]
+			if targets and targetName not in targets:
+				log.Info("Project {} does not support target {}", self.name, targetName)
+				return None
+
+			if targetName not in self.knownTargets:
+				log.Info("Project {} does not know about target {}", self.name, targetName)
+				return None
+
+		with perf_timer.PerfTimer("Flattening settings"):
+			projectType = self._settings.get("projectType", ProjectType.Application)
+			projectType = self._getFinalValue(self._settings.get("overrides"), "projectType", toolchainName, architectureName, targetName, projectType)
+
+			settings = {}
+			for key, value in self._settings.items():
+				if key == "overrides":
+					continue
+				settings[key] = copy.deepcopy(value)
+
+			flattenedDepends = ordered_set.OrderedSet()
+			self._flattenDepends(flattenedDepends, self)
+
+			libraries = ordered_set.OrderedSet()
+			if "libraries" in settings:
+				libraries = settings["libraries"]
+				del settings["libraries"]
+
+			self._flattenOverrides(
+				settings,
+				self._settings.get("overrides", {}),
+				toolchainName,
+				architectureName,
+				targetName,
+				"all"
+			)
+
+			for depend in flattenedDepends:
+				# pylint: disable=protected-access
+				dependObj = allPlans[depend]
+				# type: ProjectPlan
+
+				if projectType == ProjectType.Application:
+					settings["libraries"] = ordered_set.OrderedSet(settings.get("libraries")) | ordered_set.OrderedSet(
+						[
+							dependObj._getFinalValue(
+								dependObj._settings.get("overrides"),
+								"outputName",
+								toolchainName,
+								architectureName,
+								targetName,
+								dependObj._name
+							)
+						]
+					)
+					self._flattenOverrides(
+						settings,
+						dependObj._settings.get("overrides", {}),
+						toolchainName,
+						architectureName,
+						targetName,
+						"all"
+					)
+					self._flattenOverrides(
+						settings,
+						dependObj._settings.get("overrides", {}),
+						toolchainName,
+						architectureName,
+						targetName,
+						"children"
+					)
+					self._flattenOverrides(
+						settings,
+						dependObj._settings.get("overrides", {}),
+						toolchainName,
+						architectureName,
+						targetName,
+						"final"
+					)
+				else:
+					self._flattenOverrides(
+						settings,
+						dependObj._settings.get("overrides", {}),
+						toolchainName,
+						architectureName,
+						targetName,
+						"all"
+					)
+					self._flattenOverrides(
+						settings,
+						dependObj._settings.get("overrides", {}),
+						toolchainName,
+						architectureName,
+						targetName,
+						"children"
+					)
+					self._flattenOverrides(
+						settings,
+						dependObj._settings.get("overrides", {}),
+						toolchainName,
+						architectureName,
+						targetName,
+						"scope"
+					)
+
+			if "libraries" in settings:
+				settings["libraries"] |= libraries
+			else:
+				settings["libraries"] = libraries
+
+			self._flattenOverrides(settings, self._settings.get("overrides"), toolchainName, architectureName, targetName)
+
+			tools = settings.get("tools", [])
+			for tool in tools:
+				if tool.supportedArchitectures is not None and architectureName not in tool.supportedArchitectures:
+					log.Info("Tool {} does not support architecture {}", tool.__name__, architectureName)
+					return None
+				if tool.supportedPlatforms is not None and platform.system() not in tool.supportedPlatforms:
+					log.Info("Tool {} does not support platform {}", tool.__name__, platform.system())
+					return None
 
 		return project.Project(
 			self._name,

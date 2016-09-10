@@ -41,6 +41,8 @@ allTargets = set()
 allToolchains = set()
 allArchitectures = set()
 
+runPerfReport = True # Default to true because if we start false, we'll be unable to collect before parsing args.
+
 toolchainGroups = {}
 
 projectFilter = None

@@ -32,8 +32,8 @@ import sys
 import subprocess
 import threading
 
-from . import log
-from ._utils import shared_globals, PlatformString
+from . import log, perf_timer
+from ._utils import shared_globals, PlatformUnicode
 from ._utils.decorators import TypeChecked
 
 if sys.version_info[0] >= 3:
@@ -127,40 +127,41 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 	:return: Tuple of return code, stdout as a single block string, and stderr as a single block string
 	:rtype: tuple[int, str, str]
 	"""
-	if shared_globals.showCommands:
-		log.Command("Executing {}", cmd)
+	with perf_timer.PerfTimer("Commands"):
+		if shared_globals.showCommands:
+			log.Command("Executing {}", cmd)
 
-	output = []
-	errors = []
-	shared = _sharedStreamProcessingData()
+		output = []
+		errors = []
+		shared = _sharedStreamProcessingData()
 
-	def _streamOutput(pipe, outlist, callback):
-		while True:
-			try:
-				line = PlatformString(pipe.readline())
-			except IOError:
-				continue
-			# Empty string means pipe was closed, possibly due to process exit, and we can leave the loop.
-			# A blank line output by the pipe would be returned as "\n"
-			if not line:
-				break
-			#Callback excludes newline
-			callback(shared, line.rstrip("\n\r"))
-			outlist.append(line)
+		def _streamOutput(pipe, outlist, callback):
+			while True:
+				try:
+					line = PlatformUnicode(pipe.readline())
+				except IOError:
+					continue
+				# Empty string means pipe was closed, possibly due to process exit, and we can leave the loop.
+				# A blank line output by the pipe would be returned as "\n"
+				if not line:
+					break
+				#Callback excludes newline
+				callback(shared, line.rstrip("\n\r"))
+				outlist.append(line)
 
-	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
-	outputThread = threading.Thread(target=_streamOutput, args=(proc.stdout, output, stdout))
-	errorThread = threading.Thread(target=_streamOutput, args=(proc.stderr, errors, stderr))
+		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+		outputThread = threading.Thread(target=_streamOutput, args=(proc.stdout, output, stdout))
+		errorThread = threading.Thread(target=_streamOutput, args=(proc.stderr, errors, stderr))
 
-	outputThread.start()
-	errorThread.start()
+		outputThread.start()
+		errorThread.start()
 
-	proc.wait()
+		proc.wait()
 
-	outputThread.join()
-	errorThread.join()
+		outputThread.join()
+		errorThread.join()
 
-	if shared.queue is not None:
-		shared.queue.put(stopEvent)
+		if shared.queue is not None:
+			shared.queue.put(stopEvent)
 
-	return proc.returncode, "".join(output), "".join(errors)
+		return proc.returncode, "".join(output), "".join(errors)

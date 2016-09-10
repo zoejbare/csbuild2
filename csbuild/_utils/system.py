@@ -34,7 +34,7 @@ import sys
 import platform
 
 from . import shared_globals
-from .. import log, commands
+from .. import log, commands, perf_timer
 
 if platform.system() == "Windows":
 	def SyncDir(_):
@@ -61,25 +61,29 @@ def CleanUp():
 	"""
 	Clean up the various plates we're spinning so they don't crash to the ground or spin forever
 	"""
-	if not imp.lock_held():
-		imp.acquire_lock()
+	with perf_timer.PerfTimer("Cleanup"):
+		if not imp.lock_held():
+			imp.acquire_lock()
 
-	if shared_globals.runMode == csbuild.RunMode.Normal:
-		log.Build("Cleaning up")
+		if shared_globals.runMode == csbuild.RunMode.Normal:
+			log.Build("Cleaning up")
 
-	if shared_globals.commandOutputThread is not None:
-		commands.queueOfLogQueues.put(commands.stopEvent)
-		shared_globals.commandOutputThread.join()
+		if shared_globals.commandOutputThread is not None:
+			commands.queueOfLogQueues.put(commands.stopEvent)
+			shared_globals.commandOutputThread.join()
 
-	for proj in shared_globals.projectBuildList:
-		if proj.artifactsFile is not None:
-			proj.artifactsFile.flush()
-			os.fsync(proj.artifactsFile.fileno())
-			proj.artifactsFile.close()
+		for proj in shared_globals.projectBuildList:
+			if proj.artifactsFile is not None:
+				proj.artifactsFile.flush()
+				os.fsync(proj.artifactsFile.fileno())
+				proj.artifactsFile.close()
 
-			SyncDir(os.path.dirname(proj.artifactsFileName))
+				SyncDir(os.path.dirname(proj.artifactsFileName))
 
-	sys.meta_path = []
+		sys.meta_path = []
+
+	if shared_globals.runPerfReport:
+		perf_timer.PerfTimer.PrintPerfReport()
 
 	# TODO: Kill running subprocesses
 	# TODO: Exit events for plugins

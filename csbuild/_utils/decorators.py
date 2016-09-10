@@ -32,6 +32,7 @@ import warnings
 
 from . import StrType
 from .._testing import testcase
+from .. import perf_timer
 
 if sys.version_info[0] >= 3:
 	_typeType = type
@@ -62,67 +63,68 @@ def TypeChecked(**argtypes):
 	:return: a type-checked wrapper for the function
 	:rtype: function
 	"""
-	argtypes = dict(**argtypes)
+	with perf_timer.PerfTimer("TypeChecked decorator"):
+		argtypes = dict(**argtypes)
 
-	def _wrapOuter(oldFunc):
-		""" Outer decorator wrapper - set up the inner decorator """
-		# co_varnames includes both parameters and locals - trim it to just parameters
-		varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
+		def _wrapOuter(oldFunc):
+			""" Outer decorator wrapper - set up the inner decorator """
+			# co_varnames includes both parameters and locals - trim it to just parameters
+			varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
 
-		# Check that all the types provided are actual types and that none of them reference nonexistent parameters
-		for name, typ in argtypes.items():
-			if not isinstance(typ, (_typeType, _classType, tuple)):
-				raise TypeError("Parameters to TypeChecked must be type, or tuple of argtypes - not {}".format(typ))
+			# Check that all the types provided are actual types and that none of them reference nonexistent parameters
+			for name, typ in argtypes.items():
+				if not isinstance(typ, (_typeType, _classType, tuple)):
+					raise TypeError("Parameters to TypeChecked must be type, or tuple of argtypes - not {}".format(typ))
 
-			if isinstance(typ, tuple):
-				for subtype in typ:
-					if not isinstance(subtype, (_typeType, _classType)):
-						raise TypeError("Tuple parameters to TypeChecked must contain only argtypes - not {}".format(subtype))
+				if isinstance(typ, tuple):
+					for subtype in typ:
+						if not isinstance(subtype, (_typeType, _classType)):
+							raise TypeError("Tuple parameters to TypeChecked must contain only argtypes - not {}".format(subtype))
 
-			if name == "_return":
-				continue
-			if name not in varNames:
-				raise TypeError("Function {} has no parameter {}".format(oldFunc.__name__, name))
-
-		# Check that all the function's parameters are represented - for type checking, this is just a warning if they're not
-		for name in varNames:
-			if name == "self":
-				continue
-			if name not in argtypes:
-				warnings.warn("Function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
-
-		oldFunc.__types__ = argtypes
-		oldFunc.__varNames__ = varNames
-
-		def _wrap(*args, **kwargs):
-			"""
-			Inner wrapper - this function actually replaces the decorated function and is called every tim
-			the decorated function is called. It checks all the type arguments before calling the decorated
-			function and raises an exception if they don't match.
-			"""
-			for i, name in enumerate(varNames):
-				argtype = argtypes.get(name, NOT_SET)
-
-				if argtype is NOT_SET:
+				if name == "_return":
 					continue
+				if name not in varNames:
+					raise TypeError("Function {} has no parameter {}".format(oldFunc.__name__, name))
 
-				if i < len(args):
-					elem = args[i]
-				else:
-					elem = kwargs.get(name, NOT_SET)
+			# Check that all the function's parameters are represented - for type checking, this is just a warning if they're not
+			for name in varNames:
+				if name == "self":
+					continue
+				if name not in argtypes:
+					warnings.warn("Function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
 
-				if elem != NOT_SET:
-					if not isinstance(elem, argtype):
-						raise TypeError("Argument '{}' is type {}, expected {}".format(name, elem.__class__, argtype))
+			oldFunc.__types__ = argtypes
+			oldFunc.__varNames__ = varNames
 
-			result = oldFunc(*args, **kwargs)
-			returntype = argtypes.get('_return', NOT_SET)
-			if returntype != NOT_SET:
-				if not isinstance(result, returntype):
-					raise TypeError("Function {} returned invalid return type {}; expected {}".format(oldFunc.__name__, type(result), returntype))
-			return result
-		return _wrap
-	return _wrapOuter
+			def _wrap(*args, **kwargs):
+				"""
+				Inner wrapper - this function actually replaces the decorated function and is called every tim
+				the decorated function is called. It checks all the type arguments before calling the decorated
+				function and raises an exception if they don't match.
+				"""
+				for i, name in enumerate(varNames):
+					argtype = argtypes.get(name, NOT_SET)
+
+					if argtype is NOT_SET:
+						continue
+
+					if i < len(args):
+						elem = args[i]
+					else:
+						elem = kwargs.get(name, NOT_SET)
+
+					if elem != NOT_SET:
+						if not isinstance(elem, argtype):
+							raise TypeError("Argument '{}' is type {}, expected {}".format(name, elem.__class__, argtype))
+
+				result = oldFunc(*args, **kwargs)
+				returntype = argtypes.get('_return', NOT_SET)
+				if returntype != NOT_SET:
+					if not isinstance(result, returntype):
+						raise TypeError("Function {} returned invalid return type {}; expected {}".format(oldFunc.__name__, type(result), returntype))
+				return result
+			return _wrap
+		return _wrapOuter
 
 
 def Overload(**argtypes):
@@ -157,190 +159,166 @@ def Overload(**argtypes):
 	:return: A wrapper function that performs overload resolution and calls the correct function
 	:rtype: function
 	"""
-	argtypes = dict(**argtypes)
+	with perf_timer.PerfTimer("Overload decorator"):
+		argtypes = dict(**argtypes)
 
-	def _wrapOuter(oldFunc):
-		""" Outer decorator wrapper - set up the inner decorator """
+		def _wrapOuter(oldFunc):
+			""" Outer decorator wrapper - set up the inner decorator """
 
-		# co_varnames includes both parameters and locals - trim it to just parameters
+			# co_varnames includes both parameters and locals - trim it to just parameters
 
-		varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
+			varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
 
-		# Check that all the types provided are actual types and that none of them reference nonexistent parameters
-		for name, typ in argtypes.items():
-			if isinstance(typ, tuple):
-				for subtype in typ:
-					if not isinstance(subtype, (_typeType, _classType)):
-						raise TypeError("Tuple parameters to Overload must contain only argtypes - not {}".format(subtype))
+			# Check that all the types provided are actual types and that none of them reference nonexistent parameters
+			for name, typ in argtypes.items():
+				if isinstance(typ, tuple):
+					for subtype in typ:
+						if not isinstance(subtype, (_typeType, _classType)):
+							raise TypeError("Tuple parameters to Overload must contain only argtypes - not {}".format(subtype))
 
-			if name == "_return":
-				continue
-			if name not in varNames:
-				raise TypeError("Overloaded function {} has no parameter {}".format(oldFunc.__name__, name))
-
-		# Check that all the function's parameters are represented - for overloads, error if they're not
-		for name in varNames:
-			if name == "self":
-				continue
-			if name not in argtypes:
-				raise TypeError("Overloaded function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
-
-		oldFunc.__types__ = argtypes
-		oldFunc.__varNames__ = varNames
-
-		def _wrap(*args, **kwargs):
-			"""
-			Inner wrapper - this function actually replaces the decorated function and is called every tim
-			the decorated function is called. It goes through all the decorated functions with this function's
-			name and picks the one that most closely matches the provided arguments, if any.
-
-			"Most closely" here means that if one function takes int, and one takes 0, 0 more closely matches
-			0 than int does.
-			"""
-
-			# Set up a list of prioritized functions, giving them a match closeness score
-			prioritizedFuncs = {}
-			for func in Overload.funcs[oldFunc.__name__]:
-				numArgsGiven = len(args) + len(kwargs)
-				numArgsTaken = len(func.__varNames__)
-				numDefaults = len(func.__defaults__) if func.__defaults__ is not None else 0
-				# If the number of arguments provided doesn't match the number of parameters to this overload,
-				# skip it
-				if numArgsGiven > numArgsTaken or numArgsGiven < (numArgsTaken - numDefaults):
+				if name == "_return":
 					continue
+				if name not in varNames:
+					raise TypeError("Overloaded function {} has no parameter {}".format(oldFunc.__name__, name))
 
-				disqualified = False
-				priority = 0
-				for key in kwargs:
-					# If there are any keyword arguments provided that aren't accepted by this overload, skip it
-					if key not in func.__varNames__:
-						disqualified = True
-						break
-				if disqualified:
+			# Check that all the function's parameters are represented - for overloads, error if they're not
+			for name in varNames:
+				if name == "self":
 					continue
+				if name not in argtypes:
+					raise TypeError("Overloaded function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
 
-				# Quick eliminations out of the way, now the hard part... check all the types
-				for i, name in enumerate(func.__varNames__):
-					argtype = func.__types__.get(name)
+			oldFunc.__types__ = argtypes
+			oldFunc.__varNames__ = varNames
 
-					elem = NOT_SET
-					# pick the correct matching passed-in argument
-					if i < len(args):
-						elem = args[i]
-					elif name in kwargs:
-						elem = kwargs[name]
+			def _wrap(*args, **kwargs):
+				"""
+				Inner wrapper - this function actually replaces the decorated function and is called every tim
+				the decorated function is called. It goes through all the decorated functions with this function's
+				name and picks the one that most closely matches the provided arguments, if any.
 
-					# If the specified argument type is object, everything matches at the lowest priority
-					if argtype is object:
-						priority += 1
-					elif isinstance(argtype, (_typeType, _classType)):
-						# If the specified argument is a single type...
-						if type(elem) is argtype: # pylint: disable=unidiomatic-typecheck
-							# If the passed type is an exact match, this is a higher priority match
-							priority += 3
-						elif isinstance(elem, argtype):
-							# Otherwise if the passed type's a subclass, middle priority
-							priority += 2
-						else:
-							# If an element has been passed in that doesn't match the type, or no element's passed for
-							# an argument with no default value, this overload is disqualified
-							if elem is not NOT_SET or i < (numArgsTaken - numDefaults):
-								disqualified = True
-							break
-					elif isinstance(argtype, tuple):
-						# Otherwise this is a list of accepted types
-						if isinstance(elem, argtype):
-							# If the element matches, middle priority, same as subclass
-							priority += 2
-						else:
-							# If an element has been passed in that doesn't match the type, or no element's passed for
-							# an argument with no default value, this overload is disqualified
-							if elem is not NOT_SET or i < (numArgsTaken - numDefaults):
-								disqualified = True
-							break
-					else:
-						# If the specified type is a VALUE and not a type, and the element is equal to it, this is
-						# TOP priority!
-						if elem == argtype:
-							priority += 4
-						else:
+				"Most closely" here means that if one function takes int, and one takes 0, 0 more closely matches
+				0 than int does.
+				"""
+
+				# Set up a list of prioritized functions, giving them a match closeness score
+				prioritizedFuncs = {}
+				for func in Overload.funcs[oldFunc.__name__]:
+					numArgsGiven = len(args) + len(kwargs)
+					numArgsTaken = len(func.__varNames__)
+					numDefaults = len(func.__defaults__) if func.__defaults__ is not None else 0
+					# If the number of arguments provided doesn't match the number of parameters to this overload,
+					# skip it
+					if numArgsGiven > numArgsTaken or numArgsGiven < (numArgsTaken - numDefaults):
+						continue
+
+					disqualified = False
+					priority = 0
+					for key in kwargs:
+						# If there are any keyword arguments provided that aren't accepted by this overload, skip it
+						if key not in func.__varNames__:
 							disqualified = True
 							break
+					if disqualified:
+						continue
 
-				if not disqualified:
-					# If we're not disqualified and something else has the same total priority as this, flag it as ambiguous
-					# Otherwise put it in the priority map
-					if priority in prioritizedFuncs:
-						raise TypeError("Call to overloaded function {} is ambiguous: could not determine priority overload based on the provided arguments.".format(oldFunc.__name__))
-					prioritizedFuncs.update({ priority : func })
+					# Quick eliminations out of the way, now the hard part... check all the types
+					for i, name in enumerate(func.__varNames__):
+						argtype = func.__types__.get(name)
 
-			# Now we've built our prioritized function list. If anything's in it at all, pick the one with the highest
-			# priority and execute. Otherwise, flag a "no viable overload"
-			if prioritizedFuncs:
-				orderedFuncs = sorted(prioritizedFuncs.items(), reverse=True)
+						elem = NOT_SET
+						# pick the correct matching passed-in argument
+						if i < len(args):
+							elem = args[i]
+						elif name in kwargs:
+							elem = kwargs[name]
 
-				# Execute the function and check the return type
-				result = orderedFuncs[0][1](*args, **kwargs)
-				returntype = argtypes.get('_return')
-				if returntype != NOT_SET:
-					if isinstance(returntype, (_typeType, _classType, tuple)):
-						if not isinstance(result, returntype):
-							raise TypeError("Function {} returned invalid return type {}; expected {}".format(oldFunc.__name__, type(result), returntype))
-					elif result != returntype:
-						raise TypeError("Function {} returned invalid return value {}; expected {}".format(oldFunc.__name__, type(result), returntype))
-				return result
-			else:
-				raise TypeError("No overload of {} found that matches the given arguments: {} {}".format(oldFunc.__name__, args if args else "", kwargs if kwargs else ""))
+						# If the specified argument type is object, everything matches at the lowest priority
+						if argtype is object:
+							priority += 1
+						elif isinstance(argtype, (_typeType, _classType)):
+							# If the specified argument is a single type...
+							if type(elem) is argtype: # pylint: disable=unidiomatic-typecheck
+								# If the passed type is an exact match, this is a higher priority match
+								priority += 3
+							elif isinstance(elem, argtype):
+								# Otherwise if the passed type's a subclass, middle priority
+								priority += 2
+							else:
+								# If an element has been passed in that doesn't match the type, or no element's passed for
+								# an argument with no default value, this overload is disqualified
+								if elem is not NOT_SET or i < (numArgsTaken - numDefaults):
+									disqualified = True
+								break
+						elif isinstance(argtype, tuple):
+							# Otherwise this is a list of accepted types
+							if isinstance(elem, argtype):
+								# If the element matches, middle priority, same as subclass
+								priority += 2
+							else:
+								# If an element has been passed in that doesn't match the type, or no element's passed for
+								# an argument with no default value, this overload is disqualified
+								if elem is not NOT_SET or i < (numArgsTaken - numDefaults):
+									disqualified = True
+								break
+						else:
+							# If the specified type is a VALUE and not a type, and the element is equal to it, this is
+							# TOP priority!
+							if elem == argtype:
+								priority += 4
+							else:
+								disqualified = True
+								break
 
-		# Back to the outer wrapper now! Everything from here down only happens once per instance of the decorator.
-		# Create a persistent overload list as a part of /this/ function
-		if not hasattr(Overload, "funcs"):
-			Overload.funcs = {}
+					if not disqualified:
+						# If we're not disqualified and something else has the same total priority as this, flag it as ambiguous
+						# Otherwise put it in the priority map
+						if priority in prioritizedFuncs:
+							raise TypeError("Call to overloaded function {} is ambiguous: could not determine priority overload based on the provided arguments.".format(oldFunc.__name__))
+						prioritizedFuncs.update({ priority : func })
 
-		# Add this function to the list
-		if oldFunc.__name__ in Overload.funcs:
-			funcs = Overload.funcs[oldFunc.__name__]
-			numArgsTaken = len(oldFunc.__varNames__)
-			numDefaults = len(oldFunc.__defaults__) if oldFunc.__defaults__ is not None else 0
-			numNonDefaulted = numArgsTaken - numDefaults
-			# Iterate through the functions to find anything that has the same non-defaulted signature
-			for func in funcs:
-				numOtherArgsTaken = len(func.__varNames__)
-				numOtherDefaults = len(func.__defaults__) if func.__defaults__ is not None else 0
-				numOtherNonDefaulted = numOtherArgsTaken - numOtherDefaults
-				if numNonDefaulted != numOtherNonDefaulted:  # Different numnber of non-defaulted arguments, not a dupe
-					continue
+				# Now we've built our prioritized function list. If anything's in it at all, pick the one with the highest
+				# priority and execute. Otherwise, flag a "no viable overload"
+				if prioritizedFuncs:
+					orderedFuncs = sorted(prioritizedFuncs.items(), reverse=True)
 
-				differentKeywords = False
-				differentPositions = False
-				defaultsProblem = False
-				# Determine if this function has either different keywords or the same keywords in different positions
-				for i, name in enumerate(func.__varNames__):
-					if i >= numNonDefaulted:
-						defaultsProblem = True
-						break
+					# Execute the function and check the return type
+					result = orderedFuncs[0][1](*args, **kwargs)
+					returntype = argtypes.get('_return')
+					if returntype != NOT_SET:
+						if isinstance(returntype, (_typeType, _classType, tuple)):
+							if not isinstance(result, returntype):
+								raise TypeError("Function {} returned invalid return type {}; expected {}".format(oldFunc.__name__, type(result), returntype))
+						elif result != returntype:
+							raise TypeError("Function {} returned invalid return value {}; expected {}".format(oldFunc.__name__, type(result), returntype))
+					return result
+				else:
+					raise TypeError("No overload of {} found that matches the given arguments: {} {}".format(oldFunc.__name__, args if args else "", kwargs if kwargs else ""))
 
-					argType = func.__types__.get(name)
-					otherArgType = oldFunc.__types__.get(name)
-					positionalArgType = oldFunc.__types__.get(oldFunc.__varNames__[i]) if i < numArgsTaken else None
+			# Back to the outer wrapper now! Everything from here down only happens once per instance of the decorator.
+			# Create a persistent overload list as a part of /this/ function
+			if not hasattr(Overload, "funcs"):
+				Overload.funcs = {}
 
-					if not isinstance(argType, (_typeType, _classType, tuple)):
-						argType = None
-					if not isinstance(otherArgType, (_typeType, _classType, tuple)):
-						otherArgType = None
-					if not isinstance(positionalArgType, (_typeType, _classType, tuple)):
-						positionalArgType = None
+			# Add this function to the list
+			if oldFunc.__name__ in Overload.funcs:
+				funcs = Overload.funcs[oldFunc.__name__]
+				numArgsTaken = len(oldFunc.__varNames__)
+				numDefaults = len(oldFunc.__defaults__) if oldFunc.__defaults__ is not None else 0
+				numNonDefaulted = numArgsTaken - numDefaults
+				# Iterate through the functions to find anything that has the same non-defaulted signature
+				for func in funcs:
+					numOtherArgsTaken = len(func.__varNames__)
+					numOtherDefaults = len(func.__defaults__) if func.__defaults__ is not None else 0
+					numOtherNonDefaulted = numOtherArgsTaken - numOtherDefaults
+					if numNonDefaulted != numOtherNonDefaulted:  # Different numnber of non-defaulted arguments, not a dupe
+						continue
 
-					if argType is not otherArgType:
-						differentKeywords = True
-					if positionalArgType is not argType:
-						differentPositions = True
-					if differentKeywords and differentPositions:
-						break
-
-				# If it has the same keywords in the same positions, start checking the types
-				if not differentKeywords or not differentPositions:
-					for i, name in enumerate(oldFunc.__varNames__):
+					differentKeywords = False
+					differentPositions = False
+					defaultsProblem = False
+					# Determine if this function has either different keywords or the same keywords in different positions
+					for i, name in enumerate(func.__varNames__):
 						if i >= numNonDefaulted:
 							defaultsProblem = True
 							break
@@ -363,70 +341,95 @@ def Overload(**argtypes):
 						if differentKeywords and differentPositions:
 							break
 
-				def _getName(val):
-					if hasattr(val, "__name__"):
-						return val.__name__
-					return str(val)
+					# If it has the same keywords in the same positions, start checking the types
+					if not differentKeywords or not differentPositions:
+						for i, name in enumerate(oldFunc.__varNames__):
+							if i >= numNonDefaulted:
+								defaultsProblem = True
+								break
 
-				# Same positional arguments - error
-				if not differentPositions:
-					positionalKeywordSignature = []
-					for i, name in enumerate(oldFunc.__varNames__):
-						positionalKeywordSignature.append({name : _getName(oldFunc.__types__.get(name))})
-					otherPositionalKeywordSignature = []
-					for i, name in enumerate(func.__varNames__):
-						otherPositionalKeywordSignature.append({name : _getName(func.__types__.get(name))})
-					if defaultsProblem:
-						raise TypeError(
-							"Two or more overloads of {} share the same deduced positional signature except for defaulted parameters: "
-							"{} and {}, with defaults starting at position {}: {} and {}".format(
-								oldFunc.__name__,
-								positionalKeywordSignature,
-								otherPositionalKeywordSignature,
-								numNonDefaulted+1,
-								oldFunc.__defaults__,func.__defaults__
+							argType = func.__types__.get(name)
+							otherArgType = oldFunc.__types__.get(name)
+							positionalArgType = oldFunc.__types__.get(oldFunc.__varNames__[i]) if i < numArgsTaken else None
+
+							if not isinstance(argType, (_typeType, _classType, tuple)):
+								argType = None
+							if not isinstance(otherArgType, (_typeType, _classType, tuple)):
+								otherArgType = None
+							if not isinstance(positionalArgType, (_typeType, _classType, tuple)):
+								positionalArgType = None
+
+							if argType is not otherArgType:
+								differentKeywords = True
+							if positionalArgType is not argType:
+								differentPositions = True
+							if differentKeywords and differentPositions:
+								break
+
+					def _getName(val):
+						if hasattr(val, "__name__"):
+							return val.__name__
+						return str(val)
+
+					# Same positional arguments - error
+					if not differentPositions:
+						positionalKeywordSignature = []
+						for i, name in enumerate(oldFunc.__varNames__):
+							positionalKeywordSignature.append({name : _getName(oldFunc.__types__.get(name))})
+						otherPositionalKeywordSignature = []
+						for i, name in enumerate(func.__varNames__):
+							otherPositionalKeywordSignature.append({name : _getName(func.__types__.get(name))})
+						if defaultsProblem:
+							raise TypeError(
+								"Two or more overloads of {} share the same deduced positional signature except for defaulted parameters: "
+								"{} and {}, with defaults starting at position {}: {} and {}".format(
+									oldFunc.__name__,
+									positionalKeywordSignature,
+									otherPositionalKeywordSignature,
+									numNonDefaulted+1,
+									oldFunc.__defaults__,func.__defaults__
+								)
 							)
+						raise TypeError(
+								"Two or more overloads of {} share the same deduced positional signature: {} and {}".format(
+									oldFunc.__name__,
+									positionalKeywordSignature,
+									otherPositionalKeywordSignature
+								)
 						)
-					raise TypeError(
-							"Two or more overloads of {} share the same deduced positional signature: {} and {}".format(
+
+					# Same keyword arguments - error
+					if not differentKeywords:
+						positionalKeywordSignature = []
+						for i, name in enumerate(oldFunc.__varNames__):
+							positionalKeywordSignature.append({name : _getName(oldFunc.__types__.get(name))})
+						otherPositionalKeywordSignature = []
+						for i, name in enumerate(func.__varNames__):
+							otherPositionalKeywordSignature.append({name : _getName(func.__types__.get(name))})
+						if defaultsProblem:
+							raise TypeError(
+								"Two or more overloads of {} share the same deduced keyword signature except for defaulted parameters: "
+								"{} and {}, with defaults starting at position {}: {} and {}".format(
+									oldFunc.__name__,
+									positionalKeywordSignature,
+									otherPositionalKeywordSignature,
+									numNonDefaulted+1,
+									oldFunc.__defaults__,
+									func.__defaults__
+								)
+							)
+						raise TypeError(
+							"Two or more overloads of {} share the same deduced keyword signature: {} and {}".format(
 								oldFunc.__name__,
 								positionalKeywordSignature,
 								otherPositionalKeywordSignature
 							)
-					)
-
-				# Same keyword arguments - error
-				if not differentKeywords:
-					positionalKeywordSignature = []
-					for i, name in enumerate(oldFunc.__varNames__):
-						positionalKeywordSignature.append({name : _getName(oldFunc.__types__.get(name))})
-					otherPositionalKeywordSignature = []
-					for i, name in enumerate(func.__varNames__):
-						otherPositionalKeywordSignature.append({name : _getName(func.__types__.get(name))})
-					if defaultsProblem:
-						raise TypeError(
-							"Two or more overloads of {} share the same deduced keyword signature except for defaulted parameters: "
-							"{} and {}, with defaults starting at position {}: {} and {}".format(
-								oldFunc.__name__,
-								positionalKeywordSignature,
-								otherPositionalKeywordSignature,
-								numNonDefaulted+1,
-								oldFunc.__defaults__,
-								func.__defaults__
-							)
 						)
-					raise TypeError(
-						"Two or more overloads of {} share the same deduced keyword signature: {} and {}".format(
-							oldFunc.__name__,
-							positionalKeywordSignature,
-							otherPositionalKeywordSignature
-						)
-					)
-			funcs.append(oldFunc)
-		else:
-			Overload.funcs[oldFunc.__name__] = [oldFunc]
-		return _wrap
-	return _wrapOuter
+				funcs.append(oldFunc)
+			else:
+				Overload.funcs[oldFunc.__name__] = [oldFunc]
+			return _wrap
+		return _wrapOuter
 
 
 def MetaClass(meta):

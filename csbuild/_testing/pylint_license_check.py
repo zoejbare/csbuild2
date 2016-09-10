@@ -32,7 +32,9 @@ from pylint.checkers import BaseChecker
 import re
 import os
 
-MANDATORY_COPYRIGHT_HEADER = R"""^# Copyright \(C\) 201\d [^\n]+
+MANDATORY_COPYRIGHT_HEADER = R"""^(# -\*- coding: utf-8 -\*-
+
+)?# Copyright \(C\) 201\d [^\n]+
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files \(the "Software"\),

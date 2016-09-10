@@ -43,6 +43,24 @@ if sys.version_info[0] >= 3:
 		if isinstance(inputStr, str):
 			return inputStr
 		return inputStr.decode("UTF-8")
+
+	def PlatformUnicode(inputStr):
+		"""
+		In the presence of unicode_literals, get an object that is type unicode in python2 and str in python3.
+		:return: unicode representation of inputStr
+		:rtype: str
+		"""
+		return PlatformString(inputStr)
+
+	def PlatformBytes(inputStr):
+		"""
+		In the presence of unicode_literals, get an object that is type str in python2 and bytes in python3.
+		:return: bytes representation of inputStr
+		:rtype: bytes
+		"""
+		if isinstance(inputStr, bytes):
+			return inputStr
+		return inputStr.encode("UTF-8")
 else:
 	BytesType = str
 	StrType = unicode # pylint: disable=undefined-variable
@@ -56,6 +74,24 @@ else:
 		if isinstance(inputStr, str):
 			return inputStr
 		return inputStr.encode("UTF-8")
+
+	def PlatformUnicode(inputStr):
+		"""
+		In the presence of unicode_literals, get an object that is type unicode in python2 and str in python3.
+		:return: unicode representation of inputStr
+		:rtype: unicode
+		"""
+		if isinstance(inputStr, unicode): # pylint: disable=undefined-variable
+			return inputStr
+		return inputStr.decode("UTF-8")
+
+	def PlatformBytes(inputStr):
+		"""
+		In the presence of unicode_literals, get an object that is type str in python2 and bytes in python3.
+		:return: bytes representation of inputStr
+		:rtype: str
+		"""
+		return PlatformString(inputStr)
 
 def FormatTime(totaltime):
 	"""
