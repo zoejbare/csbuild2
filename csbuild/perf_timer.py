@@ -29,18 +29,13 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import sys
 import time
 import threading
 import re
+from collections import deque
 
 from . import log
 from ._utils import FormatTime, shared_globals
-
-if sys.version_info[0] >= 3:
-	import queue
-else:
-	import Queue as queue
 
 class PerfTimer(object):
 	"""
@@ -50,7 +45,7 @@ class PerfTimer(object):
 	:param blockName: The name of the block to store execution for.
 	:type blockName: str
 	"""
-	perfQueue = queue.Queue()
+	perfQueue = deque()
 	perfStack = threading.local()
 
 	def __init__(self, blockName):
@@ -89,7 +84,7 @@ class PerfTimer(object):
 			self.exclusive += now - self.excstart
 			self.inclusive = now - self.incstart
 
-			PerfTimer.perfQueue.put((self.scopeName, self.inclusive, self.exclusive, threading.current_thread().ident))
+			PerfTimer.perfQueue.append((self.scopeName, self.inclusive, self.exclusive, threading.current_thread().ident))
 			PerfTimer.perfStack.stack.pop()
 
 	@staticmethod
@@ -101,7 +96,7 @@ class PerfTimer(object):
 		threadreports = {}
 		while True:
 			try:
-				pair = PerfTimer.perfQueue.get(False)
+				pair = PerfTimer.perfQueue.popleft()
 				fullreport.setdefault(pair[0], [0,0,0,[],[]])
 				fullreport[pair[0]][0] += pair[1]
 				fullreport[pair[0]][1] += pair[2]
@@ -112,7 +107,7 @@ class PerfTimer(object):
 				threadreport[pair[0]][0] += pair[1]
 				threadreport[pair[0]][1] += pair[2]
 				threadreport[pair[0]][2] += 1
-			except queue.Empty:
+			except IndexError:
 				break
 
 		if not fullreport:

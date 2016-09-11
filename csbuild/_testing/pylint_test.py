@@ -30,16 +30,10 @@ import os
 import subprocess
 import sys
 import traceback
-import threading
 
 from . import testcase
 from .. import log
-from .._utils import thread_pool, PlatformString
-
-if sys.version_info[0] >= 3:
-	import queue
-else:
-	import Queue as queue
+from .._utils import thread_pool, PlatformString, queue, rwlock
 
 class TestPylint(testcase.TestCase):
 	"""Test to run pylint"""
@@ -62,7 +56,7 @@ class TestPylint(testcase.TestCase):
 			log.Info(out)
 
 		failedLints = set()
-		lock = threading.Lock()
+		lock = rwlock.RWLock()
 
 		def _runPylint(module):
 			log.Info("Linting module {}", module)
@@ -73,7 +67,7 @@ class TestPylint(testcase.TestCase):
 			if out:
 				log.Error("LINTING {}:\n\n{}", module, PlatformString(out))
 			if fd.returncode != 0:
-				with lock:
+				with rwlock.Writer(lock):
 					failedLints.add(module)
 			self.assertEqual(0, fd.returncode)
 
@@ -117,8 +111,9 @@ class TestPylint(testcase.TestCase):
 		pool.Start()
 		errors = False
 
+		callbackQueue.ThreadInit()
 		while True:
-			cb = callbackQueue.get(block=True)
+			cb = callbackQueue.GetBlocking()
 			if cb is thread_pool.ThreadPool.exitEvent:
 				break
 			try:

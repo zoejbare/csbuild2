@@ -69,7 +69,7 @@ def CleanUp():
 			log.Build("Cleaning up")
 
 		if shared_globals.commandOutputThread is not None:
-			commands.queueOfLogQueues.put(commands.stopEvent)
+			commands.queueOfLogQueues.Put(commands.stopEvent)
 			shared_globals.commandOutputThread.join()
 
 		for proj in shared_globals.projectBuildList:

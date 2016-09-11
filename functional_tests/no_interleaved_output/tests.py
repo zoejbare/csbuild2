@@ -32,11 +32,7 @@ import threading
 
 from csbuild._testing.functional_test import FunctionalTest
 from csbuild import commands, log
-
-if sys.version_info[0] >= 3:
-	import queue
-else:
-	import Queue as queue
+from csbuild._utils import queue
 
 # Pay no attention to the unit test behind the curtain.
 # This test isn't really a functional test like the others.
@@ -51,6 +47,7 @@ class NoInterleavedOutputTest(FunctionalTest):
 		self.lastValue = -1
 		self.numTallies = 0
 		self.callbackQueue = queue.Queue()
+		self.callbackQueue.ThreadInit()
 
 		#overriding stdout rather than specifying a callback
 		#because callbacks are called in realtime, stdout printing is queued
@@ -80,10 +77,11 @@ class NoInterleavedOutputTest(FunctionalTest):
 
 		returncode, _, _ = commands.Run(cmd)
 		self.assertEqual(returncode, 0)
-		self.callbackQueue.put(commands.stopEvent)
+		self.callbackQueue.Put(commands.stopEvent)
 
 	def test(self):
 		"""Ensure no interleaved output from commands"""
+		commands.queueOfLogQueues = queue.Queue()
 		outputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		outputThread.start()
 
@@ -96,7 +94,7 @@ class NoInterleavedOutputTest(FunctionalTest):
 
 		stopped = 0
 		while True:
-			callback = self.callbackQueue.get()
+			callback = self.callbackQueue.GetBlocking()
 			if callback is commands.stopEvent:
 				stopped += 1
 				if stopped == len(threads):
@@ -107,7 +105,7 @@ class NoInterleavedOutputTest(FunctionalTest):
 		for thread in threads:
 			thread.join()
 
-		commands.queueOfLogQueues.put(commands.stopEvent)
+		commands.queueOfLogQueues.Put(commands.stopEvent)
 		outputThread.join()
 
 		log.SetCallbackQueue(None)

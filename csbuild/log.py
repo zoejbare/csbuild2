@@ -31,13 +31,8 @@ import sys
 import threading
 import re
 
-from ._utils import terminfo, shared_globals, BytesType, StrType
+from ._utils import terminfo, shared_globals, BytesType, StrType, queue
 from ._utils.shared_globals import Verbosity
-
-if sys.version_info[0] >= 3:
-	import queue
-else:
-	import Queue as queue
 
 _logQueue = queue.Queue()
 _stopEvent = object()
@@ -94,9 +89,9 @@ def Pump():
 	try:
 		# Pump all logs till we get an Empty exception, then return
 		while True:
-			event = _logQueue.get(block=False)
+			event = _logQueue.Get()
 			_writeLog(*event)
-	except queue.Empty:
+	except IndexError:
 		return
 
 def SetCallbackQueue(callbackQueue):
@@ -122,11 +117,11 @@ def _logMsg(color, level, msg, quietThreshold):
 			_writeLog(color, level, msg)
 		else:
 			assert _callbackQueue is not None, "Threaded logging requires a callback queue (shared with ThreadPool)"
-			_logQueue.put((color, level, msg), block=False)
-			_callbackQueue.put(Pump)
+			_logQueue.Put((color, level, msg))
+			_callbackQueue.Put(Pump)
 
 def _logMsgToStderr(color, level, msg, quietThreshold):
-	"""Print a message to stdout"""
+	"""Print a message to stderr"""
 	if shared_globals.verbosity < quietThreshold:
 		if isinstance(msg, BytesType):
 			msg = msg.decode("UTF-8")
@@ -134,8 +129,8 @@ def _logMsgToStderr(color, level, msg, quietThreshold):
 			_writeLog(color, level, msg, sys.stderr)
 		else:
 			assert _callbackQueue is not None, "Threaded logging requires a callback queue (shared with ThreadPool)"
-			_logQueue.put((color, level, msg, sys.stderr), block=False)
-			_callbackQueue.put(Pump)
+			_logQueue.Put((color, level, msg, sys.stderr))
+			_callbackQueue.Put(Pump)
 
 
 def _formatMsg(msg, *args, **kwargs):

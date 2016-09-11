@@ -35,13 +35,8 @@ import platform
 
 from .testcase import TestCase
 from .. import log, commands
-from .._utils import PlatformString
+from .._utils import PlatformString, queue
 from .._utils.string_abc import String
-
-if sys.version_info[0] >= 3:
-	import queue
-else:
-	import Queue as queue
 
 if platform.system() == "Windows":
 	# pylint: disable=import-error
@@ -183,7 +178,7 @@ class FunctionalTest(TestCase):
 		:return: Tuple of returncode, stdout and stderr output from the process
 		:rtype: tuple[int, str, str]
 		"""
-
+		commands.queueOfLogQueues = queue.Queue()
 		outputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		outputThread.start()
 
@@ -204,17 +199,18 @@ class FunctionalTest(TestCase):
 				commands.DefaultStderrHandler(shared, "            {}".format(msg))
 
 			_shared.ret = commands.Run(cmd, stdout=_handleStdout, stderr=_handleStderr)
-			callbackQueue.put(commands.stopEvent)
+			callbackQueue.Put(commands.stopEvent)
 
 		commandThread = threading.Thread(target=_runCommand)
 		commandThread.start()
+		callbackQueue.ThreadInit()
 		while True:
-			callback = callbackQueue.get()
+			callback = callbackQueue.GetBlocking()
 			if callback is commands.stopEvent:
 				break
 			callback()
 
-		commands.queueOfLogQueues.put(commands.stopEvent)
+		commands.queueOfLogQueues.Put(commands.stopEvent)
 		outputThread.join()
 		log.SetCallbackQueue(None)
 

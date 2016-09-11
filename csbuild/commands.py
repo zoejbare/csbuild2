@@ -33,14 +33,12 @@ import subprocess
 import threading
 
 from . import log, perf_timer
-from ._utils import shared_globals, PlatformUnicode
+from ._utils import shared_globals, PlatformUnicode, queue, rwlock
 from ._utils.decorators import TypeChecked
 
 if sys.version_info[0] >= 3:
-	import queue
 	from collections.abc import Callable
 else:
-	import Queue as queue
 	from collections import Callable
 
 queueOfLogQueues = queue.Queue()
@@ -54,12 +52,14 @@ def PrintStaggeredRealTimeOutput():
 	its own queue; this ensures output from a single process is printed as soon as it's available,
 	but output from multiple processes is not interleaved.
 	"""
+	queueOfLogQueues.ThreadInit()
 	while True:
-		innerQueue = queueOfLogQueues.get()
+		innerQueue = queueOfLogQueues.GetBlocking()
 		if innerQueue is stopEvent:
 			break
+		innerQueue.ThreadInit()
 		while True:
-			msg = innerQueue.get()
+			msg = innerQueue.GetBlocking()
 			if msg is stopEvent:
 				break
 			msg[0](msg[1])
@@ -67,7 +67,7 @@ def PrintStaggeredRealTimeOutput():
 class _sharedStreamProcessingData(object):
 	def __init__(self):
 		self.queue = None
-		self.lock = threading.Lock()
+		self.lock = rwlock.RWLock()
 
 def LogNonInterleavedOutput(logFunction, shared, msg):
 	"""
@@ -83,11 +83,11 @@ def LogNonInterleavedOutput(logFunction, shared, msg):
 	"""
 	#Double-check lock pattern
 	if shared.queue is None:
-		with shared.lock:
+		with rwlock.Writer(shared.lock):
 			if shared.queue is None:
 				shared.queue = queue.Queue()
-				queueOfLogQueues.put(shared.queue)
-	shared.queue.put((logFunction, msg))
+				queueOfLogQueues.Put(shared.queue)
+	shared.queue.Put((logFunction, msg))
 
 def DefaultStdoutHandler(shared, msg):
 	"""
@@ -162,6 +162,6 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 		errorThread.join()
 
 		if shared.queue is not None:
-			shared.queue.put(stopEvent)
+			shared.queue.Put(stopEvent)
 
 		return proc.returncode, "".join(output), "".join(errors)

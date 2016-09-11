@@ -34,14 +34,13 @@ import threading
 
 from .. import log
 from .._testing import testcase
+from . import queue, rwlock
 from .decorators import TypeChecked
 
 if sys.version_info[0] >= 3:
-	import queue
 	from collections.abc import Callable
 	from .reraise_py3 import Reraise
 else:
-	import Queue as queue
 	from collections import Callable
 	# pylint: disable=import-error
 	from .reraise_py2 import Reraise
@@ -89,7 +88,7 @@ class ThreadPool(object):
 
 		assert numThreads > 0
 
-		self.queue = queue.Queue()
+		self.queue = queue.Queue(numThreads)
 		self.threads = [threading.Thread(target=self._threadRunner) for _ in range(numThreads)]
 		self.callbackQueue = callbackQueue
 		self.stopOnException = stopOnException
@@ -121,7 +120,7 @@ class ThreadPool(object):
 		if isinstance(callback, tuple):
 			callback = functools.partial(callback[0], *(callback[1:]))
 
-		self.queue.put((task, callback), block=False)
+		self.queue.Put((task, callback))
 
 	def Stop(self):
 		"""
@@ -129,9 +128,9 @@ class ThreadPool(object):
 		"""
 
 		for _ in range(len(self.threads)):
-			self.queue.put(ThreadPool.exitEvent, block=False)
+			self.queue.Put(ThreadPool.exitEvent)
 		_ = [t.join() for t in self.threads]
-		self.callbackQueue.put(ThreadPool.exitEvent)
+		self.callbackQueue.Put(ThreadPool.exitEvent)
 
 	def Abort(self):
 		"""
@@ -141,16 +140,17 @@ class ThreadPool(object):
 		"""
 		self.abort.set()
 		for _ in range(len(self.threads)):
-			self.queue.put(ThreadPool.exitEvent, block=False)
+			self.queue.Put(ThreadPool.exitEvent)
 		_ = [t.join() for t in self.threads]
-		self.callbackQueue.put(ThreadPool.exitEvent)
+		self.callbackQueue.Put(ThreadPool.exitEvent)
 
 	def _rethrowException(self, excInfo):
 		Reraise(ThreadedTaskException(excInfo[1], excInfo[2]), excInfo[2])
 
 	def _threadRunner(self):
+		self.queue.ThreadInit()
 		while True:
-			task = self.queue.get(block=True)
+			task = self.queue.GetBlocking()
 			ret = None
 			if task is ThreadPool.exitEvent:
 				return
@@ -165,10 +165,10 @@ class ThreadPool(object):
 			except:
 				self.excInfo = sys.exc_info()
 
-				self.callbackQueue.put(functools.partial(self._rethrowException, sys.exc_info()))
+				self.callbackQueue.Put(functools.partial(self._rethrowException, sys.exc_info()))
 
 				if self.stopOnException:
-					self.callbackQueue.put(self.Stop)
+					self.callbackQueue.Put(self.Stop)
 					return
 
 			if task[1]:
@@ -182,7 +182,7 @@ class ThreadPool(object):
 							callback()
 					return _callback
 
-				self.callbackQueue.put(_makeCallback(task[1], ret), block=False)
+				self.callbackQueue.Put(_makeCallback(task[1], ret))
 
 ### Unit Tests ###
 
@@ -206,7 +206,7 @@ class TestThreadPool(testcase.TestCase):
 			callbackCount = 0
 
 		expectedCount = 0
-		lock = threading.Lock()
+		lock = rwlock.RWLock()
 
 		def _callback():
 			_sharedLocals.callbackCount += 1
@@ -217,7 +217,7 @@ class TestThreadPool(testcase.TestCase):
 
 		def _incrementCount2(i):
 			time.sleep(random.uniform(0.001, 0.0125))
-			with lock:
+			with rwlock.Writer(lock):
 				_sharedLocals.count += i
 				_sharedLocals.iter += 1
 				if _sharedLocals.iter % 25 == 0:
@@ -225,7 +225,7 @@ class TestThreadPool(testcase.TestCase):
 
 		def _incrementCount(i):
 			time.sleep(random.uniform(0.001, 0.0125))
-			with lock:
+			with rwlock.Writer(lock):
 				_sharedLocals.count += i
 				_sharedLocals.iter += 1
 				if _sharedLocals.iter % 25 == 0:
@@ -237,8 +237,9 @@ class TestThreadPool(testcase.TestCase):
 			expectedCount += i
 			expectedCount += i + 1
 
+		callbackQueue.ThreadInit()
 		while True:
-			cb = callbackQueue.get(block=True)
+			cb = callbackQueue.GetBlocking()
 			if cb is ThreadPool.exitEvent:
 				break
 			cb()
@@ -260,8 +261,9 @@ class TestThreadPool(testcase.TestCase):
 		pool.Start()
 
 		caughtException = False
+		callbackQueue.ThreadInit()
 		while True:
-			cb = callbackQueue.get(block=True)
+			cb = callbackQueue.GetBlocking()
 
 			if cb is ThreadPool.exitEvent:
 				break
@@ -297,8 +299,9 @@ class TestThreadPool(testcase.TestCase):
 		pool.AddTask(_getTwo, _callbackNoArg)
 		pool.Start()
 
+		callbackQueue.ThreadInit()
 		while True:
-			cb = callbackQueue.get(block=True)
+			cb = callbackQueue.GetBlocking()
 			if cb is ThreadPool.exitEvent:
 				break
 			cb()

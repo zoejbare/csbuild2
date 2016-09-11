@@ -43,16 +43,14 @@ import threading
 
 from . import project_plan, project, input_file
 from .. import log, commands, perf_timer
-from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime
+from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 
 if sys.version_info[0] >= 3:
 	_typeType = type
 	_classType = type
-	import queue
 else:
-	import Queue as queue
 	import types
 	# pylint: disable=invalid-name
 	_typeType = types.TypeType
@@ -406,8 +404,9 @@ def _build(numThreads, projectBuildList):
 		return 0
 
 	with perf_timer.PerfTimer("Running builds"):
+		callbackQueue.ThreadInit()
 		while True:
-			callback = callbackQueue.get(block=True)
+			callback = callbackQueue.GetBlocking()
 			if callback is thread_pool.ThreadPool.exitEvent:
 				break
 
