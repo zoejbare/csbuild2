@@ -33,7 +33,6 @@ import os
 import threading
 import time
 
-from . import rwlock
 from .._testing import testcase
 
 class _event(object):
@@ -78,14 +77,14 @@ else:
 	import select
 	from select import kevent, kqueue
 	_highId = 0
-	_idLock = rwlock.RWLock
+	_idLock = threading.Lock()
 	KQ_FILT_USER = -10, #select, for some reason, doesn't expose these...
 	KQ_NOTE_TRIGGER = 0x01000000
 	KQ_NOTE_FFNOP = 0x0
 
 	def _createEvent():
 		global _highId
-		with rwlock.Writer(_idLock):
+		with _idLock:
 			_highId += 1
 			ident = _highId
 		queue = kqueue()

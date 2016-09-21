@@ -34,7 +34,7 @@ import threading
 
 from .. import log
 from .._testing import testcase
-from . import queue, rwlock
+from . import queue
 from .decorators import TypeChecked
 
 if sys.version_info[0] >= 3:
@@ -206,7 +206,7 @@ class TestThreadPool(testcase.TestCase):
 			callbackCount = 0
 
 		expectedCount = 0
-		lock = rwlock.RWLock()
+		lock = threading.Lock()
 
 		def _callback():
 			_sharedLocals.callbackCount += 1
@@ -217,7 +217,7 @@ class TestThreadPool(testcase.TestCase):
 
 		def _incrementCount2(i):
 			time.sleep(random.uniform(0.001, 0.0125))
-			with rwlock.Writer(lock):
+			with lock:
 				_sharedLocals.count += i
 				_sharedLocals.iter += 1
 				if _sharedLocals.iter % 25 == 0:
@@ -225,7 +225,7 @@ class TestThreadPool(testcase.TestCase):
 
 		def _incrementCount(i):
 			time.sleep(random.uniform(0.001, 0.0125))
-			with rwlock.Writer(lock):
+			with lock:
 				_sharedLocals.count += i
 				_sharedLocals.iter += 1
 				if _sharedLocals.iter % 25 == 0:

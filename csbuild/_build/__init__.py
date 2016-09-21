@@ -41,6 +41,7 @@ import importlib
 import pkgutil
 import threading
 
+from . import recompile
 from . import project_plan, project, input_file
 from .. import log, commands, perf_timer
 from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue
@@ -73,7 +74,7 @@ _runningBuilds = 0
 def _canRun(tool):
 	return tool.maxParallel <= 0 or tool.curParallel < tool.maxParallel
 
-def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExtension):
+def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExtension, doCompileCheck=False):
 	with perf_timer.PerfTimer("Enqueuing build tasks"):
 		global _runningBuilds
 		_runningBuilds += 1
@@ -85,14 +86,14 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExten
 			buildProject.toolchain.DeactivateTool(tool)
 			log.Info("Enqueuing null-input build for {} for project {}", tool.__name__, buildProject)
 			pool.AddTask(
-				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, None),
+				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, None, doCompileCheck),
 				(_buildFinished, pool, projectList, buildProject, tool, None, None)
 			)
 		elif isinstance(buildInput, input_file.InputFile):
 			buildInput.AddUsedTool(tool)
 			log.Info("Enqueuing build for {} using {} for project {}", buildInput, tool.__name__, buildProject)
 			pool.AddTask(
-				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, buildInput),
+				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, buildInput, doCompileCheck),
 				(_buildFinished, pool, projectList, buildProject, tool, outputExtension, [buildInput])
 			)
 		else:
@@ -101,7 +102,7 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExten
 
 			log.Info("Enqueuing multi-build task for {} using {} for project {}", buildProject, buildInput, tool.__name__, buildProject)
 			pool.AddTask(
-				(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, buildInput),
+				(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, buildInput, doCompileCheck),
 				(_buildFinished, pool, projectList, buildProject, tool, None, buildInput)
 			)
 
@@ -130,12 +131,6 @@ def _getGroupInputFiles(buildProject, tool):
 			fileList.update([x for x in buildProject.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)])
 		return fileList
 
-def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles):
-	with perf_timer.PerfTimer("Tool execution"):
-		log.Build("Processing {} with {} for project {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__, buildProject)
-		with buildToolchain.Use(buildTool):
-			return function(buildToolchain, buildProject, inputFiles)
-
 def _checkDependenciesPreBuild(checkProject, tool, dependencies):
 	with perf_timer.PerfTimer("Dependency checks"):
 		log.Info("Checking if we can enqueue a new build for tool {} for project {}", checkProject, tool.__name__, checkProject)
@@ -153,6 +148,23 @@ def _checkDependenciesPreBuild(checkProject, tool, dependencies):
 				if hasExtension and checkProject.toolchain.CanCreateOutput(tool, dependency):
 					return False
 		return True
+
+def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, doCompileCheck):
+	if doCompileCheck:
+		with perf_timer.PerfTimer("Recompile checks"):
+			if isinstance(inputFiles, ordered_set.OrderedSet):
+				extension = os.path.splitext(list(inputFiles)[0].filename)[1]
+				fileList = inputFiles
+			else:
+				extension = os.path.splitext(inputFiles.filename)[1]
+				fileList = ordered_set.OrderedSet([inputFiles])
+
+			if not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
+				return tuple(buildProject.GetLastResult(inputFiles))
+	with perf_timer.PerfTimer("Tool execution"):
+		log.Build("Processing {} with {} for project {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__, buildProject)
+		with buildToolchain.Use(buildTool):
+			return function(buildToolchain, buildProject, inputFiles)
 
 @TypeChecked(
 	pool=thread_pool.ThreadPool,
@@ -215,7 +227,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 		if not isinstance(outputFiles, tuple):
 			outputFiles = (outputFiles, )
 		for outputFile in outputFiles:
-			buildProject.AddArtifact(outputFile)
+			buildProject.AddArtifact(inputFiles, outputFile)
 			log.Info(
 				"Finished building {} => {}",
 				 "null-input for {} for project {}".format(toolUsed.__name__, buildProject) if inputFiles is None
@@ -367,7 +379,7 @@ def _build(numThreads, projectBuildList):
 						for inputFile in fileList:
 							if not _canRun(tool):
 								break
-							_enqueueBuild(buildProject, tool, inputFile, pool, projectBuildList, extension)
+							_enqueueBuild(buildProject, tool, inputFile, pool, projectBuildList, extension, True)
 							queuedSomething = True
 
 			tools = buildProject.toolchain.GetAllTools()
@@ -395,7 +407,7 @@ def _build(numThreads, projectBuildList):
 				if not fileList:
 					break
 
-				_enqueueBuild(buildProject, tool, fileList, pool, projectBuildList, None)
+				_enqueueBuild(buildProject, tool, fileList, pool, projectBuildList, None, True)
 				queuedSomething = True
 
 	if not queuedSomething:
@@ -453,10 +465,11 @@ def _clean(projectCleanList):
 	"""
 	with perf_timer.PerfTimer("Cleaning build artifacts"):
 		for cleanProject in projectCleanList:
-			for artifact in cleanProject.lastRunArtifacts:
-				if os.path.exists(artifact):
-					log.Build("Removing {}", artifact)
-					os.remove(artifact)
+			for artifacts in cleanProject.lastRunArtifacts.values():
+				for artifact in artifacts:
+					if os.path.exists(artifact):
+						log.Build("Removing {}", artifact)
+						os.remove(artifact)
 
 			cleanProject.artifactsFile.flush()
 			os.fsync(cleanProject.artifactsFile.fileno())

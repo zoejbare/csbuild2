@@ -250,7 +250,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		currentPlan.SetValue("projectType", projectType)
 
 	@TypeChecked(name=String, defaultArchitecture=String)
-	def RegisterToolchain(name, defaultArchitecture, *tools):
+	def RegisterToolchain(name, defaultArchitecture, *tools, **kwargs):
 		"""
 		Register a new toolchain to be used by the project for building
 
@@ -260,14 +260,23 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type defaultArchitecture: str, bytes
 		:param tools: List of tools to be used to make the toolchain.
 		:type tools: class
+		:param kwargs: Specify parameter `checkers` to include a dictionary of extension to csbuild.toolchain.CompileChecker instances
+			These checkers will be used to determine whether or not to recompile files
+		:type kwargs: any
 		:return:
 		"""
 		shared_globals.allToolchains.add(name)
+
+		checkers = kwargs.get("checkers", {})
+		if checkers:
+			currentPlan.UpdateDict("checkers", checkers)
+
 		currentPlan.EnterContext(("toolchain", (name,)))
 		currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
-		currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False))
+		currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False, checkers=checkers))
 		currentPlan.defaultArchitectureMap[name] = defaultArchitecture
 		currentPlan.LeaveContext()
+
 
 		for tool in tools:
 			if tool.supportedArchitectures is not None:

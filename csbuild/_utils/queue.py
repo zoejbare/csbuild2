@@ -30,7 +30,7 @@ from __future__ import unicode_literals, division, print_function
 import threading
 from collections import deque
 
-from . import event, rwlock
+from . import event
 
 class Queue(object):
 	"""
@@ -44,7 +44,7 @@ class Queue(object):
 		self._events = [event.Event() for _ in range(numReaderThreads)]
 		self._thisEvent = threading.local()
 		self._usedEventIndices = 0
-		self._eventLock = rwlock.RWLock()
+		self._eventLock = threading.Lock()
 
 	def Put(self, item):
 		"""
@@ -84,7 +84,7 @@ class Queue(object):
 		Do not call this on more threads than the number of threads this was initialized with.
 		"""
 		assert not hasattr(self._thisEvent, "event"), "Thread init can only be called once per thread"
-		with rwlock.Writer(self._eventLock):
+		with self._eventLock:
 			idx = self._usedEventIndices
 			self._usedEventIndices += 1
 		self._thisEvent.event = self._events[idx]

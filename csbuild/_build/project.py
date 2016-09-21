@@ -93,8 +93,9 @@ class Project(object):
 
 			#: type: list[Tool]
 			self.tools = projectSettings["tools"]
+			self.checkers = projectSettings.get("checkers", {})
 
-			self.toolchain = Toolchain(projectSettings, *self.tools)
+			self.toolchain = Toolchain(projectSettings, *self.tools, checkers=self.checkers)
 
 			self.userData = UserData(projectSettings.get("_userData", {}))
 
@@ -162,13 +163,23 @@ class Project(object):
 				)
 			)
 
+			self.lastRunArtifacts = collections.OrderedDict()
 			if os.path.exists(self.artifactsFileName):
 				with open(self.artifactsFileName, "r") as f:
-					self.lastRunArtifacts = ordered_set.OrderedSet(f.read().splitlines())
-			else:
-				self.lastRunArtifacts = ordered_set.OrderedSet()
+					key = []
+					while True:
+						line = f.readline()
+						if not line:
+							break
+						if line == "\n":
+							key = None
+						elif line.startswith("\t"):
+							self.lastRunArtifacts.setdefault(tuple(key) if key is not None else key, ordered_set.OrderedSet()).add(line.strip())
+							key = []
+						else:
+							key.append(line.strip())
 
-			self.artifacts = ordered_set.OrderedSet()
+			self.artifacts = collections.OrderedDict()
 			self.artifactsFile = open(
 				self.artifactsFileName,
 				"w"
@@ -238,18 +249,49 @@ class Project(object):
 		for name in self.dependencyNames:
 			self.dependencies.append(shared_globals.projectMap[self.toolchainName][self.architectureName][self.targetName][name])
 
-	@TypeChecked(artifact=String)
-	def AddArtifact(self, artifact):
+	@TypeChecked(inputs=(input_file.InputFile, list, ordered_set.OrderedSet, type(None)), artifact=String)
+	def AddArtifact(self, inputs, artifact):
 		"""
 		Add an artifact - i.e., a file created by the build
+		:param inputs: Inputs being used to generate this artifact
+		:type inputs: input_file.InputFile or list[input_file.InputFile] or ordered_set.OrderedSet[input_file.InputFile]
 		:param artifact: absolute path to the file
 		:type artifact: str
 		:return:
 		"""
+		if inputs is not None:
+			if isinstance(inputs, input_file.InputFile):
+				inputs = [inputs]
+			# pylint: disable=redefined-variable-type
+			inputs = tuple(sorted(i.filename for i in inputs))
 		if artifact not in self.artifacts:
-			self.artifacts.add(artifact)
+			self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
+			if inputs is None:
+				self.artifactsFile.write("\n")
+			else:
+				for inputFile in inputs:
+					self.artifactsFile.write(inputFile)
+					self.artifactsFile.write("\n")
+			self.artifactsFile.write("\t")
 			self.artifactsFile.write(artifact)
 			self.artifactsFile.write("\n")
+
+	@TypeChecked(inputs=(input_file.InputFile, list, ordered_set.OrderedSet))
+	def GetLastResult(self, inputs):
+		"""
+		Get the list of files that were created from a set of inputs in the last run.
+
+		:param inputs: The input or inputs being used for this compile unit.
+		:type inputs: input_file.InputFile or list[input_file.InputFile] or ordered_set.OrderedSet[input_file.InputFile]
+		:return: The list of outputs from the last run
+		:rtype: ordered_set.OrderedSet[str]
+		"""
+		if isinstance(inputs, input_file.InputFile):
+			inputs = [inputs]
+		# pylint: disable=redefined-variable-type
+		inputs = tuple(sorted(i.filename for i in inputs))
+		return self.lastRunArtifacts.get(inputs, None)
+
 
 	def RediscoverFiles(self):
 		"""

@@ -27,6 +27,9 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import os
+from .._utils import memo
+
 _eliminatePylintAbstractMethodCheck = True
 
 def _ignore(_):
@@ -139,3 +142,84 @@ class Tool(object):
 		if _eliminatePylintAbstractMethodCheck:
 			raise NotImplementedError()
 		return []
+
+class CompileChecker(object):
+	"""
+	Class to implement various components of checking whether a file should be recompiled.
+	"""
+	def __init__(self):
+		self.memo = memo.Memo()
+
+	def ShouldRecompile(self, fileValue, baselineValue):
+		"""
+		Given a condensed value from all the input files and their dependencies,
+		check against the baseline to determine if a recompile should be performed.
+
+		:param fileValue: The condensed value for the file
+		:type fileValue: any
+		:param baselineValue: The baseline retrieved earlier
+		:type baselineValue: any
+		:return: whether or not to recompile the file
+		:rtype: bool
+		"""
+		return fileValue > baselineValue
+
+	def CondenseRecompileChecks(self, values):
+		"""
+		Condense a list of values into a single value. For example, in the default, a list of modification
+		timestamps gets condensed into the most recent modification date.
+
+		:param values: The values collected from GetRecompileValue() for a list of dependencies
+		:type values: list
+		:return: The condensed value
+		:rtype: any
+		"""
+		return max(values)
+
+	def GetRecompileValue(self, inputFile):
+		"""
+		Get a value to be used to compute recompilability. In the default implementation, this is a last modification date.
+
+		:param inputFile: The file to compute the value for
+		:type inputFile: csbuild._build.input_file.InputFile
+		:return: The value to be used to compute recompilability
+		:rtype: any
+		"""
+		return os.path.getmtime(inputFile.filename)
+
+	def GetDependencies(self, inputFile):
+		"""
+		Get a list of dependencies for a file.
+
+		:param inputFile: The file to check
+		:type inputFile: csbuild._build.input_file.InputFile
+		:return: List of files to depend on
+		:rtype: list[str]
+		"""
+		_ignore(inputFile)
+		return []
+
+	def GetRecompileBaseline(self, buildProject, inputFiles):
+		"""
+		Get the baseline recompile value, typically the value for the intended output of the file.
+		For example, with timestamps for a c++ toolchain, this would be the value of the .o/.obj file
+		for a given .cpp input.
+
+		A return value of None forces a recompile.
+
+		:param buildProject: Project encapsulating the files being built
+		:type buildProject: csbuild._build.project.Project
+		:param inputFiles: List of input files
+		:type inputFiles: ordered_set.OrderedSet[csbuild._build.input_file.InputFile]
+		:return: A baseline recompile value, or None to force recompile
+		:rtype: any
+		"""
+		lastFiles = buildProject.GetLastResult(inputFiles)
+		if lastFiles is not None:
+			return min(
+				[
+					self.GetRecompileValue(outputFile) if os.path.exists(outputFile) else 0
+					for outputFile in lastFiles
+				]
+			)
+		return None

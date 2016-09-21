@@ -34,7 +34,7 @@ import types
 from collections import Callable
 
 from .._utils import shared_globals
-from . import Tool as ToolClass
+from . import Tool as ToolClass, CompileChecker
 from .._utils import PlatformString, ordered_set
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
@@ -69,8 +69,10 @@ class Toolchain(object):
 	:type projectSettings: dict
 	:param classes: list of Tool classes
 	:type classes: class inherited from Tool
-	:param kwargs: Optional argument runInit to disable initialization so that static methods may be called
+	:param kwargs: Optional arguments:
+	    *runInit* to disable initialization so that static methods may be called
 		on platforms where full initialization may not work.
+		*checkers* to provide a mapping of extension to CompileChecker instance
 	:type kwargs: runInit: bool
 	:return: generated Toolchain class
 	:rtype: Toolchain
@@ -80,11 +82,11 @@ class Toolchain(object):
 			assert issubclass(cls, ToolClass), "Toolchains must be composed only of classes that inherit from Tool"
 
 		# Python 2 compatibility... python 3 allows keyword arguments after *args, but python 2 doesn't
-		if len(kwargs) != 0:
-			assert len(kwargs) == 1 and "runInit" in kwargs, "Invalid keyword arguments. Valid arguments: runInit"
-			runInit = kwargs["runInit"]
-		else:
-			runInit = True
+		unsupportedArgs = set(kwargs.keys()) - {"runInit", "checkers"}
+		assert not unsupportedArgs, "Unsupported arguments to toolchain init: {}".format(unsupportedArgs)
+		runInit = kwargs.get("runInit", True)
+		checkers = kwargs.get("checkers", {})
+		defaultChecker = CompileChecker()
 
 		# Keep track of some state data...
 		class _classTrackrClass(object):
@@ -112,7 +114,11 @@ class Toolchain(object):
 				# List of null input tools that have been processed
 				self.activeClasses = ordered_set.OrderedSet()
 
+				# List of compile checkers
+				self.checkers = {}
+
 		_classTrackr = _classTrackrClass()
+		_classTrackr.checkers = checkers
 
 		_threadSafeClassTrackr = threading.local()
 
@@ -138,9 +144,11 @@ class Toolchain(object):
 			currentToolId = id(cls)
 			oldClass = _getLastClass()
 			_threadSafeClassTrackr.lastClass = cls
-			yield
-			_threadSafeClassTrackr.lastClass = oldClass
-			currentToolId = lastToolId
+			try:
+				yield
+			finally:
+				_threadSafeClassTrackr.lastClass = oldClass
+				currentToolId = lastToolId
 
 		# Replace each class's __init__ function with one that will prevent double-init
 		# and will ensure that _threadSafeClassTrackr.lastClass is set properly so that variables
@@ -648,6 +656,34 @@ class Toolchain(object):
 
 				object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
 
+			@TypeChecked(extension=String, checker=CompileChecker)
+			def AddChecker(self, extension, checker):
+				"""
+				Add a compile checker for a given extension.
+
+				:param extension: The extension this checker applies to
+				:type extension: str
+				:param checker: The CompileChecker instance to be used for files with this extension
+				:type checker: CompileChecker
+				"""
+				assert not runInit, "AddChecker can't be called from this context"
+
+				from .. import currentPlan
+				currentPlan.UpdateDict("checkers", {extension: checker})
+				_classTrackr.checkers[extension] = checker
+
+			@TypeChecked(extension=String)
+			def GetChecker(self, extension):
+				"""
+				Get the checker for a given extension. If none has been registered, returns a default CompileChecker instance
+
+				:param extension: The extension to check
+				:type extension: str
+				:return: The checker to use
+				:rtype: CompileChecker
+				"""
+				return _classTrackr.checkers.get(extension, defaultChecker)
+
 			def __deepcopy__(self, memo):
 				memo[id(self)] = self
 				return self
@@ -959,6 +995,30 @@ class Toolchain(object):
 
 		:param tool: Class inheriting from Tool
 		:type tool: type
+		"""
+		pass
+
+	@TypeChecked(extension=String, checker=CompileChecker)
+	def AddChecker(self, extension, checker):
+		"""
+		Add a compile checker for a given extension.
+
+		:param extension: The extension this checker applies to
+		:type extension: str
+		:param checker: The CompileChecker instance to be used for files with this extension
+		:type checker: CompileChecker
+		"""
+		pass
+
+	@TypeChecked(extension=String)
+	def GetChecker(self, extension):
+		"""
+		Get the checker for a given extension. If none has been registered, returns a default CompileChecker instance
+
+		:param extension: The extension to check
+		:type extension: str
+		:return: The checker to use
+		:rtype: CompileChecker
 		"""
 		pass
 

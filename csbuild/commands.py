@@ -33,7 +33,7 @@ import subprocess
 import threading
 
 from . import log, perf_timer
-from ._utils import shared_globals, PlatformUnicode, queue, rwlock
+from ._utils import shared_globals, PlatformUnicode, queue
 from ._utils.decorators import TypeChecked
 
 if sys.version_info[0] >= 3:
@@ -67,7 +67,7 @@ def PrintStaggeredRealTimeOutput():
 class _sharedStreamProcessingData(object):
 	def __init__(self):
 		self.queue = None
-		self.lock = rwlock.RWLock()
+		self.lock = threading.Lock()
 
 def LogNonInterleavedOutput(logFunction, shared, msg):
 	"""
@@ -83,7 +83,7 @@ def LogNonInterleavedOutput(logFunction, shared, msg):
 	"""
 	#Double-check lock pattern
 	if shared.queue is None:
-		with rwlock.Writer(shared.lock):
+		with shared.lock:
 			if shared.queue is None:
 				shared.queue = queue.Queue()
 				queueOfLogQueues.Put(shared.queue)

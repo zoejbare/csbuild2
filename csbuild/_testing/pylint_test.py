@@ -30,10 +30,11 @@ import os
 import subprocess
 import sys
 import traceback
+import threading
 
 from . import testcase
 from .. import log
-from .._utils import thread_pool, PlatformString, queue, rwlock
+from .._utils import thread_pool, PlatformString, queue
 
 class TestPylint(testcase.TestCase):
 	"""Test to run pylint"""
@@ -56,7 +57,7 @@ class TestPylint(testcase.TestCase):
 			log.Info(out)
 
 		failedLints = set()
-		lock = rwlock.RWLock()
+		lock = threading.Lock()
 
 		def _runPylint(module):
 			log.Info("Linting module {}", module)
@@ -67,7 +68,7 @@ class TestPylint(testcase.TestCase):
 			if out:
 				log.Error("LINTING {}:\n\n{}", module, PlatformString(out))
 			if fd.returncode != 0:
-				with rwlock.Writer(lock):
+				with lock:
 					failedLints.add(module)
 			self.assertEqual(0, fd.returncode)
 
