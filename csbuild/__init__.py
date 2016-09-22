@@ -118,8 +118,14 @@ with perf_timer.PerfTimer("csbuild module init"):
 			if hasattr(self._module, name):
 				return getattr(self._module, name)
 
-			if self._resolver is not None and hasattr(self._resolver, name):
-				return getattr(self._resolver, name)
+			if self._resolver is not None:
+				previousResolver = self._resolver
+				self._resolver = None
+				if hasattr(previousResolver, name):
+					ret = getattr(previousResolver, name)
+					self._resolver = previousResolver
+					return ret
+				self._resolver = previousResolver
 
 			return object.__getattribute__(self, name)
 
@@ -609,7 +615,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				self._ignoreDependencyOrdering,
 				self._autoDiscoverSourceFiles
 			)
-			if not shared_globals.projectFilter or self._name not in shared_globals.projectFilter:
+			if not shared_globals.projectFilter or self._name in shared_globals.projectFilter:
 				shared_globals.sortedProjects.Add(currentPlan, self._depends)
 
 		def __exit__(self, excType, excValue, traceback):

@@ -29,7 +29,7 @@ from . import project, input_file
 from .._utils import memo, ordered_set
 from ..toolchain import CompileChecker
 from .._utils.decorators import TypeChecked
-from .. import perf_timer
+from .. import perf_timer, log
 
 class Completed(object):
 	"""
@@ -128,10 +128,12 @@ class Deferred(object):
 		"""
 		return len([item for item in self._values if not item.Unlocked()]) == 0
 
-def CheckCompilabilityForFile(checker, inputFile, valueMemo):
+def CheckCompilabilityForFile(buildProject, checker, inputFile, valueMemo):
 	"""
 	Check compatibility for a single file
 
+	:param buildProject: Project being filtered
+	:type buildProject: project.Project
 	:param checker: Checker
 	:type checker: CompileChecker
 	:param inputFile: Input file to check
@@ -163,17 +165,17 @@ def CheckCompilabilityForFile(checker, inputFile, valueMemo):
 		# Time to calculate the value.
 
 		# First get the time of the current input file.
-		values = [Completed(checker.GetRecompileValue(inputFile))]
+		values = [Completed(checker.GetRecompileValue(buildProject, inputFile))]
 
 		# Now walk the dependencies
-		deps = [input_file.InputFile(dep) for dep in checker.GetDependencies(inputFile)]
+		deps = [input_file.InputFile(dep) for dep in checker.GetDependencies(buildProject, inputFile)]
 		if not deps:
 			return values[0]
 
 		for dep in deps:
 			# For each dependency, recurse and add the result (completed or not) to our values.
-			item = CheckCompilabilityForFile(checker, dep, valueMemo)
-			values.append(item)
+			nestedItem = CheckCompilabilityForFile(buildProject, checker, dep, valueMemo)
+			values.append(nestedItem)
 
 		ret = Deferred(checker, item, values)
 		# Go ahead and resolve everything we can by doing a TryGet(). If this resolves EVERYTHING,
@@ -200,10 +202,11 @@ def ShouldRecompile(buildProject, checker, inputFiles):
 	:rtype: bool
 	"""
 	with perf_timer.PerfTimer("Filter for recompile"):
+		log.Info("Checking if we should compile {}", inputFiles)
 		baseline = checker.GetRecompileBaseline(buildProject, inputFiles)
 		if baseline is None:
 			return True
-		values = [CheckCompilabilityForFile(checker, f, checker.memo) for f in inputFiles]
+		values = [CheckCompilabilityForFile(buildProject, checker, f, checker.memo) for f in inputFiles]
 
 		with perf_timer.PerfTimer("Cross-thread Final Resolution"):
-			return checker.ShouldRecompile(checker.CondenseRecompileChecks([key for key, value in values if value.Get()]), baseline)
+			return checker.ShouldRecompile(checker.CondenseRecompileChecks([value.Get() for value in values]), baseline)

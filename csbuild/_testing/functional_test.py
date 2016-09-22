@@ -100,12 +100,17 @@ if platform.system() == "Windows":
 			return False
 else:
 	import fcntl # pylint: disable=import-error
+	import tempfile
+
 	class _namedMutex(object):
 		# pylint: disable=invalid-name
 		"""Represents a named synchronization primitive - a named mutex in windows, a file lock in linux"""
 		def __init__(self, name):
-			self.name = name
-			self.handle = open(name, 'w')
+			self.name = os.path.join(tempfile.gettempdir(), name)
+			dirname = os.path.dirname(self.name)
+			if not os.path.exists(dirname):
+				os.makedirs(dirname)
+			self.handle = open(self.name, 'w')
 
 		def acquire(self):
 			"""Acquire the lock"""
@@ -118,7 +123,6 @@ else:
 		def close(self):
 			"""Close the lock"""
 			self.handle.close()
-			os.remove(self.name)
 
 		def __enter__(self):
 			self.acquire()
@@ -131,7 +135,7 @@ class FunctionalTest(TestCase):
 	"""
 	Base class for running functional tests that invoke an actual makefile.
 	"""
-	def setUp(self, outDir="out", intermediateDir="intermediate", cleanAtEnd=True): #pylint: disable=arguments-differ
+	def setUp(self, outDir="out", intermediateDir="intermediate", cleanAtEnd=True, cleanArgs=None): #pylint: disable=arguments-differ
 		self._prevdir = os.getcwd()
 		module = __import__(self.__class__.__module__)
 		path = os.path.dirname(module.__file__)
@@ -151,6 +155,8 @@ class FunctionalTest(TestCase):
 		self.intermediateDir = intermediateDir
 		self.cleanAtEnd = cleanAtEnd
 
+		self.cleanArgs = cleanArgs
+
 		# Make sure we start in a good state
 		if os.path.exists(outDir):
 			shutil.rmtree(outDir)
@@ -160,7 +166,10 @@ class FunctionalTest(TestCase):
 	def tearDown(self):
 		try:
 			if self.cleanAtEnd:
-				self.RunMake("--clean")
+				if self.cleanArgs is not None:
+					self.RunMake("--clean", *self.cleanArgs)
+				else:
+					self.RunMake("--clean")
 				self.assertFalse(os.path.exists(self.outDir))
 				self.assertFalse(os.path.exists(self.intermediateDir))
 		finally:
@@ -206,6 +215,7 @@ class FunctionalTest(TestCase):
 		callbackQueue.ThreadInit()
 		while True:
 			callback = callbackQueue.GetBlocking()
+
 			if callback is commands.stopEvent:
 				break
 			callback()

@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Jaedyn K. Draper
+# Copyright (C) 2013 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,30 +19,10 @@
 # SOFTWARE.
 
 """
-.. module:: tests
-	:synopsis: Test that null input tools work
+.. package:: linkers
+	:synopsis: built-in binary linkers for c++, d, asm, etc
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
-
-from csbuild._testing.functional_test import FunctionalTest
-
-class NullInputToolTest(FunctionalTest):
-	"""Test of null input tools"""
-	# pylint: disable=invalid-name
-	def testNullInputToolsWork(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInput")
-		for i in range(1, 11):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "110")
-
-	def testNullInputToolsWorkWithDependencies(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInputWithDepends")
-		for i in range(1, 10):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "90")
-		self.cleanArgs = ["--toolchain", "NullInputWithDepends"]

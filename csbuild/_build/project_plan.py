@@ -581,6 +581,9 @@ class TestProjectPlan(testcase.TestCase):
 		from csbuild.toolchain import Tool
 		class _nullTool(Tool):
 			supportedArchitectures = None
+			inputFiles = None
+			outputFiles = {""}
+
 			def Run(self, inputProject, inputFiles):
 				pass
 

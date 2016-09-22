@@ -41,6 +41,11 @@ if sys.version_info[0] >= 3:
 else:
 	from collections import Callable
 
+if sys.version_info >= (3,3,0):
+	from shlex import quote
+else:
+	from pipes import quote
+
 queueOfLogQueues = queue.Queue()
 stopEvent = object()
 
@@ -109,7 +114,7 @@ def DefaultStderrHandler(shared, msg):
 	"""
 	LogNonInterleavedOutput(log.Stderr, shared, msg)
 
-@TypeChecked(cmd=list, stdout=Callable, stderr=Callable)
+@TypeChecked(cmd=list, stdout=(Callable, type(None)), stderr=(Callable, type(None)))
 def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs):
 	"""
 	Run a process, collecting its output in realtime. Each line of output will be passed
@@ -119,9 +124,9 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 	:param cmd: The command to run as a list of arguments, with the first parameter being the executable
 	:type cmd: list
 	:param stdout: Callback that will be called for each line of stdout at the moment it's emitted.
-	:type stdout: Callable
+	:type stdout: Callable, None
 	:param stderr: Callback that will be called for each line of stderr at the moment it's emitted.
-	:type stderr: Callable
+	:type stderr: Callable, None
 	:param kwargs: Additional arguments to be passed to subprocess.Popen(). See subprocess documentation
 	:type kwargs: any
 	:return: Tuple of return code, stdout as a single block string, and stderr as a single block string
@@ -129,7 +134,7 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 	"""
 	with perf_timer.PerfTimer("Commands"):
 		if shared_globals.showCommands:
-			log.Command("Executing {}", cmd)
+			log.Command(" ".join(quote(s) for s in cmd))
 
 		output = []
 		errors = []
@@ -146,7 +151,8 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 				if not line:
 					break
 				#Callback excludes newline
-				callback(shared, line.rstrip("\n\r"))
+				if callback is not None:
+					callback(shared, line.rstrip("\n\r"))
 				outlist.append(line)
 
 		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)

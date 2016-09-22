@@ -115,6 +115,7 @@ class TestPylint(testcase.TestCase):
 		callbackQueue.ThreadInit()
 		while True:
 			cb = callbackQueue.GetBlocking()
+
 			if cb is thread_pool.ThreadPool.exitEvent:
 				break
 			try:

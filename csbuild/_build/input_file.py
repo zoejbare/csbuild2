@@ -53,11 +53,15 @@ class InputFile(object):
 
 	:param sourceInputs: The previous sinput in the chain (if None, this represents the first input)
 	:type sourceInputs: list[InputFile]
+
+	:param upToDate: whether or not the file was up to date (i.e., no build was performed)
+	:type upToDate: bool
 	"""
-	def __init__(self, filename, sourceInputs=None):
+	def __init__(self, filename, sourceInputs=None, upToDate=False):
 		self._filename = os.path.abspath(PlatformString(filename))
 		self._sourceInputs = sourceInputs
 		self._toolsUsed = set()
+		self._upToDate = upToDate
 		if sourceInputs is not None:
 			if isinstance(sourceInputs, InputFile):
 				# pylint: disable=protected-access
@@ -111,3 +115,13 @@ class InputFile(object):
 		:rtype: list[InputFile] or None
 		"""
 		return self._sourceInputs
+
+	@property
+	def upToDate(self):
+		"""
+		Get whether or not the file was already up to date. If true, no build was performed.
+
+		:return: Whether or not the file was up to date
+		:rtype: bool
+		"""
+		return self._upToDate

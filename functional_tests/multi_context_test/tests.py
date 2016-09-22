@@ -85,4 +85,4 @@ class MultiContextTest(FunctionalTest):
 		self.assertFileContents("./out/LastThree/release/bar/AddDoubles3/Foo.third", "110")
 		self.assertFileContents("./out/LastThree/release/bar/AddDoubles4/Foo.third", "110")
 
-		self.assertMakeSucceeds("--ao", "--aa", "--at", "--clean")
+		self.cleanArgs = ["--ao", "--aa", "--at"]

@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Jaedyn K. Draper
+# Copyright (C) 2013 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,30 +19,37 @@
 # SOFTWARE.
 
 """
-.. module:: tests
-	:synopsis: Test that null input tools work
+.. module:: gcc_cpp_compiler
+	:synopsis: gcc compiler tool for C++
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from csbuild._testing.functional_test import FunctionalTest
+import os
+import hashlib
+from .cpp_compiler_base import CppCompilerBase
+from ..._utils import PlatformBytes
 
-class NullInputToolTest(FunctionalTest):
-	"""Test of null input tools"""
-	# pylint: disable=invalid-name
-	def testNullInputToolsWork(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInput")
-		for i in range(1, 11):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "110")
+class GccCppCompiler(CppCompilerBase):
+	"""
+	GCC compiler implementation
+	"""
+	supportedArchitectures = {"x86", "x64"}
+	outputFiles = {".o"}
 
-	def testNullInputToolsWorkWithDependencies(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInputWithDepends")
-		for i in range(1, 10):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "90")
-		self.cleanArgs = ["--toolchain", "NullInputWithDepends"]
+	def _getOutputFiles(self, project, inputFile):
+		md5 = hashlib.md5(PlatformBytes(os.path.dirname(inputFile.filename))).hexdigest()
+		md5dir = os.path.join(project.intermediateDir, md5)
+		if not os.path.exists(md5dir):
+			os.makedirs(md5dir)
+		return os.path.join(md5dir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o")
+
+	def _getCommand(self, project, inputFile, isCpp):
+		cmd = "g++" if isCpp else "gcc"
+		return [
+			cmd,
+			"-c", inputFile.filename,
+			"-o", self._getOutputFiles(project, inputFile),
+		] + ["-I"+directory for directory in self._includeDirectories]

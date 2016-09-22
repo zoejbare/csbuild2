@@ -127,10 +127,9 @@ class TermInfo(object):
 				return 0
 
 		else:
-			try:
+			if TermInfo._cursesValid:
 				return curses.tigetnum('cols')
-			except NameError:
-				return 0
+			return 0
 
 
 	@staticmethod
@@ -144,10 +143,9 @@ class TermInfo(object):
 		if platform.system() == "Windows":
 			return TermInfo._colorSupported
 		else:
-			try:
+			if TermInfo._cursesValid:
 				return curses.tigetnum("colors") >= 8
-			except NameError:
-				return False
+			return False
 
 
 	@staticmethod
@@ -183,5 +181,6 @@ class TermInfo(object):
 	else:
 		try:
 			curses.setupterm()
+			_cursesValid = True
 		except:
-			del curses
+			_cursesValid = False

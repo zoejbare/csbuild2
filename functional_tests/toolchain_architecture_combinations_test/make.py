@@ -49,24 +49,28 @@ class WriteOutput(Tool):
 class WriteA(WriteOutput):
 	"""Dummy class"""
 	supportedArchitectures = {"A", "B", "C", "D"}
+	outputFiles = {".A"}
 	def __init__(self, projectSettings):
 		WriteOutput.__init__(self, projectSettings, "A")
 
 class WriteB(WriteOutput):
 	"""Dummy class"""
 	supportedArchitectures = {"A", "B", "C", "D"}
+	outputFiles = {".B"}
 	def __init__(self, projectSettings):
 		WriteOutput.__init__(self, projectSettings, "B")
 
 class WriteC(WriteOutput):
 	"""Dummy class"""
 	supportedArchitectures = {"A", "B", "C", "D"}
+	outputFiles = {".C"}
 	def __init__(self, projectSettings):
 		WriteOutput.__init__(self, projectSettings, "C")
 
 class WriteD(WriteOutput):
 	"""Dummy class"""
 	supportedArchitectures = {"A", "B", "C", "D", "E"}
+	outputFiles = {".D"}
 	def __init__(self, projectSettings):
 		WriteOutput.__init__(self, projectSettings, "D")
 
@@ -74,6 +78,7 @@ class WriteWindows(WriteOutput):
 	"""Dummy class"""
 	supportedArchitectures = {"A", "B", "C", "D"}
 	supportedPlatforms = {"Windows"}
+	outputFiles = {".Windows"}
 	def __init__(self, projectSettings):
 		WriteOutput.__init__(self, projectSettings, "Windows")
 
@@ -81,6 +86,7 @@ class WriteLinux(WriteOutput):
 	"""Dummy class"""
 	supportedArchitectures = {"A", "B", "C", "D"}
 	supportedPlatforms = {"Linux"}
+	outputFiles = {".Linux"}
 	def __init__(self, projectSettings):
 		WriteOutput.__init__(self, projectSettings, "Linux")
 

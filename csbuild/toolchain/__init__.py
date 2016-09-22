@@ -29,6 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 import os
 from .._utils import memo
+from .._build import input_file
 
 _eliminatePylintAbstractMethodCheck = True
 
@@ -98,6 +99,15 @@ class Tool(object):
 	def __init__(self, projectSettings):
 		pass
 
+	def SetupForProject(self, project):
+		"""
+		Run project setup, if any, before building the project, but after all dependencies have been resolved.
+
+		:param project: project being set up
+		:type project: csbuild._build.project.Project
+		"""
+		pass
+
 	@staticmethod
 	def __static_init__():
 		assert not Tool._initialized
@@ -109,19 +119,19 @@ class Tool(object):
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param project:
+		:param project: project being built
 		:type project: csbuild._build.project.Project
 		:param inputFile: File to build
-		:type inputFile: str
-		:return: List of files created by the tool - all files must have an extension in the outputFiles list
-		:rtype: list[str]
+		:type inputFile: input_file.InputFile
+		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
+		:rtype: tuple[str]
 		:raises NotImplementedError: if the subclass defines inputFiles and does not implement it
 		"""
 		_ignore(project)
 		_ignore(inputFile)
 		if _eliminatePylintAbstractMethodCheck:
 			raise NotImplementedError()
-		return []
+		return ""
 
 	def RunGroup(self, project, inputFiles):
 		"""
@@ -129,19 +139,19 @@ class Tool(object):
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param project:
+		:param project: project being built
 		:type project: csbuild._build.project.Project
 		:param inputFiles: List of files to build
-		:type inputFiles: list[str]
-		:return: List of files created by the tool - all files must have an extension in the outputFiles list
-		:rtype: list[str]
+		:type inputFiles: list[input_file.InputFile]
+		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
+		:rtype: tuple[str]
 		:raises NotImplementedError: if the subclass defines inputGroups and does not implement it
 		"""
 		_ignore(project)
 		_ignore(inputFiles)
 		if _eliminatePylintAbstractMethodCheck:
 			raise NotImplementedError()
-		return []
+		return ""
 
 class CompileChecker(object):
 	"""
@@ -176,27 +186,33 @@ class CompileChecker(object):
 		"""
 		return max(values)
 
-	def GetRecompileValue(self, inputFile):
+	def GetRecompileValue(self, buildProject, inputFile):
 		"""
 		Get a value to be used to compute recompilability. In the default implementation, this is a last modification date.
 
+		:param buildProject: Project encapsulating the files being built
+		:type buildProject: csbuild._build.project.Project
 		:param inputFile: The file to compute the value for
-		:type inputFile: csbuild._build.input_file.InputFile
+		:type inputFile: input_file.InputFile
 		:return: The value to be used to compute recompilability
 		:rtype: any
 		"""
+		_ignore(buildProject)
 		return os.path.getmtime(inputFile.filename)
 
-	def GetDependencies(self, inputFile):
+	def GetDependencies(self, buildProject, inputFile):
 		"""
 		Get a list of dependencies for a file.
 
+		:param buildProject: Project encapsulating the files being built
+		:type buildProject: csbuild._build.project.Project
 		:param inputFile: The file to check
-		:type inputFile: csbuild._build.input_file.InputFile
+		:type inputFile: input_file.InputFile
 		:return: List of files to depend on
 		:rtype: list[str]
 		"""
 		_ignore(inputFile)
+		_ignore(buildProject)
 		return []
 
 	def GetRecompileBaseline(self, buildProject, inputFiles):
@@ -210,7 +226,7 @@ class CompileChecker(object):
 		:param buildProject: Project encapsulating the files being built
 		:type buildProject: csbuild._build.project.Project
 		:param inputFiles: List of input files
-		:type inputFiles: ordered_set.OrderedSet[csbuild._build.input_file.InputFile]
+		:type inputFiles: ordered_set.OrderedSet[input_file.InputFile]
 		:return: A baseline recompile value, or None to force recompile
 		:rtype: any
 		"""
@@ -218,8 +234,12 @@ class CompileChecker(object):
 		if lastFiles is not None:
 			return min(
 				[
-					self.GetRecompileValue(outputFile) if os.path.exists(outputFile) else 0
+					self.GetRecompileValue(buildProject, input_file.InputFile(outputFile)) if os.path.exists(outputFile) else 0
 					for outputFile in lastFiles
 				]
 			)
 		return None
+
+	def __deepcopy__(self, copyMemo):
+		copyMemo[id(self)] = self
+		return self

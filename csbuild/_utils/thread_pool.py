@@ -151,6 +151,7 @@ class ThreadPool(object):
 		self.queue.ThreadInit()
 		while True:
 			task = self.queue.GetBlocking()
+
 			ret = None
 			if task is ThreadPool.exitEvent:
 				return
@@ -177,9 +178,12 @@ class ThreadPool(object):
 				def _makeCallback(callback, ret):
 					def _callback():
 						try:
-							callback(ret)
+							callback(*ret)
 						except TypeError:
-							callback()
+							try:
+								callback(ret)
+							except TypeError:
+								callback()
 					return _callback
 
 				self.callbackQueue.Put(_makeCallback(task[1], ret))
@@ -302,6 +306,7 @@ class TestThreadPool(testcase.TestCase):
 		callbackQueue.ThreadInit()
 		while True:
 			cb = callbackQueue.GetBlocking()
+
 			if cb is ThreadPool.exitEvent:
 				break
 			cb()

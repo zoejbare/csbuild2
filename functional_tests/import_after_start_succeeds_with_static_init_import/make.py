@@ -36,8 +36,9 @@ class NullTool(Tool):
 	Simple base class that does nothing
 	"""
 
-	inputFiles=set(".in")
+	inputFiles={".in"}
 	supportedArchitectures=None
+	outputFiles={""}
 
 	@staticmethod
 	def __static_init__():

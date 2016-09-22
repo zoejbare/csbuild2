@@ -33,6 +33,11 @@ from csbuild.toolchain import Tool
 class NullClass(Tool):
 	"""Empty tool just to make things work."""
 	supportedArchitectures=None
+	inputFiles=None
+	outputFiles={""}
+
+	def Run(self, project, inputFile):
+		return ""
 
 csbuild.RegisterToolchain("msvc", "dummy", NullClass)
 csbuild.RegisterToolchain("gcc", "dummy", NullClass)

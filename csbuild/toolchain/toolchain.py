@@ -186,6 +186,8 @@ class Toolchain(object):
 		# Collect a list of all the base classes
 		bases = set()
 		for cls in classes:
+			assert (cls.inputFiles is None or cls.inputFiles or cls.inputGroups), "Tool {} has no inputs set".format(cls.__name__)
+			assert cls.outputFiles, "Tool {} has no outputs set".format(cls.__name__)
 			# mro() - "method resolution order", which happens to also be a list of all classes in the inheritance
 			# tree, including the class itself (but we only care about its base classes
 			for base in cls.mro():
@@ -1071,6 +1073,9 @@ class TestToolchainMixin(testcase.TestCase):
 
 
 		class _base(ToolClass):
+			inputFiles = None
+			outputFiles = {""}
+
 			def __init__(self, projectSettings):
 				_sharedLocals.baseInitialized += 1
 				self._someval = 0

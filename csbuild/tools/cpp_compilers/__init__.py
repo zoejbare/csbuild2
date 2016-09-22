@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Jaedyn K. Draper
+# Copyright (C) 2013 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,30 +19,42 @@
 # SOFTWARE.
 
 """
-.. module:: tests
-	:synopsis: Test that null input tools work
+.. package:: cpp_compilers
+	:synopsis: Built-in C++ compiler tools
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from csbuild._testing.functional_test import FunctionalTest
+import os
+import re
+from ...toolchain import CompileChecker
 
-class NullInputToolTest(FunctionalTest):
-	"""Test of null input tools"""
-	# pylint: disable=invalid-name
-	def testNullInputToolsWork(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInput")
-		for i in range(1, 11):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "110")
+_includeRegex = re.compile(R'^\s*#\s*include\s+["<](\S+)[">]', re.M)
 
-	def testNullInputToolsWorkWithDependencies(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInputWithDepends")
-		for i in range(1, 10):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "90")
-		self.cleanArgs = ["--toolchain", "NullInputWithDepends"]
+class CppCompileChecker(CompileChecker):
+	"""
+	CompileChecker for C++ files that knows how to get C++ file dependency lists.
+	"""
+	def GetDependencies(self, buildProject, inputFile):
+		"""
+		Get a list of dependencies for a file.
+
+		:param buildProject: Project encapsulating the files being built
+		:type buildProject: csbuild._build.project.Project
+		:param inputFile: The file to check
+		:type inputFile: input_file.InputFile
+		:return: List of files to depend on
+		:rtype: list[str]
+		"""
+		with open(inputFile.filename, "r") as f:
+			contents = f.read()
+		ret = []
+		includeDirs = [os.path.dirname(inputFile.filename)] + buildProject.toolchain.GetIncludeDirectories()
+		for header in _includeRegex.findall(contents):
+			for includeDir in includeDirs:
+				maybeHeaderLoc = os.path.join(includeDir, header)
+				if os.path.exists(maybeHeaderLoc):
+					ret.append(maybeHeaderLoc)
+		return ret

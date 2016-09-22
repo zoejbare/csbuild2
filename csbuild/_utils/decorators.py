@@ -68,62 +68,66 @@ def TypeChecked(**argtypes):
 
 		def _wrapOuter(oldFunc):
 			""" Outer decorator wrapper - set up the inner decorator """
-			# co_varnames includes both parameters and locals - trim it to just parameters
-			varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
+			with perf_timer.PerfTimer("TypeChecked outer wrap"):
+				# co_varnames includes both parameters and locals - trim it to just parameters
+				varNames = oldFunc.__code__.co_varnames[0:oldFunc.__code__.co_argcount]
 
-			# Check that all the types provided are actual types and that none of them reference nonexistent parameters
-			for name, typ in argtypes.items():
-				if not isinstance(typ, (_typeType, _classType, tuple)):
-					raise TypeError("Parameters to TypeChecked must be type, or tuple of argtypes - not {}".format(typ))
+				# Check that all the types provided are actual types and that none of them reference nonexistent parameters
+				for name, typ in argtypes.items():
+					if not isinstance(typ, (_typeType, _classType, tuple)):
+						raise TypeError("Parameters to TypeChecked must be type, or tuple of argtypes - not {}".format(typ))
 
-				if isinstance(typ, tuple):
-					for subtype in typ:
-						if not isinstance(subtype, (_typeType, _classType)):
-							raise TypeError("Tuple parameters to TypeChecked must contain only argtypes - not {}".format(subtype))
+					if isinstance(typ, tuple):
+						for subtype in typ:
+							if not isinstance(subtype, (_typeType, _classType)):
+								raise TypeError("Tuple parameters to TypeChecked must contain only argtypes - not {}".format(subtype))
 
-				if name == "_return":
-					continue
-				if name not in varNames:
-					raise TypeError("Function {} has no parameter {}".format(oldFunc.__name__, name))
-
-			# Check that all the function's parameters are represented - for type checking, this is just a warning if they're not
-			for name in varNames:
-				if name == "self":
-					continue
-				if name not in argtypes:
-					warnings.warn("Function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
-
-			oldFunc.__types__ = argtypes
-			oldFunc.__varNames__ = varNames
-
-			def _wrap(*args, **kwargs):
-				"""
-				Inner wrapper - this function actually replaces the decorated function and is called every tim
-				the decorated function is called. It checks all the type arguments before calling the decorated
-				function and raises an exception if they don't match.
-				"""
-				for i, name in enumerate(varNames):
-					argtype = argtypes.get(name, NOT_SET)
-
-					if argtype is NOT_SET:
+					if name == "_return":
 						continue
+					if name not in varNames:
+						raise TypeError("Function {} has no parameter {}".format(oldFunc.__name__, name))
 
-					if i < len(args):
-						elem = args[i]
-					else:
-						elem = kwargs.get(name, NOT_SET)
+				# Check that all the function's parameters are represented - for type checking, this is just a warning if they're not
+				for name in varNames:
+					if name == "self":
+						continue
+					if name not in argtypes:
+						warnings.warn("Function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
 
-					if elem != NOT_SET:
-						if not isinstance(elem, argtype):
-							raise TypeError("Argument '{}' is type {}, expected {}".format(name, elem.__class__, argtype))
+				oldFunc.__types__ = argtypes
+				oldFunc.__varNames__ = varNames
 
-				result = oldFunc(*args, **kwargs)
-				returntype = argtypes.get('_return', NOT_SET)
-				if returntype != NOT_SET:
-					if not isinstance(result, returntype):
-						raise TypeError("Function {} returned invalid return type {}; expected {}".format(oldFunc.__name__, type(result), returntype))
-				return result
-			return _wrap
+				def _wrap(*args, **kwargs):
+					"""
+					Inner wrapper - this function actually replaces the decorated function and is called every tim
+					the decorated function is called. It checks all the type arguments before calling the decorated
+					function and raises an exception if they don't match.
+					"""
+					with perf_timer.PerfTimer("Type checking"):
+						for i, name in enumerate(varNames):
+							argtype = argtypes.get(name, NOT_SET)
+
+							if argtype is NOT_SET:
+								continue
+
+							if i < len(args):
+								elem = args[i]
+							else:
+								elem = kwargs.get(name, NOT_SET)
+
+							if elem != NOT_SET:
+								if not isinstance(elem, argtype):
+									raise TypeError("Argument '{}' is type {}, expected {}".format(name, elem.__class__, argtype))
+
+					result = oldFunc(*args, **kwargs)
+
+					with perf_timer.PerfTimer("Type checking"):
+						returntype = argtypes.get('_return', NOT_SET)
+						if returntype != NOT_SET:
+							if not isinstance(result, returntype):
+								raise TypeError("Function {} returned invalid return type {}; expected {}".format(oldFunc.__name__, type(result), returntype))
+						return result
+				return _wrap
 		return _wrapOuter
 
 

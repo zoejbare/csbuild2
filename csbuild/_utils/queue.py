@@ -75,7 +75,8 @@ class Queue(object):
 			try:
 				return self._deque.popleft()
 			except IndexError:
-				self._thisEvent.event.Wait()
+				pass
+			self._thisEvent.event.Wait()
 
 	def ThreadInit(self):
 		"""

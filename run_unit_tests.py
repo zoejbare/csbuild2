@@ -29,6 +29,17 @@ from __future__ import unicode_literals, division, print_function
 if __name__ == "__main__":
 	import os
 	import sys
+	import signal
+
+	def _exitsig(sig, _):
+		if sig == signal.SIGINT:
+			log.Error("Keyboard interrupt received. Aborting test run.")
+		else:
+			log.Error("Received terminate signal. Aborting test run.")
+		os._exit(sig) # pylint: disable=protected-access
+
+	signal.signal(signal.SIGINT, _exitsig)
+	signal.signal(signal.SIGTERM, _exitsig)
 
 	# Copied from csbuild._utils because we can't import that before we set environ, and we need this to do that
 	if sys.version_info[0] >= 3:

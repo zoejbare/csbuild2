@@ -47,4 +47,4 @@ class ToolchainGroupsTest(FunctionalTest):
 		self.assertFileContents("./out/LastThree/AddDoubles3/MiddleFoo.third", "110")
 		self.assertFileContents("./out/LastThree/AddDoubles4/Foo.third", "110")
 
-		self.assertMakeSucceeds("--ao", "--clean")
+		self.cleanArgs = ["--ao"]

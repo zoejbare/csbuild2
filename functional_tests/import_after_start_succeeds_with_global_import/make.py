@@ -37,8 +37,9 @@ class NullTool(Tool):
 	Simple base class that does nothing
 	"""
 
-	inputFiles=set(".in")
+	inputFiles={".in"}
 	supportedArchitectures=None
+	outputFiles={""}
 
 	def Run(self, project, inputFile):
 		import csbimporttest #pylint: disable=reimported,redefined-outer-name

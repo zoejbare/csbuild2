@@ -95,6 +95,7 @@ class NoInterleavedOutputTest(FunctionalTest):
 		stopped = 0
 		while True:
 			callback = self.callbackQueue.GetBlocking()
+
 			if callback is commands.stopEvent:
 				stopped += 1
 				if stopped == len(threads):

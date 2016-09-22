@@ -35,6 +35,9 @@ import os
 class ToolchainArchitectureTest(FunctionalTest):
 	"""Test combinations of toolchains, architectures, platforms, and targets"""
 	# pylint: disable=invalid-name
+	def setUp(self): # pylint: disable=arguments-differ
+		FunctionalTest.setUp(self, cleanAtEnd=False)
+
 	def tearDown(self):
 		if os.path.exists("out"):
 			for filename in os.listdir("out"):

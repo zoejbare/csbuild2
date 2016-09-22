@@ -19,30 +19,21 @@
 # SOFTWARE.
 
 """
-.. module:: tests
-	:synopsis: Test that null input tools work
+.. module:: make
+	:synopsis: Makefile for this test
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from csbuild._testing.functional_test import FunctionalTest
+import csbuild
 
-class NullInputToolTest(FunctionalTest):
-	"""Test of null input tools"""
-	# pylint: disable=invalid-name
-	def testNullInputToolsWork(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInput")
-		for i in range(1, 11):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "110")
+with csbuild.Project("hello_world", "hello_world"):
+	csbuild.Platform("Linux", "Darwin").AddLibraries("pthread", "libdl.so", "libc.so.6")
+	csbuild.Platform("Windows").AddLibraries("kernel32", "DbgHelp.lib")
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 
-	def testNullInputToolsWorkWithDependencies(self):
-		"""Test that null input tools basically work"""
-		self.assertMakeSucceeds("--toolchain", "NullInputWithDepends")
-		for i in range(1, 10):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
-		self.assertFileContents("./out/Foo.third", "90")
-		self.cleanArgs = ["--toolchain", "NullInputWithDepends"]
+with csbuild.Project("fail_libraries", "hello_world"):
+	csbuild.AddLibraries("nonexistent", "nothere")
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
