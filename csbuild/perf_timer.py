@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -139,11 +137,11 @@ class PerfTimer(object):
 							FormatTime(report[prev[1]][1]/report[prev[1]][2]),
 						)
 						printed.add(prev[1])
-						_recurse(report, sortedKeys, prev[1] + "::", (" │  " * int(len(replacementText)/3)) + " ├─ ", printed, itemfmt)
+						_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + " \u2503  " + " \u2523\u2501 ", printed, itemfmt)
 					prev = (printkey, key)
 
 			if prev != (None, None):
-				printkey = prev[0].replace("├", "└")
+				printkey = prev[0].replace("\u2523", "\u2517")
 				log.Custom(
 					log.Color.WHITE,
 					"PERF",
@@ -156,7 +154,7 @@ class PerfTimer(object):
 					FormatTime(report[prev[1]][1]/report[prev[1]][2]),
 				)
 				printed.add(prev[1])
-				_recurse(report, sortedKeys, prev[1] + "::", ("    " * int(len(replacementText)/3)) + " ├─ ", printed, itemfmt)
+				_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + "    " + " \u2523\u2501 ", printed, itemfmt)
 
 		def _alteredKey(key):
 			return re.sub("([^:]*::)", "    ", key)
@@ -199,7 +197,7 @@ class PerfTimer(object):
 					FormatTime(report[key][1]/report[key][2]),
 				)
 				total += report[key][0]
-				_recurse(report, sortedKeys, key + "::", " ├─ ", printed, itemfmt)
+				_recurse(report, sortedKeys, key + "::", " \u2523\u2501 ", printed, itemfmt)
 
 			log.Custom(log.Color.WHITE, "PERF", line)
 			log.Custom(
