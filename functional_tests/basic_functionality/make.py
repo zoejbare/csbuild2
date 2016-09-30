@@ -32,6 +32,8 @@ from csbuild.toolchain import Tool
 
 class NullClass(Tool):
 	"""Empty tool just to make things work."""
+	inputFiles = {".foo"}
+	outputFiles = {".bar"}
 	supportedArchitectures=None
 	inputFiles=None
 	outputFiles={""}

@@ -250,8 +250,10 @@ class Toolchain(object):
 			def __getattr__(self, item):
 				def _limit(*args, **kwargs):
 					_classTrackr.limit = self.tools
-					getattr(self.obj, item)(*args, **kwargs)
-					_classTrackr.limit = set()
+					try:
+						getattr(self.obj, item)(*args, **kwargs)
+					finally:
+						_classTrackr.limit = set()
 				_limit.__name__ = item
 				return _limit
 
@@ -581,18 +583,9 @@ class Toolchain(object):
 
 
 			def __setattr__(self, name, val):
-				# Because public data is wrapped and combined, but private data is kept separate, classes should never
-				# try and SET public data. They should only set private data and provide a public accessor or property
-				# to retrieve it if necessary (though it's unlikely tools will ever need to provide data back
-				# to a makefile)
-				assert name.startswith("_"), "Tool instance attributes must start with an underscore"
-
-				# Likewise because we have to keep a clear separation of which data belongs to who, disallow
-				# access to this private data when we don't have a view of who owns it. We only have that view
-				# while executing a public method of a class.
 				lastClass =  _getLastClass()
-				assert lastClass, "Cannot access private tool data from outside tool class"
-
+				assert lastClass is not None, "Setting attributes is not supported outside of tool methods. " \
+											  "If you need to change static data, access the class directly."
 				if lastClass is self:
 					object.__setattr__(self, name, val)
 					return
@@ -696,10 +689,12 @@ class Toolchain(object):
 					# Return these things as actions on the toolchain itself rather than on its tools.
 					return object.__getattribute__(self, name)
 
-				if name.startswith("_"):
+				lastClass = _getLastClass()
+				if lastClass or name.startswith("_"):
 					# For private variables, as mentioned above, we have to know the scope we're looking in.
-					lastClass = _getLastClass()
-					assert lastClass, "Cannot access private tool data ({}) from outside tool class".format(name)
+					# Likewise, if we're in a class scope, we want that class to act like it normally would,
+					# and look things up only within its mro(), not within the whole toolchain.
+					assert lastClass, "Cannot access private tool data ({}) from outside tool methods".format(name)
 
 					if lastClass is self:
 						return object.__getattribute__(self, name)
@@ -797,6 +792,7 @@ class Toolchain(object):
 						return ret
 
 					allProperties = True
+					hasNonFunc = False
 					for cls in _classTrackr.classes:
 						if _classTrackr.limit and cls not in _classTrackr.limit:
 							continue
@@ -808,10 +804,39 @@ class Toolchain(object):
 								if name in cls2.__dict__:
 									func = cls2.__dict__[name]
 									break
+
 							assert func is not None, "this shouldn't happen"
-							if not isinstance(func, property):
-								allProperties = False
-								break
+							if (isinstance(func, Callable) or isinstance(func, property) or isinstance(func, staticmethod))\
+									and not isinstance(func, _classType) and not isinstance(func, _typeType):
+								if not isinstance(func, property):
+									allProperties = False
+							else:
+								hasNonFunc = True
+
+					if hasNonFunc:
+						values = {}
+						for cls in _classTrackr.classes:
+							if _classTrackr.limit and cls not in _classTrackr.limit:
+								continue
+							if hasattr(cls, name):
+								# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
+								# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
+								val = None
+								clsContainingVal = None
+								for cls2 in cls.mro():
+									if name in cls2.__dict__:
+										val = cls2.__dict__[name]
+										clsContainingVal = cls2
+										break
+								assert val is not None, "this shouldn't happen"
+								if clsContainingVal in values:
+									continue
+								if len(values) != 0:
+									raise AttributeError(
+										"Toolchain attribute {} is ambiguous (exists on multile tools). Try accessing on the class directly, or through toolchain.Tool(class)".format(name)
+									)
+								values[clsContainingVal] = val
+						return values.popitem()[1]
 
 					#If they're properties, call the function now instead of returning it
 					if allProperties:
@@ -1076,6 +1101,13 @@ class TestToolchainMixin(testcase.TestCase):
 			inputFiles = None
 			outputFiles = {""}
 
+			class MyEnum(object):
+				"""Demo enum class"""
+				Foo = 1
+				Bar = 2
+
+			testStaticVar = 3
+
 			def __init__(self, projectSettings):
 				_sharedLocals.baseInitialized += 1
 				self._someval = 0
@@ -1231,6 +1263,11 @@ class TestToolchainMixin(testcase.TestCase):
 		"""Test that static method calls with runInit=False work correctly"""
 		mixin2 = Toolchain({}, self._derived1, runInit=False)
 		mixin2.AddTool(self._derived2)
+
+		self.assertEqual(mixin2.MyEnum.Foo, 1)
+		self.assertEqual(mixin2.MyEnum.Bar, 2)
+		self.assertEqual(mixin2.testStaticVar, 3)
+
 		#Assert init ran once - during setUp - and only once.
 		#i.e., mixin2 should not have run init!
 		self.assertEqual(1, self._sharedLocals.baseInitialized)

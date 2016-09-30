@@ -34,7 +34,7 @@ class MultiContextTest(FunctionalTest):
 	# pylint: disable=invalid-name
 	def test(self):
 		"""Multi context test"""
-		self.assertMakeSucceeds("--ao", "--aa", "--at", "-v")
+		self.assertMakeSucceeds("--ao", "--aa", "--at")
 
 		for i in range(1, 11):
 			# debug/foo - both create this output scheme
