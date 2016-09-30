@@ -40,6 +40,17 @@ with perf_timer.PerfTimer("csbuild module init"):
 	import signal
 	import os
 
+	from collections import Callable
+
+	if sys.version_info[0] >= 3:
+		_typeType = type
+		_classType = type
+	else:
+		import types
+		# pylint: disable=invalid-name
+		_typeType = types.TypeType
+		_classType = types.ClassType
+
 	from ._utils import shared_globals
 
 	__author__ = "Jaedyn K. Draper, Brandon M. Bare"
@@ -57,6 +68,50 @@ with perf_timer.PerfTimer("csbuild module init"):
 	except IOError:
 		__version__ = "ERR_VERSION_FILE_MISSING"
 
+	def _getElementFromToolchains(selfobj, allToolchains, item):
+		funcs = set()
+		hasNonFunc = False
+		for tempToolchain in allToolchains:
+			found = False
+			for tool in tempToolchain.GetAllTools():
+				if hasattr(tool, item):
+					cls = None
+					func = None
+					for cls in tool.mro():
+						if item in cls.__dict__:
+							func = cls.__dict__[item]
+							break
+
+					if not (isinstance(func, Callable) or isinstance(func, property) or isinstance(func, staticmethod))\
+							or isinstance(func, _classType) or isinstance(func, _typeType):
+						hasNonFunc = True
+					else:
+						assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
+					funcs.add((tempToolchain, cls, func))
+					found = True
+			if not found and hasattr(tempToolchain, item):
+				funcs.add((tempToolchain, None, getattr(tempToolchain, item)))
+
+		if not funcs:
+			return object.__getattribute__(selfobj, item)
+
+		if hasNonFunc:
+			if len(funcs) != 0:
+				raise AttributeError(
+					"Toolchain attribute {} is ambiguous (exists on multiple tools). Try accessing on the class directly, or through toolchain.Tool(class)".format(item)
+				)
+			return funcs.pop()[2]
+
+		def _runFuncs(*args, **kwargs):
+			for tempToolchain, tool, func in funcs:
+				if tool is None:
+					func(*args, **kwargs)
+				else:
+					with tempToolchain.Use(tool):
+						func.__get__(tool)(*args, **kwargs)
+
+		return _runFuncs
+
 	class Csbuild(object):
 		"""
 		Class that represents the actual csbuild module and replaces this module before anything can interact with it.
@@ -70,7 +125,6 @@ with perf_timer.PerfTimer("csbuild module init"):
 		def __init__(self):
 			class _toolchainMethodResolver(object):
 				def __getattribute__(self, item):
-					funcs = set()
 					try:
 						currentPlan.EnterContext(("toolchain", shared_globals.allToolchains))
 						allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
@@ -80,36 +134,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 						# in which case we don't care because we're not ready to look there anyway,
 						# so just go ahead and raise an error.
 						return object.__getattribute__(self, item)
-
-					for tempToolchain in allToolchains:
-						found = False
-						for tool in tempToolchain.GetAllTools():
-							if hasattr(tool, item):
-								cls = None
-								func = None
-								for cls in tool.mro():
-									if item in cls.__dict__:
-										func = cls.__dict__[item]
-										break
-
-								assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
-								funcs.add((tempToolchain, cls, func))
-								found = True
-						if not found and hasattr(tempToolchain, item):
-							funcs.add((tempToolchain, None, getattr(tempToolchain, item)))
-
-					if not funcs:
-						return object.__getattribute__(self, item)
-
-					def _runFuncs(*args, **kwargs):
-						for tempToolchain, tool, func in funcs:
-							if tool is None:
-								func(*args, **kwargs)
-							else:
-								with tempToolchain.Use(tool):
-									func.__get__(tool)(*args, **kwargs)
-
-					return _runFuncs
+					return _getElementFromToolchains(self, allToolchains, item)
 
 			self._resolver = _toolchainMethodResolver()
 			self._module = sys.modules["csbuild"]
@@ -437,37 +462,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 		def __init__(self, *toolchainNames):
 			class _toolchainMethodResolver(object):
 				def __getattribute__(self, item):
-					funcs = set()
 					allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
-					for tempToolchain in allToolchains:
-						found = False
-						for tool in tempToolchain.GetAllTools():
-							if hasattr(tool, item):
-								cls = None
-								func = None
-								for cls in tool.mro():
-									if item in cls.__dict__:
-										func = cls.__dict__[item]
-										break
-
-								assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
-								funcs.add((tempToolchain, cls, func))
-								found = True
-						if not found and hasattr(tempToolchain, item):
-							funcs.add((tempToolchain, None, getattr(tempToolchain, item)))
-
-					if not funcs:
-						return object.__getattribute__(self, item)
-
-					def _runFuncs(*args, **kwargs):
-						for tempToolchain, tool, func in funcs:
-							if tool is None:
-								func(*args, **kwargs)
-							else:
-								with tempToolchain.Use(tool):
-									func.__get__(tool)(*args, **kwargs)
-
-					return _runFuncs
+					return _getElementFromToolchains(self, allToolchains, item)
 
 			ContextManager.__init__(self, (("toolchain", toolchainNames),), [_toolchainMethodResolver()])
 

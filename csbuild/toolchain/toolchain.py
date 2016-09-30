@@ -833,7 +833,7 @@ class Toolchain(object):
 									continue
 								if len(values) != 0:
 									raise AttributeError(
-										"Toolchain attribute {} is ambiguous (exists on multile tools). Try accessing on the class directly, or through toolchain.Tool(class)".format(name)
+										"Toolchain attribute {} is ambiguous (exists on multiple tools). Try accessing on the class directly, or through toolchain.Tool(class)".format(name)
 									)
 								values[clsContainingVal] = val
 						return values.popitem()[1]
