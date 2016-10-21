@@ -27,5 +27,3 @@
 
 # Required to keep lint happy.
 from __future__ import unicode_literals, division, print_function
-
-# Why _testing? Because that name ensures the pylint test runs last in the test execution order.

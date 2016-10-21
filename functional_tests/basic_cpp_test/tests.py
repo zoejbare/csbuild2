@@ -40,99 +40,108 @@ def Touch(fname):
 	:param fname: Filename
 	:type fname: str
 	"""
-	with open(fname, 'a'):
-		os.utime(fname, None)
+	writeBit = 0x80
+	oldPermissions = os.stat(fname).st_mode
+	isReadOnly = not oldPermissions & writeBit
+	if isReadOnly:
+		os.chmod(fname, oldPermissions | writeBit)
+	try:
+		with open(fname, 'a'):
+			os.utime(fname, None)
+	finally:
+		if isReadOnly:
+			os.chmod(fname, oldPermissions)
 
-#TODO: Once we have a windows-compatible compiler tool, this needs to run on all platforms.
-if platform.system() == "Linux":
-	class BasicCppTest(FunctionalTest):
-		"""Basic c++ test"""
+class BasicCppTest(FunctionalTest):
+	"""Basic c++ test"""
 
-		# pylint: disable=invalid-name
-		def setUp(self): # pylint: disable=arguments-differ
-			if platform.system() == "Windows":
-				self.outputFile = "hello_world/out/hello_world.exe"
-			else:
-				self.outputFile = "hello_world/out/hello_world"
-			FunctionalTest.setUp(self, cleanArgs=["--project=hello_world"])
+	# pylint: disable=invalid-name
+	def setUp(self): # pylint: disable=arguments-differ
+		if platform.system() == "Windows":
+			self.outputFile = "hello_world/out/hello_world.exe"
+		else:
+			self.outputFile = "hello_world/out/hello_world"
+		outDir = "hello_world/out"
+		intermediateDir = "hello_world/intermediate"
+		FunctionalTest.setUp(self, outDir=outDir, intermediateDir=intermediateDir, cleanArgs=["--project=hello_world"])
 
-		def testCompileSucceeds(self):
-			"""Basic tool test"""
-			self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+	def testCompileSucceeds(self):
+		"""Basic tool test"""
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 
-			self.assertTrue(os.path.exists(self.outputFile))
-			out = subprocess.check_output([self.outputFile])
+		self.assertTrue(os.path.exists(self.outputFile))
+		out = subprocess.check_output([self.outputFile])
 
-			self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World!"))
 
-		def testLibraryFail(self):
-			"""Test that invalid libraries cause a failure"""
-			self.cleanArgs = ["--project=fail_libraries"]
-			self.assertMakeRaises(LibraryError, "-v", "--project=fail_libraries", "--show-commands")
+	def testLibraryFail(self):
+		"""Test that invalid libraries cause a failure"""
+		self.cleanArgs = ["--project=fail_libraries"]
+		self.assertMakeRaises(LibraryError, "-v", "--project=fail_libraries", "--show-commands")
 
-		def testRecompileDoesntCompileOrLinkAnything(self):
-			"""Test that recompiling without any changes doesn't do anything"""
-			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-			self.assertIn("Compiling hello.cpp", out)
-			self.assertIn("Compiling main.cpp", out)
-			self.assertIn("Linking hello_world", out)
+	def testRecompileDoesntCompileOrLinkAnything(self):
+		"""Test that recompiling without any changes doesn't do anything"""
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Linking hello_world", out)
 
-			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-			self.assertNotIn("Compiling hello.cpp", out)
-			self.assertNotIn("Compiling main.cpp", out)
-			self.assertNotIn("Linking hello_world", out)
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertNotIn("Compiling hello.cpp", out)
+		self.assertNotIn("Compiling main.cpp", out)
+		self.assertNotIn("Linking hello_world", out)
 
-			self.assertTrue(os.path.exists(self.outputFile))
-			out = subprocess.check_output([self.outputFile])
+		self.assertTrue(os.path.exists(self.outputFile))
+		out = subprocess.check_output([self.outputFile])
 
-			self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World!"))
 
-		def testRecompileAfterTouchRebuildsOnlyOneFile(self):
-			"""Test that recompiling after touching one file builds only that file"""
-			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-			self.assertIn("Compiling hello.cpp", out)
-			self.assertIn("Compiling main.cpp", out)
-			self.assertIn("Linking hello_world", out)
+	def testRecompileAfterTouchRebuildsOnlyOneFile(self):
+		"""Test that recompiling after touching one file builds only that file"""
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Linking hello_world", out)
 
-			Touch("hello_world/hello.cpp")
+		Touch("hello_world/hello.cpp")
 
-			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-			self.assertIn("Compiling hello.cpp", out)
-			self.assertNotIn("Compiling main.cpp", out)
-			self.assertIn("Linking hello_world", out)
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertNotIn("Compiling main.cpp", out)
+		self.assertIn("Linking hello_world", out)
 
-			self.assertTrue(os.path.exists(self.outputFile))
-			out = subprocess.check_output([self.outputFile])
+		self.assertTrue(os.path.exists(self.outputFile))
+		out = subprocess.check_output([self.outputFile])
 
-			self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World!"))
 
-			Touch("hello_world/main.cpp")
+		Touch("hello_world/main.cpp")
 
-			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-			self.assertNotIn("Compiling hello.cpp", out)
-			self.assertIn("Compiling main.cpp", out)
-			self.assertIn("Linking hello_world", out)
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertNotIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Linking hello_world", out)
 
-			self.assertTrue(os.path.exists(self.outputFile))
-			out = subprocess.check_output([self.outputFile])
+		self.assertTrue(os.path.exists(self.outputFile))
+		out = subprocess.check_output([self.outputFile])
 
-			self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World!"))
 
-		def testRecompileAfterTouchingHeaderRebuildsBothFiles(self):
-			"""Test that recompiling after touching a header causes all cpp files that include it to recompile"""
-			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-			self.assertIn("Compiling hello.cpp", out)
-			self.assertIn("Compiling main.cpp", out)
-			self.assertIn("Linking hello_world", out)
+	def testRecompileAfterTouchingHeaderRebuildsBothFiles(self):
+		"""Test that recompiling after touching a header causes all cpp files that include it to recompile"""
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Linking hello_world", out)
 
-			Touch("hello_world/header.hpp")
+		Touch("hello_world/header.hpp")
 
-			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-			self.assertIn("Compiling hello.cpp", out)
-			self.assertIn("Compiling main.cpp", out)
-			self.assertIn("Linking hello_world", out)
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Linking hello_world", out)
 
-			self.assertTrue(os.path.exists(self.outputFile))
-			out = subprocess.check_output([self.outputFile])
+		self.assertTrue(os.path.exists(self.outputFile))
+		out = subprocess.check_output([self.outputFile])
 
-			self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World!"))

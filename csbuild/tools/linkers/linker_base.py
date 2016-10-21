@@ -32,9 +32,13 @@ import os
 import csbuild
 from abc import ABCMeta, abstractmethod
 
-from ...toolchain import Tool
+from ..common.tool_traits import HasDebugLevel, HasDebugRuntime, HasStaticRuntime
+
 from ... import commands, log
 from ..._utils.decorators import MetaClass
+
+def _ignore(_):
+	pass
 
 class LibraryError(Exception):
 	"""
@@ -50,7 +54,7 @@ class LibraryError(Exception):
 	__repr__ = __str__
 
 @MetaClass(ABCMeta)
-class LinkerBase(Tool):
+class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 	"""
 	Base class for a linker
 
@@ -69,7 +73,9 @@ class LinkerBase(Tool):
 			for library in self._libraries
 		}
 
-		Tool.__init__(self, projectSettings)
+		HasDebugLevel.__init__(self, projectSettings)
+		HasDebugRuntime.__init__(self, projectSettings)
+		HasStaticRuntime.__init__(self, projectSettings)
 
 	def SetupForProject(self, project):
 		"""
@@ -92,7 +98,7 @@ class LinkerBase(Tool):
 					dependProject.outputDir,
 					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
 				)
-				for dependProject in project.dependencies
+				for dependProject in project.dependencies if project.projectType != csbuild.ProjectType.Application
 			}
 		)
 
@@ -120,6 +126,15 @@ class LinkerBase(Tool):
 		:type dirs: str
 		"""
 		csbuild.currentPlan.UnionSet("libraryDirectories", [os.path.abspath(directory) for directory in dirs])
+
+
+	################################################################################
+	### Methods that may be implemented by subclasses as needed
+	################################################################################
+
+	def _getEnv(self, project):
+		_ignore(project)
+		return None
 
 
 	################################################################################
@@ -195,7 +210,7 @@ class LinkerBase(Tool):
 		:rtype: tuple[str]
 		"""
 		log.Linker("Linking {}{}...", project.outputName, self._getOutputExtension(project.projectType))
-		returncode, _, _ = commands.Run(self._getCommand(project, inputFiles))
+		returncode, _, _ = commands.Run(self._getCommand(project, inputFiles), env=self._getEnv(project))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(project, inputFiles)
 		return self._getOutputFiles(project)

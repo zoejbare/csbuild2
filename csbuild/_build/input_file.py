@@ -28,9 +28,11 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
+import hashlib
 import sys
 
 from .._utils.decorators import TypeChecked
+from .._utils import PlatformBytes
 from .._utils import PlatformString
 
 if sys.version_info[0] >= 3:
@@ -62,6 +64,7 @@ class InputFile(object):
 		self._sourceInputs = sourceInputs
 		self._toolsUsed = set()
 		self._upToDate = upToDate
+		self._uniqueDirectoryId = None
 		if sourceInputs is not None:
 			if isinstance(sourceInputs, InputFile):
 				# pylint: disable=protected-access
@@ -125,3 +128,15 @@ class InputFile(object):
 		:rtype: bool
 		"""
 		return self._upToDate
+
+	@property
+	def uniqueDirectoryId(self):
+		"""
+		Get the unique identifier for the directory containing the file.
+
+		:return: Directory unique identifier.
+		:rtype: str
+		"""
+		if self._uniqueDirectoryId is None:
+			self._uniqueDirectoryId = hashlib.md5(PlatformBytes(os.path.dirname(self.filename))).hexdigest()
+		return self._uniqueDirectoryId

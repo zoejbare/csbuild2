@@ -795,11 +795,11 @@ def Run():
 		for toolchainName in toolchainList:
 			log.Info("Collecting projects for toolchain {}", toolchainName)
 			for archName in archList:
-				log.Info("-- {}", archName)
+				log.Info("-- Architecture {}", archName)
 				for targetName in targetList:
-					log.Info("---- {}", targetList)
+					log.Info("---- Target {}", targetName)
 					for plan in shared_globals.sortedProjects:
-						log.Info("------ {}", plan.name)
+						log.Info("------ Project {}", plan.name)
 						proj = plan.ExecutePlan(toolchainName, archName, targetName)
 						if proj is None:
 							continue

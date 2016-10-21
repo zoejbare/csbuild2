@@ -19,33 +19,11 @@
 # SOFTWARE.
 
 """
-.. module:: gcc_cpp_compiler
-	:synopsis: gcc compiler tool for C++
+.. package:: common
+	:synopsis: Abstract tools that can be shared between other tools.
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Brandon Bare
 """
 
+# Required to keep lint happy.
 from __future__ import unicode_literals, division, print_function
-
-import os
-
-from .cpp_compiler_base import CppCompilerBase
-
-class GccCppCompiler(CppCompilerBase):
-	"""
-	GCC compiler implementation
-	"""
-	supportedArchitectures = {"x86", "x64"}
-	outputFiles = {".o"}
-
-	def _getOutputFiles(self, project, inputFile):
-		filename = os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o"
-		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
-
-	def _getCommand(self, project, inputFile, isCpp):
-		cmd = "g++" if isCpp else "gcc"
-		return [
-			cmd,
-			"-c", inputFile.filename,
-			"-o", self._getOutputFiles(project, inputFile),
-		] + ["-I"+directory for directory in self._includeDirectories]

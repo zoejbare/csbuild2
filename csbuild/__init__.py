@@ -33,12 +33,13 @@ once that thread tries to use it. Long story short: Don't import modules within 
 from __future__ import unicode_literals, division, print_function
 
 from . import perf_timer
+from ._utils import StrType
 
 with perf_timer.PerfTimer("csbuild module init"):
 	import sys
-	import imp
 	import signal
 	import os
+	import platform
 
 	from collections import Callable
 
@@ -61,6 +62,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 	__maintainer__ = "Jaedyn K. Draper"
 	__email__ = "jaedyn.csbuild-contact@jaedyn.co"
 	__status__ = "Development"
+
+	_standardArchName = None
 
 	try:
 		with open(os.path.join(os.path.dirname(__file__), "version"), "r") as f:
@@ -194,24 +197,6 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Children = "children"
 		All = "all"
 
-	class DebugLevel( object ):
-		"""
-		'enum' representing various levels of debug information
-		"""
-		Disabled = 0
-		EmbeddedSymbols = 1
-		ExternalSymbols = 2
-		ExternalSymbolsPlus = 3
-
-	class OptimizationLevel( object ):
-		"""
-		'enum' representing various optimization levels
-		"""
-		Disabled = 0
-		Size = 1
-		Speed = 2
-		Max = 3
-
 	class StaticLinkMode( object ):
 		"""
 		'enum' representing the manner by which to handle static linking
@@ -265,6 +250,50 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:rtype: int
 		"""
 		return shared_globals.runMode
+
+	@TypeChecked(_return=StrType)
+	def GetSystemArchitecture():
+		"""
+		Get the standard name for the architecture of the system currently running csbuild.
+
+		:return: System standard architecture name.
+		:rtype: str
+		"""
+		global _standardArchName
+		if _standardArchName is None:
+			def _is64Bit():
+				return True if platform.architecture()[0].lower() == "64bit" else False
+
+			x86Archs = ["x64", "x86_64", "amd64", "x86", "i386", "i686"]
+			ppcArchs = ["powerpc", "ppc64"]
+			machine = platform.machine().lower()
+
+			# x86 compatible architectures
+			if machine in x86Archs:
+				_standardArchName = "x64" if _is64Bit() else "x86"
+
+			# ppc architectures
+			elif machine in ppcArchs:
+				_standardArchName = "ppc64" if _is64Bit() else "ppc"
+
+			# arm architectures
+			elif machine.startswith("arm"):
+				_standardArchName = "arm64" if _is64Bit() else "arm"
+
+			# mips architectures
+			elif machine.startswith("mips"):
+				_standardArchName = "mips64" if _is64Bit() else "mips"
+
+			# sparc architectures
+			elif machine.startswith("sparc"):
+				_standardArchName = "sparc64" if _is64Bit() else "sparc"
+
+			# unknown
+			else:
+				# Architecture type is unknown, so use whatever was returned by platform.machine().
+				_standardArchName = machine
+
+		return _standardArchName
 
 	@TypeChecked(name=String, projectType=int)
 	def SetOutput(name, projectType=ProjectType.Application):

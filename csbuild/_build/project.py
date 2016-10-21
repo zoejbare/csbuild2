@@ -29,6 +29,7 @@ from __future__ import unicode_literals, division, print_function
 import os
 import fnmatch
 import collections
+import threading
 
 from .. import log, perf_timer
 from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString
@@ -77,6 +78,8 @@ class Project(object):
 	"""
 	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings, toolchainName, archName, targetName):
 		with perf_timer.PerfTimer("Project init"):
+			self._lock = threading.Lock()
+
 			self.name = name
 			self.workingDirectory = workingDirectory
 			self.dependencyNames = depends
@@ -292,6 +295,27 @@ class Project(object):
 		inputs = tuple(sorted(i.filename for i in inputs))
 		return self.lastRunArtifacts.get(inputs, None)
 
+	@TypeChecked(inputFile=input_file.InputFile, _return=StrType)
+	def GetIntermediateDirectory(self, inputFile):
+		"""
+		Get the unique, intermediate directory path for an input file.  The directory will be created if it does not exist.
+
+		:param inputFile: The input file to use for constructing the directory.
+		:type inputFile: :class:`csbuild.input_file.InputFile`
+		:return: Unique intermediate directory path.
+		:rtype: str
+		"""
+		directory = os.path.join(self.intermediateDir, inputFile.uniqueDirectoryId)
+
+		#TODO: Investigate a lock-free solution to creating this directory.
+		if not os.access(directory, os.F_OK):
+			# Lock in case multiple threads get here at the same time.
+			# NOTE: This will continue to potentially break if multiple projects need to create the same directory.
+			with self._lock:
+				# If the directory still does not exist, create it.
+				if not os.access(directory, os.F_OK):
+					os.makedirs(directory)
+		return directory
 
 	def RediscoverFiles(self):
 		"""

@@ -30,15 +30,23 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 
 from .cpp_compilers import CppCompileChecker
+
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
+from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
+
 from .linkers.gcc_linker import GccLinker
+from .linkers.msvc_linker import MsvcLinker
 
 def InitTools():
 	"""
 	Initialize the built-in csbuild tools
 	"""
+	systemArchitecture = csbuild.GetSystemArchitecture()
 	checkers = {}
 	cppChecker = CppCompileChecker()
-	for inputExtension in GccCppCompiler.inputFiles:
+
+	for inputExtension in GccCppCompiler.inputFiles | MsvcCppCompiler.inputFiles:
 		checkers[inputExtension] = cppChecker
-	csbuild.RegisterToolchain("gcc", "x64", GccCppCompiler, GccLinker, checkers=checkers)
+
+	csbuild.RegisterToolchain("gcc", systemArchitecture, GccCppCompiler, GccLinker, checkers=checkers)
+	csbuild.RegisterToolchain("msvc", systemArchitecture, MsvcCppCompiler, MsvcLinker, checkers=checkers)

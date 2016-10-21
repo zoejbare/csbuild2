@@ -31,7 +31,7 @@ import csbuild
 
 with csbuild.Project("hello_world", "hello_world"):
 	csbuild.Platform("Linux", "Darwin").AddLibraries("pthread", "libdl.so", "libc.so.6")
-	csbuild.Platform("Windows").AddLibraries("kernel32", "DbgHelp.lib")
+	csbuild.Platform("Windows").AddLibraries("winmm", "DbgHelp.lib")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 
 with csbuild.Project("fail_libraries", "hello_world"):

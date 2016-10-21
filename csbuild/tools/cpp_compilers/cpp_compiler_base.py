@@ -28,16 +28,20 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
-
 import csbuild
+
 from abc import ABCMeta, abstractmethod
 
-from ...toolchain import Tool
+from ..common.tool_traits import HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasStaticRuntime
+
 from ... import commands, log
 from ..._utils.decorators import MetaClass
 
+def _ignore(_):
+	pass
+
 @MetaClass(ABCMeta)
-class CppCompilerBase(Tool):
+class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasStaticRuntime):
 	"""
 	Base class for C++ compilers
 
@@ -53,7 +57,13 @@ class CppCompilerBase(Tool):
 
 	def __init__(self, projectSettings):
 		self._includeDirectories = projectSettings.get("includeDirectories", [])
-		Tool.__init__(self, projectSettings)
+		self._defines = projectSettings.get("defines", [])
+		self._undefines = projectSettings.get("undefines", [])
+
+		HasDebugLevel.__init__(self, projectSettings)
+		HasDebugRuntime.__init__(self, projectSettings)
+		HasOptimizationLevel.__init__(self, projectSettings)
+		HasStaticRuntime.__init__(self, projectSettings)
 
 
 	################################################################################
@@ -70,6 +80,27 @@ class CppCompilerBase(Tool):
 		"""
 		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
 
+	@staticmethod
+	def AddDefines(*defines):
+		"""
+		Add preprocessor defines to the current project.
+
+		:param defines: List of defines.
+		:type defines: str
+		"""
+		csbuild.currentPlan.UnionSet("defines", defines)
+
+	@staticmethod
+	def AddUndefines(*undefines):
+		"""
+		Add preprocessor undefines to the current project.
+
+		:param undefines: List of undefines.
+		:type undefines: str
+		"""
+		csbuild.currentPlan.UnionSet("undefines", undefines)
+
+
 	################################################################################
 	### Public API
 	################################################################################
@@ -82,6 +113,16 @@ class CppCompilerBase(Tool):
 		:rtype: ordered_set.OrderedSet[str]
 		"""
 		return self._includeDirectories
+
+
+	################################################################################
+	### Methods that may be implemented by subclasses as needed
+	################################################################################
+
+	def _getEnv(self, project):
+		_ignore(project)
+		return None
+
 
 	################################################################################
 	### Abstract methods that need to be implemented by subclasses
@@ -116,7 +157,7 @@ class CppCompilerBase(Tool):
 		log.Build("Compiling {}...", os.path.basename(inputFile.filename))
 
 		_, extension = os.path.splitext(inputFile.filename)
-		returncode, _, _ = commands.Run(self._getCommand(project, inputFile, extension in {".cpp", ".cc", ".cxx"}))
+		returncode, _, _ = commands.Run(self._getCommand(project, inputFile, extension in {".cpp", ".cc", ".cxx"}), env=self._getEnv(project))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(project, inputFile)
 		return self._getOutputFiles(project, inputFile)

@@ -60,7 +60,7 @@ confidence=
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
 #disable=intern-builtin,old-raise-syntax,filter-builtin-not-iterating,print-statement,useless-suppression,reduce-builtin,coerce-method,no-absolute-import,unichr-builtin,raising-string,input-builtin,next-method-called,execfile-builtin,file-builtin,coerce-builtin,hex-method,dict-iter-method,raw_input-builtin,long-suffix,backtick,zip-builtin-not-iterating,basestring-builtin,buffer-builtin,reload-builtin,unicode-builtin,metaclass-assignment,range-builtin-not-iterating,getslice-method,delslice-method,old-division,unpacking-in-except,parameter-unpacking,round-builtin,cmp-builtin,nonzero-method,standarderror-builtin,map-builtin-not-iterating,apply-builtin,import-star-module-level,xrange-builtin,oct-method,cmp-method,dict-view-method,setslice-method,using-cmp-argument,indexing-exception,old-octal-literal,old-ne-operator,long-builtin,suppressed-message
-disable=too-many-locals,too-many-arguments,too-many-instance-attributes,wrong-import-order,too-many-branches,too-many-statements,too-few-public-methods,too-many-public-methods,bad-whitespace,bad-continuation,ungrouped-imports,locally-disabled,global-statement,no-self-use,no-init,broad-except,bare-except,no-name-in-module,too-many-return-statements,too-many-lines,too-many-nested-blocks
+disable=too-many-locals,too-many-arguments,too-many-instance-attributes,wrong-import-order,too-many-branches,too-many-statements,too-few-public-methods,too-many-public-methods,bad-whitespace,bad-continuation,ungrouped-imports,locally-disabled,global-statement,no-self-use,no-init,broad-except,bare-except,no-name-in-module,too-many-return-statements,too-many-lines,too-many-nested-blocks,too-many-ancestors
 
 [REPORTS]
 
