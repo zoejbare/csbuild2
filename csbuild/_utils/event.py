@@ -78,7 +78,7 @@ else:
 	from select import kevent, kqueue
 	_highId = 0
 	_idLock = threading.Lock()
-	KQ_FILT_USER = -10, #select, for some reason, doesn't expose these...
+	KQ_FILT_USER = -10 #select, for some reason, doesn't expose these...
 	KQ_NOTE_TRIGGER = 0x01000000
 	KQ_NOTE_FFNOP = 0x0
 
