@@ -20,7 +20,7 @@
 
 """
 .. module:: tests
-	:synopsis: Basic test of C++ tools
+	:synopsis: Test that files can be executed immediately after being built
 
 .. moduleauthor:: Brandon Bare
 """
@@ -48,7 +48,7 @@ class OutputFilesSyncAfterBuildTest(FunctionalTest):
 		FunctionalTest.setUp(self, outDir=outDir, intermediateDir=intermediateDir, cleanArgs=["--project=hello_world"])
 
 	def testAccessAfterSyncWorks(self):
-		"""Test that the msvc linker output is accessible immediately after being created."""
+		"""Test that C++ linker output is accessible immediately after being created."""
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 
 		self.assertTrue(os.path.exists(self.outputFile))

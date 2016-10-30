@@ -386,8 +386,8 @@ class Project(object):
 								[
 									input_file.InputFile(
 										os.path.join(absroot, filename)
-									) for filename in fnmatch.filter(filenames, "*{}".format(extension))
-									if os.path.join(absroot, filename) not in self.lastRunArtifacts
+									) for filename in filenames if os.path.splitext(filename)[1] == extension
+									and os.path.join(absroot, filename) not in self.lastRunArtifacts
 								]
 							)
 

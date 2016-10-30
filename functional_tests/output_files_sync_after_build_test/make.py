@@ -30,27 +30,22 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 import subprocess
 
-from csbuild.tools.cpp_compilers import msvc_cpp_compiler, gcc_cpp_compiler
-from csbuild.tools.linkers import msvc_linker, gcc_linker
+from csbuild.toolchain import Tool
+from csbuild import log
 
 csbuild.SetOutputDirectory("out")
 
-#pylint: disable=missing-docstring
-class ExecutingGccLinker(gcc_linker.GccLinker):
-	def RunGroup(self, project, inputFiles):
-		outputFiles = gcc_linker.GccLinker.RunGroup(self, project, inputFiles)
-		subprocess.check_output([outputFiles[0]])
-		return outputFiles
+class Execute(Tool):
+	inputFiles = {".exe", ""}
+	outputFiles = {".fake"}
+	supportedArchitectures = None
 
-#pylint: disable=missing-docstring
-class ExecutingMsvcLinker(msvc_linker.MsvcLinker):
-	def RunGroup(self, project, inputFiles):
-		outputFiles = msvc_linker.MsvcLinker.RunGroup(self, project, inputFiles)
-		subprocess.check_output([outputFiles[0]])
-		return outputFiles
+	def Run(self, project, inputFile):
+		log.Command("Executing {}", inputFile.filename)
+		subprocess.check_output([inputFile.filename])
+		return "blah.fake"
 
-csbuild.RegisterToolchain("gcc", csbuild.GetSystemArchitecture(), gcc_cpp_compiler.GccCppCompiler, ExecutingGccLinker)
-csbuild.RegisterToolchain("msvc", csbuild.GetSystemArchitecture(), msvc_cpp_compiler.MsvcCppCompiler, ExecutingMsvcLinker)
+csbuild.Toolchain("gcc", "msvc").AddTool(Execute)
 
 with csbuild.Project("hello_world", "hello_world"):
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
