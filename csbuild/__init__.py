@@ -42,6 +42,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	import signal
 	import os
 	import platform
+	import posixpath #pylint: disable=unused-import - this is to ensure glob.glob() works
 
 	from collections import Callable
 
