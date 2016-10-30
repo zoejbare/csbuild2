@@ -35,3 +35,8 @@ class BasicFunctionalityTest(FunctionalTest):
 	def test(self):
 		"""Basic functionality test"""
 		self.assertMakeSucceeds()
+
+	def testProjectDependenciesAreIncludedWhenFilteredByProjects(self):
+		"""Test that --project will properly pull in that project's dependencies and nothing else"""
+		out = self.assertMakeSucceeds("--project=hello_world_2")
+		self.assertNotIn("hello_world_3", out)

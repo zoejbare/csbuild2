@@ -38,3 +38,11 @@ class BasicToolTest(FunctionalTest):
 		for i in range(1, 11):
 			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
 		self.assertFileContents("./out/Foo.third", "110")
+
+	def testRebuild(self):
+		"""Test that --rebuild works"""
+		self.assertMakeSucceeds("-v")
+		self.assertMakeSucceeds("--rebuild", "-v")
+		for i in range(1, 11):
+			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
+		self.assertFileContents("./out/Foo.third", "110")

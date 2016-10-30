@@ -46,56 +46,44 @@ def defineProjectSettings(projectName, debugLevel, optLevel, useStaticRuntime, u
 	csbuild.AddUndefines(*undefines)
 	csbuild.SetOutput(projectName, csbuild.ProjectType.Application)
 
-#TODO: Remove this temporary projects and uncomment the project below once the above methods we're testing can be used from the `csbuild.Target` context.
-with csbuild.Project("test_temporary", "hello_world"):
-	defineProjectSettings(
-		"hello_world",
-		DebugLevel.Disabled,
-		OptimizationLevel.Disabled,
-		False,
-		False,
-		["EXPLICIT_DEFINE"],
-		["IMPLICIT_DEFINE"],
-	)
-
-# with csbuild.Project("hello_world", "hello_world"):
-# 	with csbuild.Target("nosymbols_noopt_dynamic_release"):
-# 		defineProjectSettings(
-# 			"hello_world",
-# 			DebugLevel.Disabled,
-# 			OptimizationLevel.Disabled,
-# 			False,
-# 			False,
-#           [],
-#           [],
-# 		)
-# 	with csbuild.Target("embeddedsymbols_sizeopt_static_release"):
-# 		defineProjectSettings(
-# 			"hello_world",
-# 			DebugLevel.EmbeddedSymbols,
-# 			OptimizationLevel.Size,
-# 			True,
-# 			False,
-#           ["EXPLICIT_DEFINE"],
-#           [],
-# 		)
-# 	with csbuild.Target("externalsymbols_speedopt_dynamic_debug"):
-# 		defineProjectSettings(
-# 			"hello_world",
-# 			DebugLevel.ExternalSymbols,
-# 			OptimizationLevel.Speed,
-# 			False,
-# 			True,
-#           [],
-#           ["IMPLICIT_DEFINE"],
-# 		)
-# 	with csbuild.Target("externalplussymbols_maxopt_static_debug"):
-# 		defineProjectSettings(
-# 			"hello_world",
-# 			DebugLevel.ExternalSymbolsPlus,
-# 			OptimizationLevel.Max,
-# 			True,
-# 			True,
-#			["EXPLICIT_DEFINE"],
-#			["IMPLICIT_DEFINE"],
-# 		)
+with csbuild.Project("hello_world", "hello_world"):
+	with csbuild.Target("nosymbols_noopt_dynamic_release"):
+		defineProjectSettings(
+			"hello_world",
+			DebugLevel.Disabled,
+			OptimizationLevel.Disabled,
+			False,
+			False,
+          [],
+          [],
+		)
+	with csbuild.Target("embeddedsymbols_sizeopt_static_release"):
+		defineProjectSettings(
+			"hello_world",
+			DebugLevel.EmbeddedSymbols,
+			OptimizationLevel.Size,
+			True,
+			False,
+          ["EXPLICIT_DEFINE"],
+          [],
+		)
+	with csbuild.Target("externalsymbols_speedopt_dynamic_debug"):
+		defineProjectSettings(
+			"hello_world",
+			DebugLevel.ExternalSymbols,
+			OptimizationLevel.Speed,
+			False,
+			True,
+          [],
+          ["IMPLICIT_DEFINE"],
+		)
+	with csbuild.Target("externalplussymbols_maxopt_static_debug"):
+		defineProjectSettings(
+			"hello_world",
+			DebugLevel.ExternalSymbolsPlus,
+			OptimizationLevel.Max,
+			True,
+			True,
+			["EXPLICIT_DEFINE"],
+			["IMPLICIT_DEFINE"],
+		)

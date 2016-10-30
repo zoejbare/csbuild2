@@ -129,9 +129,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 			class _toolchainMethodResolver(object):
 				def __getattribute__(self, item):
 					try:
-						currentPlan.EnterContext(("toolchain", shared_globals.allToolchains))
-						allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
-						currentPlan.LeaveContext()
+						allToolchains = currentPlan.GetTempToolchainsInCurrentContexts(*shared_globals.allToolchains)
 					except NameError:
 						# Can and do get here before currentPlan is defined,
 						# in which case we don't care because we're not ready to look there anyway,
@@ -491,7 +489,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		def __init__(self, *toolchainNames):
 			class _toolchainMethodResolver(object):
 				def __getattribute__(self, item):
-					allToolchains = currentPlan.GetValuesInCurrentContexts("_tempToolchain")
+					allToolchains = currentPlan.GetTempToolchainsInCurrentContexts(*toolchainNames)
 					return _getElementFromToolchains(self, allToolchains, item)
 
 			ContextManager.__init__(self, (("toolchain", toolchainNames),), [_toolchainMethodResolver()])
@@ -640,8 +638,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				self._ignoreDependencyOrdering,
 				self._autoDiscoverSourceFiles
 			)
-			if not shared_globals.projectFilter or self._name in shared_globals.projectFilter:
-				shared_globals.sortedProjects.Add(currentPlan, self._depends)
+			shared_globals.sortedProjects.Add(currentPlan, self._depends)
 
 		def __exit__(self, excType, excValue, traceback):
 			"""

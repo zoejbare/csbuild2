@@ -44,7 +44,7 @@ import threading
 from . import recompile
 from . import project_plan, project, input_file
 from .. import log, commands, tools, perf_timer
-from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue
+from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 
@@ -62,12 +62,6 @@ class _dummy(object):
 		pass
 	def __getattribute__(self, item):
 		return ""
-
-class MultiBreak(Exception):
-	"""
-	Simple exception type to quickly break out of deeply nested loops.
-	"""
-	pass
 
 _runningBuilds = 0
 
@@ -470,42 +464,33 @@ def _build(numThreads, projectBuildList):
 	log.Build("Build finished. Total build time: {}", FormatTime(time.time() - buildStart))
 	return failures
 
-@TypeChecked(projectCleanList=list)
-def _clean(projectCleanList):
+@TypeChecked(projectCleanList=list, keepArtifactsAndDirectories=bool)
+def _clean(projectCleanList, keepArtifactsAndDirectories):
 	"""
 	Clean the files built in previous builds.
 
 	:param projectCleanList: List of projects
 	:type projectCleanList: list[project.Project]
-	:return:
+	:param keepArtifactsAndDirectories: If true, clean will not close the artifacts file and will not delete directories
+	:type keepArtifactsAndDirectories: bool
 	"""
 	with perf_timer.PerfTimer("Cleaning build artifacts"):
-		for cleanProject in projectCleanList:
-			for artifacts in cleanProject.lastRunArtifacts.values():
-				for artifact in artifacts:
-					if os.path.exists(artifact):
-						log.Build("Removing {}", artifact)
-						os.remove(artifact)
-
-			cleanProject.artifactsFile.flush()
-			os.fsync(cleanProject.artifactsFile.fileno())
-			cleanProject.artifactsFile.close()
-
-			system.SyncDir(os.path.dirname(cleanProject.artifactsFileName))
-
-			cleanProject.artifactsFile = None
-
-			log.Build("Removing {}", cleanProject.artifactsFileName)
-			os.remove(cleanProject.artifactsFileName)
-
-			def _rmDirIfPossible(dirname):
-				if os.path.exists(dirname):
-					containsOnlyDirs = True
-					for _, _, files in os.walk(dirname):
-						if files:
-							containsOnlyDirs = False
-							break
-					if containsOnlyDirs:
+		def _rmDirIfPossible(cleanProject, dirname):
+			if os.access(dirname, os.F_OK):
+				containsOnlyDirs = True
+				for root, _, files in os.walk(dirname):
+					if files and (len(files) > 1 or os.path.join(root, files[0]) != cleanProject.artifactsFileName):
+						containsOnlyDirs = False
+						break
+				if containsOnlyDirs:
+					if keepArtifactsAndDirectories:
+						for subdir in os.listdir(dirname):
+							subdir = os.path.join(dirname, subdir)
+							if subdir in {cleanProject.artifactsFileName, cleanProject.csbuildDir, cleanProject.intermediateDir, cleanProject.outputDir}:
+								continue
+							log.Build("Removing {}", subdir)
+							shutil.rmtree(subdir)
+					else:
 						log.Build("Removing {}", dirname)
 						#If it contains only directories and no files, remove everything
 						shutil.rmtree(dirname)
@@ -514,9 +499,33 @@ def _clean(projectCleanList):
 						if not os.listdir(parentDir):
 							os.removedirs(parentDir)
 
-			_rmDirIfPossible(cleanProject.csbuildDir)
-			_rmDirIfPossible(cleanProject.intermediateDir)
-			_rmDirIfPossible(cleanProject.outputDir)
+		for cleanProject in projectCleanList:
+			for artifacts in cleanProject.lastRunArtifacts.values():
+				for artifact in artifacts:
+					if os.access(artifact, os.F_OK):
+						log.Build("Removing {}", artifact)
+						os.remove(artifact)
+
+			if keepArtifactsAndDirectories:
+				cleanProject.artifactsFile.seek(0)
+				cleanProject.artifactsFile.truncate(0)
+			else:
+				cleanProject.artifactsFile.flush()
+				os.fsync(cleanProject.artifactsFile.fileno())
+				cleanProject.artifactsFile.close()
+
+				system.SyncDir(os.path.dirname(cleanProject.artifactsFileName))
+
+				# Close and reopen the file to clear it.
+				cleanProject.artifactsFile = None
+
+				log.Build("Removing {}", cleanProject.artifactsFileName)
+				os.remove(cleanProject.artifactsFileName)
+
+
+			_rmDirIfPossible(cleanProject, cleanProject.csbuildDir)
+			_rmDirIfPossible(cleanProject, cleanProject.intermediateDir)
+			_rmDirIfPossible(cleanProject, cleanProject.outputDir)
 
 
 def _execfile(filename, glob, loc):
@@ -547,8 +556,8 @@ def Run():
 				mainFileDir = os.path.abspath(os.getcwd())
 			scriptFiles.append(os.path.join(mainFileDir, mainFile))
 			if "-h" in sys.argv or "--help" in sys.argv:
-				_execfile(mainFile, makefileDict, makefileDict)
 				shared_globals.runMode = csbuild.RunMode.Help
+				_execfile(mainFile, makefileDict, makefileDict)
 		else:
 			log.Error("csbuild cannot be run from the interactive console.")
 			system.Exit(1)
@@ -748,9 +757,6 @@ def Run():
 		else:
 			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 
-		if args.project:
-			shared_globals.projectFilter = set(args.project)
-
 		#Create the default targets...
 		with csbuild.Target("release"):
 			pass
@@ -790,6 +796,22 @@ def Run():
 	projectBuildList = []
 
 	preparationStart = time.time()
+
+	if args.project:
+		projectFilter = set(args.project)
+		added = set()
+		filteredProjects = dag.DAG(lambda x: x.name)
+		for plan in reversed(list(shared_globals.sortedProjects)):
+			if plan.name in projectFilter:
+				if plan.name not in added:
+					added.add(plan.name)
+					projectFilter.update(plan.depends)
+					filteredProjects.Add(plan, plan.depends)
+		shared_globals.sortedProjects = filteredProjects
+		nonexistent = projectFilter - added
+		if nonexistent:
+			log.Error("No such project(s): {}", ", ".join(nonexistent))
+			system.Exit(1)
 
 	with perf_timer.PerfTimer("Project plan execution"):
 		for toolchainName in toolchainList:
@@ -884,7 +906,7 @@ def Run():
 	failures = 0
 
 	if args.clean or args.rebuild:
-		_clean(projectBuildList)
+		_clean(projectBuildList, args.rebuild)
 
 	if not args.clean or args.rebuild:
 		if imp.lock_held():

@@ -69,7 +69,7 @@ class BasicCppTest(FunctionalTest):
 		"""Basic tool test"""
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 
-		self.assertTrue(os.path.exists(self.outputFile))
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, World!"))
@@ -91,7 +91,7 @@ class BasicCppTest(FunctionalTest):
 		self.assertNotIn("Compiling main.cpp", out)
 		self.assertNotIn("Linking hello_world", out)
 
-		self.assertTrue(os.path.exists(self.outputFile))
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, World!"))
@@ -110,7 +110,7 @@ class BasicCppTest(FunctionalTest):
 		self.assertNotIn("Compiling main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
-		self.assertTrue(os.path.exists(self.outputFile))
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, World!"))
@@ -122,7 +122,7 @@ class BasicCppTest(FunctionalTest):
 		self.assertIn("Compiling main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
-		self.assertTrue(os.path.exists(self.outputFile))
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, World!"))
@@ -141,7 +141,7 @@ class BasicCppTest(FunctionalTest):
 		self.assertIn("Compiling main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
-		self.assertTrue(os.path.exists(self.outputFile))
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, World!"))

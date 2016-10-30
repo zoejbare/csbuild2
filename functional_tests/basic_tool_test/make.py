@@ -115,6 +115,9 @@ class Adder(AddDoubles):
 		csbuild.currentPlan.SetValue("qux", True) #pylint: disable=protected-access
 
 	def RunGroup(self, project, inputFiles):
+		os.mkdir(os.path.join(project.intermediateDir, "dummyDir"))
+		os.mkdir(os.path.join(project.outputDir, "dummyDir"))
+
 		assert self._foo is True
 		assert self._bar is True
 		assert self._qux is True
@@ -125,6 +128,7 @@ class Adder(AddDoubles):
 		outFile = os.path.join(project.outputDir, project.outputName + ".third")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+
 		return outFile
 
 csbuild.RegisterToolchain("AddDoubles", "", Doubler)

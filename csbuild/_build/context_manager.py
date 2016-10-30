@@ -100,9 +100,10 @@ class ContextManager(object):
 		if self._methodResolvers:
 			ContextManager.methodResolvers.append(self._methodResolvers)
 
-		# pylint: disable=protected-access
-		self._previousResolver = csbuild._resolver
-		csbuild._resolver = self
+			# pylint: disable=protected-access
+			self._previousResolver = csbuild._resolver
+			csbuild._resolver = self
+
 		object.__setattr__(self, "inself", False)
 
 	def __exit__(self, excType, excValue, traceback):
@@ -119,10 +120,10 @@ class ContextManager(object):
 		:rtype: bool
 		"""
 		object.__setattr__(self, "inself", True)
-		# pylint: disable=protected-access
-		csbuild._resolver = self._previousResolver
 
 		if self._methodResolvers:
+			# pylint: disable=protected-access
+			csbuild._resolver = self._previousResolver
 			ContextManager.methodResolvers.pop()
 
 		if self._contexts is not None:
@@ -141,19 +142,10 @@ class ContextManager(object):
 		if ContextManager.methodResolvers:
 			funcs = set()
 
-			numResolvers = 0
 			for resolverList in ContextManager.methodResolvers:
 				for resolver in resolverList:
-					numResolvers += 1
 					if hasattr(resolver, name):
 						funcs.add(getattr(resolver, name))
-
-			if funcs and len(funcs) != numResolvers:
-				for resolverList in ContextManager.methodResolvers:
-					for resolver in resolverList:
-						# If we didn't get a valid result for all resolvers, do getattr on each without a guard
-						# to force an appropriate exception to be thrown.
-						getattr(resolver, name)
 
 			if funcs:
 				def _wrapResolverMethods(*args, **kwargs):

@@ -56,7 +56,7 @@ def RunTests(include, exclude):
 		log.Test("Loading functional tests from {}", testdir)
 		if os.path.isdir(os.path.join("functional_tests", testdir)):
 			modulepath = os.path.join("functional_tests", testdir, "tests.py")
-			if os.path.exists(modulepath):
+			if os.access(modulepath, os.F_OK):
 				log.Test("Loading {}", modulepath)
 				tests.addTest(unittest.defaultTestLoader.loadTestsFromModule(imp.load_source("{}_tests".format(testdir), modulepath)))
 	testRunner = testcase.TestRunner(xmlfile="result.xml", stream=sys.stdout, verbosity=0)

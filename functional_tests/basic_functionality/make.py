@@ -51,6 +51,13 @@ with csbuild.Project("hello_world_2", "./", ["hello_world"]):
 	with csbuild.Target("release"):
 		csbuild.SetOutput("hello_world_2")
 
+with csbuild.Project("hello_world_3", "./", ["hello_world"]):
+	with csbuild.Target("debug"):
+		csbuild.SetOutput("hello_world_3_debug")
+
+	with csbuild.Target("release"):
+		csbuild.SetOutput("hello_world_3")
+
 with csbuild.Project("hello_world", "./"):
 	with csbuild.Target("release"):
 		csbuild.SetOutput("hello_world_release")

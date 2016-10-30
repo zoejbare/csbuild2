@@ -62,6 +62,8 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 
 		if self._debugLevel in [DebugLevel.ExternalSymbols, DebugLevel.ExternalSymbolsPlus]:
 			outputFiles.append("{}.pdb".format(outputPath))
+			if self._debugLevel == DebugLevel.ExternalSymbolsPlus:
+				outputFiles.append("{}.idb".format(outputPath))
 
 		return tuple(outputFiles)
 

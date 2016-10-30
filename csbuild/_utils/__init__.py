@@ -105,3 +105,9 @@ def FormatTime(totaltime):
 	totalsec = math.floor(totaltime % 60)
 	msec = math.floor((totaltime - math.floor(totaltime))*1000)
 	return "{}:{:02}.{:04}".format(int(totalmin), int(totalsec), int(msec))
+
+class MultiBreak(Exception):
+	"""
+	Simple exception type to quickly break out of deeply nested loops.
+	"""
+	pass

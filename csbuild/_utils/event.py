@@ -46,21 +46,18 @@ class _event(object):
 		self.deleter(self.event)
 
 if platform.system() == "Windows":
+	CreateEventA = ctypes.windll.kernel32.CreateEventA
+	GetLastError = ctypes.windll.kernel32.GetLastError
+	SetEvent = ctypes.windll.kernel32.SetEvent
+	WaitForSingleObject = ctypes.windll.kernel32.WaitForSingleObject
 	def _createEvent():
-		return _event(0, ctypes.windll.kernel32.CreateEventA(None, False, False, None), ctypes.windll.kernel32.CloseHandle)
-
-	def _checkForErrors(result, func, _):
-		if result == 0:
-			error = ctypes.windll.kernel32.GetLastError()
-			raise OSError(result, '{} failed with error code {}'.format(func.__name__, error))
-
-	ctypes.windll.kernel32.SetEvent.errcheck = _checkForErrors
+		return _event(0, CreateEventA(None, False, False, None), ctypes.windll.kernel32.CloseHandle)
 
 	def _setEvent(event):
-		ctypes.windll.kernel32.SetEvent(event.event)
+		SetEvent(event.event)
 
 	def _waitForEvent(event):
-		ctypes.windll.kernel32.WaitForSingleObject(event.event, -1)
+		WaitForSingleObject(event.event, -1)
 
 elif platform.system() == "Linux":
 	libc = ctypes.cdll.LoadLibrary("libc.so.6")
@@ -68,10 +65,10 @@ elif platform.system() == "Linux":
 		return _event(0, libc.eventfd(0, 0), os.close)
 
 	def _setEvent(event):
-		os.write(event.event, ctypes.c_ulonglong(1))
+		os.write(event, ctypes.c_ulonglong(1))
 
 	def _waitForEvent(event):
-		os.read(event.event, 8)
+		os.read(event, 8)
 
 else:
 	import select

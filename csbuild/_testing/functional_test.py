@@ -108,7 +108,7 @@ else:
 		def __init__(self, name):
 			self.name = os.path.join(tempfile.gettempdir(), name)
 			dirname = os.path.dirname(self.name)
-			if not os.path.exists(dirname):
+			if not os.access(dirname, os.F_OK):
 				os.makedirs(dirname)
 			self.handle = open(self.name, 'w')
 
@@ -130,6 +130,24 @@ else:
 		def __exit__(self, excType, excVal, tb):
 			self.release()
 			return False
+
+def ListFiles(startpath):
+	"""
+	List the files in a directory in a nice tree structure
+	:param startpath: Directory
+	:type startpath: str
+	:return: String representation of the directory structure
+	:rtype: str
+	"""
+	ret = ""
+	for root, _, files in os.walk(startpath):
+		level = root.replace(startpath, '').count(os.sep)
+		indent = ' ' * 4 * (level)
+		ret += '{}{}/\n'.format(indent, os.path.basename(root))
+		subindent = ' ' * 4 * (level + 1)
+		for f in files:
+			ret += '{}{}\n'.format(subindent, f)
+	return ret
 
 class FunctionalTest(TestCase):
 	"""
@@ -158,9 +176,9 @@ class FunctionalTest(TestCase):
 		self.cleanArgs = cleanArgs
 
 		# Make sure we start in a good state
-		if os.path.exists(outDir):
+		if os.access(outDir, os.F_OK):
 			shutil.rmtree(outDir)
-		if os.path.exists(intermediateDir):
+		if os.access(intermediateDir, os.F_OK):
 			shutil.rmtree(intermediateDir)
 
 	def tearDown(self):
@@ -170,8 +188,10 @@ class FunctionalTest(TestCase):
 					self.RunMake("--clean", *self.cleanArgs)
 				else:
 					self.RunMake("--clean")
-				self.assertFalse(os.path.exists(self.outDir))
-				self.assertFalse(os.path.exists(self.intermediateDir))
+				if os.access(self.outDir, os.F_OK):
+					self.fail("Out dir not empty:\n{}".format(ListFiles(self.outDir)))
+				if os.access(self.intermediateDir, os.F_OK):
+					self.fail("Intermediate dir not empty:\n{}".format(ListFiles(self.intermediateDir)))
 		finally:
 			os.chdir(self._prevdir)
 			if self._oldenviron is not None:
@@ -279,7 +299,7 @@ class FunctionalTest(TestCase):
 		:type filename: str
 		"""
 
-		self.assertTrue(os.path.exists(filename), "No such file: "+filename)
+		self.assertTrue(os.access(filename, os.F_OK), "No such file: "+filename)
 
 	# pylint: disable=invalid-name
 	def assertFileContents(self, filename, expectedContents):

@@ -37,7 +37,7 @@ import collections
 import csbuild
 from . import project
 from .. import log, perf_timer
-from .._utils import ordered_set
+from .._utils import ordered_set, MultiBreak
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._testing import testcase
@@ -132,6 +132,15 @@ class ProjectPlan(object):
 		:rtype: str, bytes
 		"""
 		return self._name
+
+	@property
+	def depends(self):
+		"""
+		Get the project dependency list
+		:return: project dependency list
+		:rtype: list
+		"""
+		return self._depends
 
 	_validContextTypes = {"toolchain", "architecture", "platform", "target", "scope"}
 
@@ -523,22 +532,26 @@ class ProjectPlan(object):
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).add(value)
 
-	@TypeChecked(key=String)
-	def GetValuesInCurrentContexts(self, key):
+	def GetTempToolchainsInCurrentContexts(self, *toolchainNames):
 		"""
 		Get a list of all values in the currently active contexts.
-		:param key: The setting key
-		:type key: str, bytes
-		:return: list of values in currently active contexts
+		:param toolchainNames: The toolchains to look for
+		:type toolchainNames: str, bytes
+		:return: list of temporary toolchains in currently active contexts
 		:rtype: list
 		"""
-		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
 		ret = []
-		for settingsDict in self._workingSettingsStack:
-			for settings in settingsDict:
-				if key in settings:
-					ret.append(settings[key])
+		for key in toolchainNames:
+			try:
+				for settingsDict in self._workingSettingsStack:
+					for settings in settingsDict:
+						overrideSettings = settings.get("overrides", {}).get("toolchain", {})
+						if key in overrideSettings:
+							if "_tempToolchain" in overrideSettings[key]:
+								ret.append(overrideSettings[key]["_tempToolchain"])
+								raise MultiBreak()
+			except MultiBreak:
+				continue
 		return ret
 
 	@TypeChecked(key=String, action=Callable)

@@ -31,6 +31,7 @@ import fnmatch
 import collections
 import threading
 
+import csbuild
 from .. import log, perf_timer
 from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString
 from .._utils.decorators import TypeChecked
@@ -134,7 +135,7 @@ class Project(object):
 			self.settings = projectSettings
 			self.settings = _convertItem(projectSettings)
 
-			self.projectType = projectSettings["projectType"]
+			self.projectType = projectSettings.get("projectType", csbuild.ProjectType.Application)
 
 			#: type: set[str]
 			self.extraDirs = projectSettings.get("extraDirs", set())
@@ -152,7 +153,7 @@ class Project(object):
 			#: type: str
 			self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
 
-			if not os.path.exists(self.csbuildDir):
+			if not os.access(self.csbuildDir, os.F_OK):
 				os.makedirs(self.csbuildDir)
 
 			#: type: str
@@ -167,7 +168,7 @@ class Project(object):
 			)
 
 			self.lastRunArtifacts = collections.OrderedDict()
-			if os.path.exists(self.artifactsFileName):
+			if os.access(self.artifactsFileName, os.F_OK):
 				with open(self.artifactsFileName, "r") as f:
 					key = []
 					while True:
@@ -190,12 +191,10 @@ class Project(object):
 
 			self.outputName = projectSettings.get("outputName", self.name)
 
-			if not os.path.exists(self.intermediateDir):
+			if not os.access(self.intermediateDir, os.F_OK):
 				os.makedirs(self.intermediateDir)
-			if not os.path.exists(self.outputDir):
+			if not os.access(self.outputDir, os.F_OK):
 				os.makedirs(self.outputDir)
-			if not os.path.exists(self.csbuildDir):
-				os.makedirs(self.csbuildDir)
 
 			#: type: dict[str, ordered_set.OrderedSet]
 			self.inputFiles = {}

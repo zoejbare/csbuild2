@@ -45,8 +45,6 @@ runPerfReport = True # Default to true because if we start false, we'll be unabl
 
 toolchainGroups = {}
 
-projectFilter = None
-
 runMode = None
 
 defaultTarget = "release"

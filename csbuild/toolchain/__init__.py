@@ -234,7 +234,7 @@ class CompileChecker(object):
 		if lastFiles is not None:
 			return min(
 				[
-					self.GetRecompileValue(buildProject, input_file.InputFile(outputFile)) if os.path.exists(outputFile) else 0
+					self.GetRecompileValue(buildProject, input_file.InputFile(outputFile)) if os.access(outputFile, os.F_OK) else 0
 					for outputFile in lastFiles
 				]
 			)
