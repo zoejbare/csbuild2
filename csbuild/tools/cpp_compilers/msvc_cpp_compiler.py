@@ -78,6 +78,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 				self._getRuntimeLinkageArg(),
 				self._getRuntimeErrorChecksArg(),
 			] \
+		    + ["/I" + directory for directory in self._includeDirectories] \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
 		return [arg for arg in cmd if arg]

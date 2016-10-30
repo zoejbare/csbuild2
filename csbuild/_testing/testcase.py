@@ -30,6 +30,7 @@ from __future__ import unicode_literals, division, print_function
 import unittest
 import sys
 import time
+import os
 
 from xml.etree import ElementTree
 from xml.dom import minidom
@@ -188,6 +189,8 @@ class TestResult(unittest.TextTestResult):
 					add(case, "skipped").text = skipDict[test]
 		with open(self.xmlfile, "w") as f:
 			f.write(minidom.parseString(ElementTree.tostring(root)).toprettyxml("\t", "\n"))
+			f.flush()
+			os.fsync(f.fileno())
 
 	def startTest(self, test):
 		"""

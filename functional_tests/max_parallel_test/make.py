@@ -55,6 +55,8 @@ class Sleeper(Tool):
 		outFile = os.path.join(project.outputDir, project.outputName + "." + os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(value)
+			f.flush()
+			os.fsync(f.fileno())
 		Sleeper.running = False
 		return outFile
 

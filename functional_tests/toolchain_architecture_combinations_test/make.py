@@ -44,6 +44,8 @@ class WriteOutput(Tool):
 		csbuild.log.Build("Writing {}", outFile)
 		with open(outFile, "w") as f:
 			f.write("foo")
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class WriteA(WriteOutput):

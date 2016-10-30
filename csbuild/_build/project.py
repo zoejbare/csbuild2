@@ -77,9 +77,11 @@ class Project(object):
 	:param targetName: Target name
 	:type targetName: str, bytes
 	"""
+
+	_lock = threading.Lock()
+
 	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings, toolchainName, archName, targetName):
 		with perf_timer.PerfTimer("Project init"):
-			self._lock = threading.Lock()
 
 			self.name = name
 			self.workingDirectory = workingDirectory
@@ -309,8 +311,7 @@ class Project(object):
 		#TODO: Investigate a lock-free solution to creating this directory.
 		if not os.access(directory, os.F_OK):
 			# Lock in case multiple threads get here at the same time.
-			# NOTE: This will continue to potentially break if multiple projects need to create the same directory.
-			with self._lock:
+			with Project._lock:
 				# If the directory still does not exist, create it.
 				if not os.access(directory, os.F_OK):
 					os.makedirs(directory)
@@ -369,5 +370,5 @@ class Project(object):
 
 			for filename in self.sourceFiles:
 				extension = os.path.splitext(filename)[1]
-				self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(filename)
+				self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(input_file.InputFile(filename))
 			log.Info("Discovered {}", self.inputFiles)

@@ -19,39 +19,39 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. module:: tests
+	:synopsis: Basic test of C++ tools
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
+from csbuild._testing.functional_test import FunctionalTest
+from csbuild._utils import PlatformBytes
+
 import os
-from csbuild.toolchain import Tool
+import subprocess
+import platform
 
-class NullTool(Tool):
-	"""
-	Simple base class that does nothing
-	"""
+class OutputFilesSyncAfterBuildTest(FunctionalTest):
+	"""Test for accessing output files after being linked."""
 
-	inputFiles={".in"}
-	supportedArchitectures=None
-	outputFiles={""}
+	# pylint: disable=invalid-name
+	def setUp(self): # pylint: disable=arguments-differ
+		if platform.system() == "Windows":
+			self.outputFile = "hello_world/out/hello_world.exe"
+		else:
+			self.outputFile = "hello_world/out/hello_world"
+		outDir = "hello_world/out"
+		intermediateDir = "hello_world/intermediate"
+		FunctionalTest.setUp(self, outDir=outDir, intermediateDir=intermediateDir, cleanArgs=["--project=hello_world"])
 
-	def Run(self, project, inputFile):
-		import csbimporttest
-		assert csbimporttest.foo == 0
-		outFile = os.path.join(project.outputDir, project.outputName + ".out")
-		with open(outFile, "w") as f:
-			f.write("you're out-a here")
-			f.flush()
-			os.fsync(f.fileno())
-		return outFile
+	def testAccessAfterSyncWorks(self):
+		"""Test that the msvc linker output is accessible immediately after being created."""
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 
-csbuild.RegisterToolchain("NullTool", "", NullTool)
-csbuild.SetDefaultToolchain("NullTool")
+		self.assertTrue(os.path.exists(self.outputFile))
+		out = subprocess.check_output([self.outputFile])
 
-with csbuild.Project("TestProject", "."):
-	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+		self.assertEqual(out, PlatformBytes("Hello, World!"))

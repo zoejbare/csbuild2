@@ -51,6 +51,8 @@ class Doubler(AddDoubles):
 		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class Adder(AddDoubles):
@@ -78,6 +80,8 @@ class Adder(AddDoubles):
 
 		with open(outFile, "w") as f:
 			f.write(str(value))
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)

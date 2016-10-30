@@ -32,6 +32,8 @@ once that thread tries to use it. Long story short: Don't import modules within 
 
 from __future__ import unicode_literals, division, print_function
 
+import glob
+
 from . import perf_timer
 from ._utils import StrType
 
@@ -66,8 +68,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 	_standardArchName = None
 
 	try:
-		with open(os.path.join(os.path.dirname(__file__), "version"), "r") as f:
-			__version__ = f.read()
+		with open(os.path.join(os.path.dirname(__file__), "version"), "r") as versionFile:
+			__version__ = versionFile.read()
 	except IOError:
 		__version__ = "ERR_VERSION_FILE_MISSING"
 
@@ -464,6 +466,19 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type intermediateDirectory: str
 		"""
 		currentPlan.SetValue("intermediateDir", os.path.abspath(intermediateDirectory))
+
+	def AddSourceFiles(*files):
+		"""
+		Manually add source files to the build.
+
+		:param files: Files to add
+		:type files: str
+		"""
+		fixedUpFiles = set()
+		for f in files:
+			for match in glob.glob(os.path.abspath(f)):
+				fixedUpFiles.add(match)
+		currentPlan.UnionSet("sourceFiles", fixedUpFiles)
 
 	class Scope(ContextManager):
 		"""

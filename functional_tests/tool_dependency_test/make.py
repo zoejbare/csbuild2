@@ -51,6 +51,8 @@ class FirstCopier(AddDoubles):
 		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".firstcopy")
 		with open(outFile, "w") as f:
 			f.write(value)
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class Doubler(AddDoubles):
@@ -70,6 +72,8 @@ class Doubler(AddDoubles):
 		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class SecondCopier(AddDoubles):
@@ -86,6 +90,8 @@ class SecondCopier(AddDoubles):
 		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".secondcopy")
 		with open(outFile, "w") as f:
 			f.write(value)
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class Adder(AddDoubles):
@@ -106,6 +112,8 @@ class Adder(AddDoubles):
 		outFile = os.path.join(project.outputDir, project.outputName + ".third")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder, FirstCopier, SecondCopier)

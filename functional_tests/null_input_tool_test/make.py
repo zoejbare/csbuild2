@@ -53,6 +53,8 @@ class Doubler(NullInput):
 		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class Adder(NullInput):
@@ -70,6 +72,8 @@ class Adder(NullInput):
 		outFile = os.path.join(project.outputDir, project.outputName + ".third")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class NullInputMakes20(NullInput):
@@ -83,6 +87,8 @@ class NullInputMakes20(NullInput):
 		outFile = os.path.join(project.intermediateDir, "10.second")
 		with open(outFile, "w") as f:
 			f.write("20")
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 class NullInputAdds(NullInput):
@@ -102,6 +108,8 @@ class NullInputAdds(NullInput):
 		outFile = os.path.join(project.outputDir, project.outputName + ".third")
 		with open(outFile, "w") as f:
 			f.write(str(value))
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 csbuild.RegisterToolchain("NullInput", "", NullInputMakes20, Doubler, Adder)

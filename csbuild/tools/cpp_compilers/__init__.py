@@ -51,7 +51,7 @@ class CppCompileChecker(CompileChecker):
 		with open(inputFile.filename, "r") as f:
 			contents = f.read()
 		ret = []
-		includeDirs = [os.path.dirname(inputFile.filename)] + buildProject.toolchain.GetIncludeDirectories()
+		includeDirs = [os.path.dirname(inputFile.filename)] + list(buildProject.toolchain.GetIncludeDirectories())
 		for header in _includeRegex.findall(contents):
 			for includeDir in includeDirs:
 				maybeHeaderLoc = os.path.join(includeDir, header)

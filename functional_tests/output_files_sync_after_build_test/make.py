@@ -22,36 +22,33 @@
 .. module:: make
 	:synopsis: Makefile for this test
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-import os
-from csbuild.toolchain import Tool
+import subprocess
 
-class NullTool(Tool):
-	"""
-	Simple base class that does nothing
-	"""
+from csbuild.tools.cpp_compilers import msvc_cpp_compiler, gcc_cpp_compiler
+from csbuild.tools.linkers import msvc_linker, gcc_linker
 
-	inputFiles={".in"}
-	supportedArchitectures=None
-	outputFiles={""}
+#pylint: disable=missing-docstring
+class ExecutingGccLinker(gcc_linker.GccLinker):
+	def RunGroup(self, project, inputFiles):
+		outputFiles = gcc_linker.GccLinker.RunGroup(self, project, inputFiles)
+		subprocess.check_output([outputFiles[0]])
+		return outputFiles
 
-	def Run(self, project, inputFile):
-		import csbimporttest
-		assert csbimporttest.foo == 0
-		outFile = os.path.join(project.outputDir, project.outputName + ".out")
-		with open(outFile, "w") as f:
-			f.write("you're out-a here")
-			f.flush()
-			os.fsync(f.fileno())
-		return outFile
+#pylint: disable=missing-docstring
+class ExecutingMsvcLinker(msvc_linker.MsvcLinker):
+	def RunGroup(self, project, inputFiles):
+		outputFiles = msvc_linker.MsvcLinker.RunGroup(self, project, inputFiles)
+		subprocess.check_output([outputFiles[0]])
+		return outputFiles
 
-csbuild.RegisterToolchain("NullTool", "", NullTool)
-csbuild.SetDefaultToolchain("NullTool")
+csbuild.RegisterToolchain("gcc", csbuild.GetSystemArchitecture(), gcc_cpp_compiler.GccCppCompiler, ExecutingGccLinker)
+csbuild.RegisterToolchain("msvc", csbuild.GetSystemArchitecture(), msvc_cpp_compiler.MsvcCppCompiler, ExecutingMsvcLinker)
 
-with csbuild.Project("TestProject", "."):
-	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+with csbuild.Project("hello_world", "hello_world"):
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)

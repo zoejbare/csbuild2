@@ -47,6 +47,8 @@ class NullTool(Tool):
 		outFile = os.path.join(project.outputDir, project.outputName + ".out")
 		with open(outFile, "w") as f:
 			f.write("you're out-a here")
+			f.flush()
+			os.fsync(f.fileno())
 		return outFile
 
 csbuild.RegisterToolchain("NullTool", "", NullTool)
