@@ -442,19 +442,19 @@ def _build(numThreads, projectBuildList):
 					# Time to exit.
 					pool.Stop()
 				failures += 1
-				try:
-					toReraise = e
-				except csbuild.BuildFailureException as buildExc:
-					log.Error(repr(buildExc))
-				except:
-					pool.Abort()
-					raise
+				toReraise = e
 			except:
 				pool.Abort()
 				raise
 
 			if toReraise is not None:
-				toReraise.Reraise()
+				try:
+					toReraise.Reraise()
+				except csbuild.BuildFailureException as buildExc:
+					log.Error(repr(buildExc))
+				except:
+					pool.Abort()
+					raise
 
 	for buildProject in projectBuildList:
 		if buildProject.toolchain.HasAnyReachability():

@@ -29,6 +29,8 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 
+csbuild.SetOutputDirectory("out")
+
 with csbuild.Project("hello_world", "hello_world"):
 	csbuild.Platform("Linux", "Darwin").AddLibraries("pthread", "libdl.so", "libc.so.6")
 	csbuild.Platform("Windows").AddLibraries("winmm", "DbgHelp.lib")

@@ -35,6 +35,9 @@ fooSet = False
 barSet = False
 quxSet = False
 
+csbuild.SetIntermediateDirectory("intermediate")
+csbuild.SetOutputDirectory("out")
+
 class AddDoubles(Tool):
 	"""
 	Simple base class to test global toolchain contexts

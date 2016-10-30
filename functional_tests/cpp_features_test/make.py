@@ -31,6 +31,8 @@ import csbuild
 
 from csbuild.tools.common.tool_traits import HasDebugLevel, HasOptimizationLevel
 
+csbuild.SetOutputDirectory("out")
+
 #TODO: Remove this once the issues with DebugLevel and OptimizationLevel not being usable through `csbuild` are fixed.
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel

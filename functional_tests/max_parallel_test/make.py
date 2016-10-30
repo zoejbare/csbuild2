@@ -32,6 +32,8 @@ from csbuild.toolchain import Tool
 import os
 import time
 
+csbuild.SetOutputDirectory("out")
+
 class Sleeper(Tool):
 	"""
 	Simple tool that opens a file, doubles its contents numerically, and writes a new file.

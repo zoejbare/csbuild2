@@ -149,11 +149,34 @@ class Project(object):
 			self.sourceFiles = projectSettings.get("sourceFiles", set())
 
 			#: type: str
-			self.intermediateDir = projectSettings.get("intermediateDir", os.path.join(self.workingDirectory, "intermediate"))
+			self.intermediateDir = os.path.join(
+				self.workingDirectory,
+				projectSettings.get(
+					"intermediateDir",
+					os.path.join(
+						"intermediate",
+						self.toolchainName,
+						self.architectureName,
+						self.targetName,
+						self.name
+					)
+				)
+			)
 			#: type: str
-			self.outputDir = projectSettings.get("outputDir", os.path.join(self.workingDirectory, "out"))
+			self.outputDir = os.path.join(
+				self.workingDirectory,
+				projectSettings.get(
+					"outputDir",
+					os.path.join(
+						"out",
+						self.toolchainName,
+						self.architectureName,
+						self.targetName,
+					)
+				)
+			)
 			#: type: str
-			self.csbuildDir = os.path.join(self.intermediateDir, ".csbuild")
+			self.csbuildDir = os.path.join(self.workingDirectory, ".csbuild")
 
 			if not os.access(self.csbuildDir, os.F_OK):
 				os.makedirs(self.csbuildDir)

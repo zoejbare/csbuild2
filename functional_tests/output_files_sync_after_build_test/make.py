@@ -33,6 +33,8 @@ import subprocess
 from csbuild.tools.cpp_compilers import msvc_cpp_compiler, gcc_cpp_compiler
 from csbuild.tools.linkers import msvc_linker, gcc_linker
 
+csbuild.SetOutputDirectory("out")
+
 #pylint: disable=missing-docstring
 class ExecutingGccLinker(gcc_linker.GccLinker):
 	def RunGroup(self, project, inputFiles):

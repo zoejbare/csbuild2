@@ -65,10 +65,10 @@ elif platform.system() == "Linux":
 		return _event(0, libc.eventfd(0, 0), os.close)
 
 	def _setEvent(event):
-		os.write(event, ctypes.c_ulonglong(1))
+		os.write(event.event, ctypes.c_ulonglong(1))
 
 	def _waitForEvent(event):
-		os.read(event, 8)
+		os.read(event.event, 8)
 
 else:
 	import select

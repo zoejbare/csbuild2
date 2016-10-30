@@ -32,6 +32,9 @@ from csbuild.toolchain import Tool
 import os
 import glob
 
+csbuild.SetIntermediateDirectory("intermediate")
+csbuild.SetOutputDirectory("out")
+
 class NullInput(Tool):
 	"""
 	Simple base class

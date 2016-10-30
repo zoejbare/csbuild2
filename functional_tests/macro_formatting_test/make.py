@@ -33,6 +33,8 @@ import csbuild
 from csbuild.toolchain import Tool
 import os
 
+csbuild.SetIntermediateDirectory("intermediate")
+
 class AddDoubles(Tool):
 	"""
 	Simple base class

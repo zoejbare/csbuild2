@@ -31,6 +31,8 @@ import csbuild
 from csbuild.toolchain import Tool
 import os
 
+csbuild.SetOutputDirectory("out")
+
 class WriteOutput(Tool):
 	"""Dummy class"""
 	inputFiles = None

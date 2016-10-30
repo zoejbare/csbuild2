@@ -456,7 +456,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param outputDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type outputDirectory: str
 		"""
-		currentPlan.SetValue("outputDir", os.path.abspath(outputDirectory))
+		currentPlan.SetValue("outputDir", outputDirectory)
 
 	def SetIntermediateDirectory(intermediateDirectory):
 		"""
@@ -465,7 +465,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param intermediateDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type intermediateDirectory: str
 		"""
-		currentPlan.SetValue("intermediateDir", os.path.abspath(intermediateDirectory))
+		currentPlan.SetValue("intermediateDir", intermediateDirectory)
 
 	def AddSourceFiles(*files):
 		"""
