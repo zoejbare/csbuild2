@@ -27,7 +27,6 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
-import fnmatch
 import collections
 import threading
 

@@ -36,6 +36,7 @@ from csbuild import log
 csbuild.SetOutputDirectory("out")
 
 class Execute(Tool):
+	"""Simple tool that executes its input files and returns a fake output"""
 	inputFiles = {".exe", ""}
 	outputFiles = {".fake"}
 	supportedArchitectures = None
