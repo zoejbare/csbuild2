@@ -31,3 +31,5 @@ truly versatile and language-agnostic. The new csbuild also cuts down considerab
 Now that the majority of the core features have been implemented, we expect feature parity for the tools and target platforms
 supported by old CSBuild to start coming online very quickly, shortly followed by solution generation, chunking,
 and the gui tools.
+
+Code for old csbuild, for those interested in it, can be found here: https://swarm.workshop.perforce.com/projects/shadauxcat-csbuild/files/mainline/csbuild
