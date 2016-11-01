@@ -98,8 +98,8 @@ class TestPylint(testcase.TestCase):
 				pool.Stop()
 
 		resultMTime = 0
-		if os.access("result.xml", os.F_OK):
-			resultMTime = os.path.getmtime("result.xml")
+		if os.access("failedLints.txt", os.F_OK):
+			resultMTime = os.path.getmtime("failedLints.txt")
 
 		failedLints = set()
 
@@ -225,16 +225,14 @@ class TestPylint(testcase.TestCase):
 
 		log.SetCallbackQueue(None)
 
+		with open("failedLints.txt", "w") as f:
+			f.write("\n".join(failedLints))
+
 		if failedLints:
 			log.Error("The following modules failed to lint:")
 			for module in failedLints:
 				log.Error("    {}", module)
-			with open("failedLints.txt", "w") as f:
-				f.write("\n".join(failedLints))
 			self.fail("{} files failed to lint: {}".format(len(failedLints), failedLints))
 
 		if errors:
 			self.fail("Exceptions were thrown during the test")
-
-		if os.access("failedLints.txt", os.F_OK):
-			os.remove("failedLints.txt")

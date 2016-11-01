@@ -77,6 +77,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 	def _getElementFromToolchains(selfobj, allToolchains, item):
 		funcs = set()
+		vals = set()
 		hasNonFunc = False
 		for tempToolchain in allToolchains:
 			found = False
@@ -92,9 +93,11 @@ with perf_timer.PerfTimer("csbuild module init"):
 					if not (isinstance(func, Callable) or isinstance(func, property) or isinstance(func, staticmethod))\
 							or isinstance(func, _classType) or isinstance(func, _typeType):
 						hasNonFunc = True
+						funcs.add((None, cls, func))
+						vals.add(func)
 					else:
 						assert isinstance(func, staticmethod), "Only static tool methods can be called by makefiles"
-					funcs.add((tempToolchain, cls, func))
+						funcs.add((tempToolchain, cls, func))
 					found = True
 			if not found and hasattr(tempToolchain, item):
 				funcs.add((tempToolchain, None, getattr(tempToolchain, item)))
@@ -103,7 +106,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 			return object.__getattribute__(selfobj, item)
 
 		if hasNonFunc:
-			if len(funcs) != 0:
+			if len(funcs) != 1:
 				raise AttributeError(
 					"Toolchain attribute {} is ambiguous (exists on multiple tools). Try accessing on the class directly, or through toolchain.Tool(class)".format(item)
 				)

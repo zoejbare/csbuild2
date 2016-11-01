@@ -29,13 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 
-from csbuild.tools.common.tool_traits import HasDebugLevel, HasOptimizationLevel
-
 csbuild.SetOutputDirectory("out")
-
-#TODO: Remove this once the issues with DebugLevel and OptimizationLevel not being usable through `csbuild` are fixed.
-DebugLevel = HasDebugLevel.DebugLevel
-OptimizationLevel = HasOptimizationLevel.OptimizationLevel
 
 # pylint: disable=invalid-name,missing-docstring
 def defineProjectSettings(projectName, debugLevel, optLevel, useStaticRuntime, useDebugRuntime, defines, undefines):
@@ -52,8 +46,8 @@ with csbuild.Project("hello_world", "hello_world"):
 	with csbuild.Target("nosymbols_noopt_dynamic_release"):
 		defineProjectSettings(
 			"hello_world",
-			DebugLevel.Disabled,
-			OptimizationLevel.Disabled,
+			csbuild.DebugLevel.Disabled,
+			csbuild.OptimizationLevel.Disabled,
 			False,
 			False,
           [],
@@ -62,8 +56,8 @@ with csbuild.Project("hello_world", "hello_world"):
 	with csbuild.Target("embeddedsymbols_sizeopt_static_release"):
 		defineProjectSettings(
 			"hello_world",
-			DebugLevel.EmbeddedSymbols,
-			OptimizationLevel.Size,
+			csbuild.DebugLevel.EmbeddedSymbols,
+			csbuild.OptimizationLevel.Size,
 			True,
 			False,
           ["EXPLICIT_DEFINE"],
@@ -72,8 +66,8 @@ with csbuild.Project("hello_world", "hello_world"):
 	with csbuild.Target("externalsymbols_speedopt_dynamic_debug"):
 		defineProjectSettings(
 			"hello_world",
-			DebugLevel.ExternalSymbols,
-			OptimizationLevel.Speed,
+			csbuild.DebugLevel.ExternalSymbols,
+			csbuild.OptimizationLevel.Speed,
 			False,
 			True,
           [],
@@ -82,8 +76,8 @@ with csbuild.Project("hello_world", "hello_world"):
 	with csbuild.Target("externalplussymbols_maxopt_static_debug"):
 		defineProjectSettings(
 			"hello_world",
-			DebugLevel.ExternalSymbolsPlus,
-			OptimizationLevel.Max,
+			csbuild.DebugLevel.ExternalSymbolsPlus,
+			csbuild.OptimizationLevel.Max,
 			True,
 			True,
 			["EXPLICIT_DEFINE"],
