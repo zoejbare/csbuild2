@@ -290,10 +290,12 @@ class FunctionalTest(TestCase):
 		"""
 		returncode, output, errors = self.RunMake(*args)
 		self.assertNotEqual(returncode, 0)
-		log.Test("Looking for {} in {}", error, output)
-		outMatch = re.search(error, output)
-		log.Test("Looking for {} in {}", error, errors)
-		errMatch = re.search(error, errors)
+		ansi_escape = re.compile(r'\x1b[^m]*m')
+		error = re.compile(error)
+		output = ansi_escape.sub("", output)
+		errors = ansi_escape.sub("", errors)
+		outMatch = error.search(output)
+		errMatch = error.search(errors)
 		self.assertTrue(outMatch is not None or errMatch is not None)
 		return returncode, output, errors
 

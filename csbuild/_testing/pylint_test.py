@@ -64,7 +64,7 @@ class TestPylint(testcase.TestCase):
 		def _parseAndRejigger(module, data):
 			out = []
 			data = PlatformUnicode(data)
-			data = re.sub(ansi_escape, '', data)
+			data = ansi_escape.sub('', data)
 			for line in data.splitlines():
 				match = re.match(R".:\s*(\d+),\s*\d+: (.+)", line)
 				if match:
