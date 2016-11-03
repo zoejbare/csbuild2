@@ -41,8 +41,6 @@ _callbackQueue = None
 Color = terminfo.TermColor
 
 def _writeLog(color, level, msg, destination=sys.stdout):
-	if destination.encoding == "ascii":
-		msg = msg.encode("ascii", "replace").decode("ascii", "replace")
 	if shared_globals.colorSupported and color is not None:
 		terminfo.TermInfo.SetColor(color)
 		if level is not None:
@@ -59,7 +57,10 @@ def _writeLog(color, level, msg, destination=sys.stdout):
 			elif piece == "</&>":
 				terminfo.TermInfo.ResetColor()
 			else:
-				destination.write(piece)
+				try:
+					destination.write(piece)
+				except UnicodeDecodeError:
+					destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
 				destination.flush()
 
 		destination.write("\n")
