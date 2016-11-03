@@ -290,7 +290,9 @@ class FunctionalTest(TestCase):
 		"""
 		returncode, output, errors = self.RunMake(*args)
 		self.assertNotEqual(returncode, 0)
+		log.Test("Looking for {} in {}", error, output)
 		outMatch = re.search(error, output)
+		log.Test("Looking for {} in {}", error, errors)
 		errMatch = re.search(error, errors)
 		self.assertTrue(outMatch is not None or errMatch is not None)
 		return returncode, output, errors
