@@ -35,6 +35,7 @@ from abc import ABCMeta, abstractmethod
 from ..common.tool_traits import HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasStaticRuntime
 
 from ... import commands, log
+from ..._utils import ordered_set
 from ..._utils.decorators import MetaClass
 
 def _ignore(_):
@@ -57,8 +58,8 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 
 	def __init__(self, projectSettings):
 		self._includeDirectories = projectSettings.get("includeDirectories", [])
-		self._defines = projectSettings.get("defines", [])
-		self._undefines = projectSettings.get("undefines", [])
+		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
+		self._undefines = projectSettings.get("undefines", ordered_set.OrderedSet())
 
 		HasDebugLevel.__init__(self, projectSettings)
 		HasDebugRuntime.__init__(self, projectSettings)
@@ -143,11 +144,12 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 
 	def SetupForProject(self, project):
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			self._defines.append("CSB_SHARED_LIBRARY=1")
+			self._defines.add("CSB_SHARED_LIBRARY=1")
 		elif project.projectType == csbuild.ProjectType.StaticLibrary:
-			self._defines.append("CSB_STATIC_LIBRARY=1")
+			self._defines.add("CSB_STATIC_LIBRARY=1")
 		else:
-			self._defines.append("CSB_APPLICATION=1")
+			self._defines.add("CSB_APPLICATION=1")
+		self._defines.add("CSB_TARGET_{}=1".format(project.targetName.upper()))
 
 	def Run(self, project, inputFile):
 		"""

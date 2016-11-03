@@ -156,8 +156,9 @@ class BasicCppTest(FunctionalTest):
 		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
 	def testCompileFail(self):
+		"""Test a compile failure"""
 		self.assertMakeFails(
-			R"ERROR: Build for .*basic_cpp_test/fail_compile/main.cpp in project fail_compile \(.*\) failed!",
+			R"ERROR: Build for .*basic_cpp_test[\\/]fail_compile[\\/]main.cpp in project fail_compile \(.*\) failed!",
 			"-v",
 			"--project=fail_compile",
 			"--show-commands"
@@ -165,8 +166,9 @@ class BasicCppTest(FunctionalTest):
 		self.cleanArgs = ["--project=fail_compile"]
 
 	def testLinkFail(self):
+		"""Test a link failure"""
 		self.assertMakeFails(
-			R"ERROR: Build for \{.*/static/fail_link/.*/main.o\} in project fail_link \(.*\) failed!",
+			R"ERROR: Build for \{.*[\\/]static[\\/]fail_link[\\/].*[\\/]main\.(.+)\} in project fail_link \(.*\) failed!",
 			"-v",
 			"--project=fail_link",
 			"--show-commands"
@@ -186,6 +188,7 @@ class BasicCppTestSharedLibs(FunctionalTest):
 		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--project=libhello", "--target=shared"])
 
 	def testAbsPathSharedLibs(self):
+		"""Test that shared libs specified with absolute paths build successfully"""
 		self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands", "--target=shared")
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--target=shared")
 		self.cleanArgs = ["--project=libhello", "--project=hello_world", "--target=shared"]

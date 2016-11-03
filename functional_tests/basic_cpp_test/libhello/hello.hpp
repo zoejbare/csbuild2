@@ -1,7 +1,9 @@
 #pragma once
 
 #ifdef _WIN32
-#	ifdef CSB_SHARED_LIBRARY
+#	if defined(CSB_TARGET_STATIC)
+#		define EXPORT
+#	elif defined(CSB_SHARED_LIBRARY)
 #		define EXPORT __declspec(dllexport)
 #	else
 #		define EXPORT __declspec(dllimport)

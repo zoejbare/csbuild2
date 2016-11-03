@@ -48,9 +48,9 @@ if platform.system() == "Windows":
 		# pylint: disable=invalid-name
 		def setUp(self): # pylint: disable=arguments-differ
 			if platform.system() == "Windows":
-				self.outputFile = "hello_world/out/hello_world.exe"
+				self.outputFile = "out/hello_world.exe"
 			else:
-				self.outputFile = "hello_world/out/hello_world"
+				self.outputFile = "out/hello_world"
 			FunctionalTest.setUp(self)
 
 		def testDisableSymbolsDisableOptDynamicReleaseRuntime(self):
