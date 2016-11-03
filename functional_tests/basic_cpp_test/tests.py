@@ -157,23 +157,23 @@ class BasicCppTest(FunctionalTest):
 
 	def testCompileFail(self):
 		"""Test a compile failure"""
+		self.cleanArgs = ["--project=fail_compile"]
 		self.assertMakeFails(
 			R"ERROR: Build for .*basic_cpp_test[\\/]fail_compile[\\/]main.cpp in project fail_compile \(.*\) failed!",
 			"-v",
 			"--project=fail_compile",
 			"--show-commands"
 		)
-		self.cleanArgs = ["--project=fail_compile"]
 
 	def testLinkFail(self):
 		"""Test a link failure"""
+		self.cleanArgs = ["--project=fail_link"]
 		self.assertMakeFails(
 			R"ERROR: Build for \{.*[\\/]static[\\/]fail_link[\\/].*[\\/]main\.(.+)\} in project fail_link \(.*\) failed!",
 			"-v",
 			"--project=fail_link",
 			"--show-commands"
 		)
-		self.cleanArgs = ["--project=fail_link"]
 
 class BasicCppTestSharedLibs(FunctionalTest):
 	"""Basic c++ test"""
