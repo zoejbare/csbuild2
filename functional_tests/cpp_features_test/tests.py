@@ -51,9 +51,7 @@ if platform.system() == "Windows":
 				self.outputFile = "hello_world/out/hello_world.exe"
 			else:
 				self.outputFile = "hello_world/out/hello_world"
-			outDir = "hello_world/out"
-			intermediateDir = "hello_world/intermediate"
-			FunctionalTest.setUp(self, outDir=outDir, intermediateDir=intermediateDir)
+			FunctionalTest.setUp(self)
 
 		def testDisableSymbolsDisableOptDynamicReleaseRuntime(self):
 			"""Test that the correct compiler options are being set."""

@@ -32,6 +32,7 @@ import sys
 import threading
 import shutil
 import platform
+import re
 
 from .testcase import TestCase
 from .. import log, commands
@@ -282,14 +283,14 @@ class FunctionalTest(TestCase):
 		Assert that running a makefile fails with the given csbuild error
 		:param args: Arguments to pass
 		:type args: str
-		:param error: Error string to search for in the logs
+		:param error: Error regular expression to search for in the logs
 		:type error: str
 		:return: Tuple of returncode, stdout and stderr output from the process
 		:rtype: tuple[int, str, str]
 		"""
 		returncode, output, errors = self.RunMake(*args)
 		self.assertNotEqual(returncode, 0)
-		self.assertIn(error, output)
+		self.assertIsNotNone(re.search(error, output))
 		return returncode, output, errors
 
 	def assertFileExists(self, filename):

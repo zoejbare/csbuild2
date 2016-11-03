@@ -27,11 +27,35 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import os
+
 import csbuild
 
 csbuild.SetOutputDirectory("out")
+csbuild.SetDefaultTarget("static")
+
+with csbuild.Target("static"):
+	csbuild.SetOutputDirectory("static")
+
+with csbuild.Target("shared"):
+	csbuild.SetOutputDirectory("shared")
+
+with csbuild.Project("libhello", "libhello"):
+	with csbuild.Target("shared"):
+		csbuild.SetOutput("libhello", csbuild.ProjectType.SharedLibrary)
+
+	with csbuild.Target("static"):
+		csbuild.SetOutput("libhello", csbuild.ProjectType.StaticLibrary)
 
 with csbuild.Project("hello_world", "hello_world"):
+	with csbuild.Target("shared"):
+		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("shared/libhello.so"))
+		csbuild.Platform("Windows").AddLibraries(os.path.abspath("shared/libhello.lib"))
+
+	with csbuild.Target("static"):
+		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("static/libhello.a"))
+		csbuild.Platform("Windows").AddLibraries(os.path.abspath("static/libhello.lib"))
+
 	csbuild.Platform("Linux", "Darwin").AddLibraries("pthread", "libdl.so", "libc.so.6")
 	csbuild.Platform("Windows").AddLibraries("winmm", "DbgHelp.lib")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
@@ -39,3 +63,9 @@ with csbuild.Project("hello_world", "hello_world"):
 with csbuild.Project("fail_libraries", "hello_world"):
 	csbuild.AddLibraries("nonexistent", "nothere")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
+
+with csbuild.Project("fail_compile", "fail_compile"):
+	csbuild.SetOutput("fail_compile", csbuild.ProjectType.Application)
+
+with csbuild.Project("fail_link", "fail_link"):
+	csbuild.SetOutput("fail_link", csbuild.ProjectType.Application)

@@ -75,6 +75,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			if self._debugLevel != DebugLevel.Disabled:
 				outputFiles.append("{}.pdb".format(outputPath))
 
+		#can't predict these things, linker will make them if it decides to
+		possibleFiles = ["{}.exp".format(outputPath), "{}.lib".format(outputPath)]
+		outputFiles.extend([filename for filename in possibleFiles if os.access(filename, os.F_OK)])
 
 		return tuple(outputFiles)
 
@@ -97,39 +100,44 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def _findLibraries(self, libs):
 		notFound = set()
 		found = {}
-		allLibraryDirectories = sorted(self._libraryDirectories + self._vcvarsall.libPaths)
+		allLibraryDirectories = self._libraryDirectories + self._vcvarsall.libPaths
 
 		for libraryName in libs:
-			for libraryDir in allLibraryDirectories:
-				# Add the ".lib" extension if it's not already there.
-				filename = "{}.lib".format(libraryName) if not libraryName.endswith(".lib") else libraryName
+			if os.access(libraryName, os.F_OK):
+				abspath = os.path.abspath(libraryName)
+				log.Info("... found {}".format(abspath))
+				found[libraryName] = abspath
+			else:
+				for libraryDir in allLibraryDirectories:
+					# Add the ".lib" extension if it's not already there.
+					filename = "{}.lib".format(libraryName) if not libraryName.endswith(".lib") else libraryName
 
-				# Try searching for the library name as it is.
-				log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
-				fullPath = os.path.join(libraryDir, filename)
+					# Try searching for the library name as it is.
+					log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
+					fullPath = os.path.join(libraryDir, filename)
 
-				# Check if the file exists at the current path.
-				if os.access(fullPath, os.F_OK):
-					log.Info("... found {}".format(fullPath))
-					found[libraryName] = fullPath
-					break
+					# Check if the file exists at the current path.
+					if os.access(fullPath, os.F_OK):
+						log.Info("... found {}".format(fullPath))
+						found[libraryName] = fullPath
+						break
 
-				# If the library couldn't be found, simulate posix by adding the "lib" prefix.
-				filename = "lib{}".format(filename)
+					# If the library couldn't be found, simulate posix by adding the "lib" prefix.
+					filename = "lib{}".format(filename)
 
-				log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
-				fullPath = os.path.join(libraryDir, filename)
+					log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
+					fullPath = os.path.join(libraryDir, filename)
 
-				# Check if the modified filename exists at the current path.
-				if os.access(fullPath, os.F_OK):
-					log.Info("... found {}".format(fullPath))
-					found[libraryName] = fullPath
-					break
+					# Check if the modified filename exists at the current path.
+					if os.access(fullPath, os.F_OK):
+						log.Info("... found {}".format(fullPath))
+						found[libraryName] = fullPath
+						break
 
-			if libraryName not in found:
-				# Failed to find the library in any of the provided directories.
-				log.Error('Failed to find library "{}".'.format(libraryName))
-				notFound.add(libraryName)
+				if libraryName not in found:
+					# Failed to find the library in any of the provided directories.
+					log.Error('Failed to find library "{}".'.format(libraryName))
+					notFound.add(libraryName)
 
 		return None if notFound else found
 

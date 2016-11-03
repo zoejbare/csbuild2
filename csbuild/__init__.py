@@ -183,7 +183,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	#and then test discovery ends up importing it again and causing havok if this block happens twice
 	if not hasattr(sys.modules["csbuild"], "currentPlan"):
 		currentPlan = None # Set to None because ProjectPlan constructor needs to access it.
-		currentPlan = project_plan.ProjectPlan("", "", [], 0, False, False)
+		currentPlan = project_plan.ProjectPlan("", "", [], 0, False, False, os.path.dirname(sys.modules['__main__'].__file__))
 
 	class ProjectType(object):
 		"""
@@ -225,12 +225,12 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		:param buildProject: Project being built
 		:type buildProject: project.Project
-		:param inputFile: The file being built
-		:type inputFile: input_file.InputFile
+		:param inputFile: The file(s) being built
+		:type inputFile: input_file.InputFile or ordered_set.OrderedSet
 		:param info: Extra details about the failure
 		:type info: str
 		"""
-		@TypeChecked(buildProject=project.Project, inputFile=input_file.InputFile, info=String)
+		@TypeChecked(buildProject=project.Project, inputFile=(input_file.InputFile, ordered_set.OrderedSet), info=String)
 		def __init__(self, buildProject, inputFile, info=""):
 			Exception.__init__(self)
 			self.project = buildProject
@@ -239,7 +239,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		def __repr__(self):
 			ret = "Build for {} in project {} failed!".format(
-				self.inputFile.filename,
+				self.inputFile,
 				self.project
 			)
 			if self.info:
@@ -656,7 +656,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 				self._depends,
 				self._priority,
 				self._ignoreDependencyOrdering,
-				self._autoDiscoverSourceFiles
+				self._autoDiscoverSourceFiles,
+				os.getcwd()
 			)
 			shared_globals.sortedProjects.Add(currentPlan, self._depends)
 

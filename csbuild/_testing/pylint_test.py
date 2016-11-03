@@ -60,9 +60,11 @@ class TestPylint(testcase.TestCase):
 		failedLints = set()
 		lock = threading.Lock()
 
+		ansi_escape = re.compile(r'\x1b[^m]*m')
 		def _parseAndRejigger(module, data):
 			out = []
 			data = PlatformUnicode(data)
+			data = re.sub(ansi_escape, '', data)
 			for line in data.splitlines():
 				match = re.match(R".:\s*(\d+),\s*\d+: (.+)", line)
 				if match:

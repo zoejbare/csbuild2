@@ -458,7 +458,7 @@ def _build(numThreads, projectBuildList):
 
 	for buildProject in projectBuildList:
 		if buildProject.toolchain.HasAnyReachability():
-			log.Error("Project {} did not finish building (likely a toolchain flow error)", buildProject)
+			log.Error("Project {} did not finish building.", buildProject)
 			failures += 1
 
 	log.Build("Build finished. Total build time: {}", FormatTime(time.time() - buildStart))

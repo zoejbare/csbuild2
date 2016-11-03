@@ -75,11 +75,13 @@ class Project(object):
 	:type archName: str, bytes
 	:param targetName: Target name
 	:type targetName: str, bytes
+	:param scriptDir: Directory of the script where this project is defined
+	:type scriptDir: str, bytes
 	"""
 
 	_lock = threading.Lock()
 
-	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings, toolchainName, archName, targetName):
+	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings, toolchainName, archName, targetName, scriptDir):
 		with perf_timer.PerfTimer("Project init"):
 
 			self.name = name
@@ -93,6 +95,8 @@ class Project(object):
 			self.toolchainName = toolchainName
 			self.architectureName = archName
 			self.targetName = targetName
+
+			self.scriptDir = scriptDir
 
 			log.Build("Preparing build tasks for {}", self)
 
@@ -149,7 +153,7 @@ class Project(object):
 
 			#: type: str
 			self.intermediateDir = os.path.join(
-				self.workingDirectory,
+				self.scriptDir,
 				projectSettings.get(
 					"intermediateDir",
 					os.path.join(
@@ -163,7 +167,7 @@ class Project(object):
 			)
 			#: type: str
 			self.outputDir = os.path.join(
-				self.workingDirectory,
+				self.scriptDir,
 				projectSettings.get(
 					"outputDir",
 					os.path.join(
@@ -175,7 +179,7 @@ class Project(object):
 				)
 			)
 			#: type: str
-			self.csbuildDir = os.path.join(self.workingDirectory, ".csbuild")
+			self.csbuildDir = os.path.join(self.scriptDir, ".csbuild")
 
 			if not os.access(self.csbuildDir, os.F_OK):
 				os.makedirs(self.csbuildDir)

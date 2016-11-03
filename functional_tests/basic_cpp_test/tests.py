@@ -58,21 +58,21 @@ class BasicCppTest(FunctionalTest):
 	# pylint: disable=invalid-name
 	def setUp(self): # pylint: disable=arguments-differ
 		if platform.system() == "Windows":
-			self.outputFile = "hello_world/out/hello_world.exe"
+			self.outputFile = "static/hello_world.exe"
 		else:
-			self.outputFile = "hello_world/out/hello_world"
-		outDir = "hello_world/out"
-		intermediateDir = "hello_world/intermediate"
-		FunctionalTest.setUp(self, outDir=outDir, intermediateDir=intermediateDir, cleanArgs=["--project=hello_world"])
+			self.outputFile = "static/hello_world"
+		outDir = "static"
+		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--project=libhello"])
 
 	def testCompileSucceeds(self):
 		"""Basic tool test"""
+		self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
-		self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
 	def testLibraryFail(self):
 		"""Test that invalid libraries cause a failure"""
@@ -81,6 +81,9 @@ class BasicCppTest(FunctionalTest):
 
 	def testRecompileDoesntCompileOrLinkAnything(self):
 		"""Test that recompiling without any changes doesn't do anything"""
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Linking libhello", out)
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 		self.assertIn("Compiling hello.cpp", out)
 		self.assertIn("Compiling main.cpp", out)
@@ -94,10 +97,13 @@ class BasicCppTest(FunctionalTest):
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
-		self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
 	def testRecompileAfterTouchRebuildsOnlyOneFile(self):
 		"""Test that recompiling after touching one file builds only that file"""
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Linking libhello", out)
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 		self.assertIn("Compiling hello.cpp", out)
 		self.assertIn("Compiling main.cpp", out)
@@ -113,7 +119,7 @@ class BasicCppTest(FunctionalTest):
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
-		self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
 		Touch("hello_world/main.cpp")
 
@@ -125,10 +131,13 @@ class BasicCppTest(FunctionalTest):
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
-		self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
 	def testRecompileAfterTouchingHeaderRebuildsBothFiles(self):
 		"""Test that recompiling after touching a header causes all cpp files that include it to recompile"""
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
+		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Linking libhello", out)
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 		self.assertIn("Compiling hello.cpp", out)
 		self.assertIn("Compiling main.cpp", out)
@@ -144,4 +153,45 @@ class BasicCppTest(FunctionalTest):
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
-		self.assertEqual(out, PlatformBytes("Hello, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
+
+	def testCompileFail(self):
+		self.assertMakeFails(
+			R"ERROR: Build for .*basic_cpp_test/fail_compile/main.cpp in project fail_compile \(.*\) failed!",
+			"-v",
+			"--project=fail_compile",
+			"--show-commands"
+		)
+		self.cleanArgs = ["--project=fail_compile"]
+
+	def testLinkFail(self):
+		self.assertMakeFails(
+			R"ERROR: Build for \{.*/static/fail_link/.*/main.o\} in project fail_link \(.*\) failed!",
+			"-v",
+			"--project=fail_link",
+			"--show-commands"
+		)
+		self.cleanArgs = ["--project=fail_link"]
+
+class BasicCppTestSharedLibs(FunctionalTest):
+	"""Basic c++ test"""
+
+	# pylint: disable=invalid-name
+	def setUp(self): # pylint: disable=arguments-differ
+		if platform.system() == "Windows":
+			self.outputFile = "shared/hello_world.exe"
+		else:
+			self.outputFile = "shared/hello_world"
+		outDir = "shared"
+		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--project=libhello", "--target=shared"])
+
+	def testAbsPathSharedLibs(self):
+		self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands", "--target=shared")
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--target=shared")
+		self.cleanArgs = ["--project=libhello", "--project=hello_world", "--target=shared"]
+
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
+
+		out = subprocess.check_output([self.outputFile])
+
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))

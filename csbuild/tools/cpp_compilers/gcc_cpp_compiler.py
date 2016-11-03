@@ -28,6 +28,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
+import csbuild
 
 from .cpp_compiler_base import CppCompilerBase
 
@@ -44,8 +45,12 @@ class GccCppCompiler(CppCompilerBase):
 
 	def _getCommand(self, project, inputFile, isCpp):
 		cmd = "g++" if isCpp else "gcc"
-		return [
+		ret = [
 			cmd,
 			"-c", inputFile.filename,
 			"-o", self._getOutputFiles(project, inputFile),
 		] + ["-I"+directory for directory in self._includeDirectories]
+
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			ret += ["-fPIC"]
+		return ret

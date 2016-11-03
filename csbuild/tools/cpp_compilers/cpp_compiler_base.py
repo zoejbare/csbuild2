@@ -141,6 +141,14 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	### Base class methods containing logic shared by all subclasses
 	################################################################################
 
+	def SetupForProject(self, project):
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			self._defines.append("CSB_SHARED_LIBRARY=1")
+		elif project.projectType == csbuild.ProjectType.StaticLibrary:
+			self._defines.append("CSB_STATIC_LIBRARY=1")
+		else:
+			self._defines.append("CSB_APPLICATION=1")
+
 	def Run(self, project, inputFile):
 		"""
 		Execute a single build step. Note that this method is run massively in parallel with other build steps.

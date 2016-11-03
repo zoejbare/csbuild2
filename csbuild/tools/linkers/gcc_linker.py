@@ -34,6 +34,7 @@ import csbuild
 
 from .linker_base import LinkerBase
 from ... import commands, log
+from ..._utils import ordered_set
 
 class GccLinker(LinkerBase):
 	"""
@@ -51,16 +52,29 @@ class GccLinker(LinkerBase):
 		return os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType))
 
 	def _getCommand(self, project, inputFiles):
-		return ["gcc", "-o", self._getOutputFiles(project)] \
-			   + ["-l:"+lib for lib in self._actualLibraryLocations.values()] \
-			   + ["-L"+path for path in self._libraryDirectories] \
-			   + [f.filename for f in inputFiles]
+
+		if project.projectType == csbuild.ProjectType.StaticLibrary:
+			return ["ar", "rcs", self._getOutputFiles(project)] + [f.filename for f in inputFiles]
+
+		ret = ["gcc", "-o", self._getOutputFiles(project), "-L/"] \
+			   + [f.filename for f in inputFiles] \
+			   + ["-l:"+lib for lib in self._actualLibraryLocations.values()]
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			ret += ["-shared", "-fPIC"]
+		return ret
 
 	def _findLibraries(self, libs):
-		shortLibs = set(libs)
+		shortLibs = ordered_set.OrderedSet(libs)
 		longLibs = []
 
 		out = ""
+		ret = {}
+
+		for lib in libs:
+			if os.access(lib, os.F_OK):
+				abspath = os.path.abspath(lib)
+				ret[lib] = abspath
+				shortLibs.remove(lib)
 
 		# In most cases this should be finished in exactly two attempts.
 		# However, in some rare cases, ld will get to a successful lib after hitting a failure and just give up.
@@ -113,8 +127,8 @@ class GccLinker(LinkerBase):
 			elif loading:
 				break
 
-		assert len(matches) == len(libs)
-		ret = {}
+		assert len(matches) == len(shortLibs) + len(longLibs)
+		assert len(matches) + len(ret) == len(libs)
 		for i, lib in enumerate(shortLibs):
 			ret[lib] = matches[i]
 		for i, lib in enumerate(longLibs):

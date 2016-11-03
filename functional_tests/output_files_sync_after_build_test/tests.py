@@ -40,12 +40,10 @@ class OutputFilesSyncAfterBuildTest(FunctionalTest):
 	# pylint: disable=invalid-name
 	def setUp(self): # pylint: disable=arguments-differ
 		if platform.system() == "Windows":
-			self.outputFile = "hello_world/out/hello_world.exe"
+			self.outputFile = "out/hello_world.exe"
 		else:
-			self.outputFile = "hello_world/out/hello_world"
-		outDir = "hello_world/out"
-		intermediateDir = "hello_world/intermediate"
-		FunctionalTest.setUp(self, outDir=outDir, intermediateDir=intermediateDir, cleanArgs=["--project=hello_world"])
+			self.outputFile = "out/hello_world"
+		FunctionalTest.setUp(self, cleanArgs=["--project=hello_world"])
 
 	def testAccessAfterSyncWorks(self):
 		"""Test that C++ linker output is accessible immediately after being created."""
