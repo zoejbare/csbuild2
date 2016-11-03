@@ -37,6 +37,7 @@ class ProjectDependencyTest(FunctionalTest):
 		"""Project dependency test"""
 		self.assertMakeSucceeds("-v")
 		for i in range(1, 11):
-			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
+			self.assertFileContents("./intermediate/FooIntermediate/{}.second".format(i), str(i*2))
+			self.assertFileContents("./intermediate/BarIntermediate/{}.second".format(i), str(i*2))
 		self.assertFileContents("./out/Foo.thirdlib", "110")
 		self.assertFileContents("./out/Bar.thirdapp", "220")

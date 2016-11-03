@@ -91,7 +91,9 @@ csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
 csbuild.SetDefaultToolchain("AddDoubles")
 
 with csbuild.Project("TestProject", "."):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
 	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
 
 with csbuild.Project("TestProject2", ".", ["TestProject"]):
+	csbuild.SetIntermediateDirectory("intermediate/BarIntermediate")
 	csbuild.SetOutput("Bar", csbuild.ProjectType.Application)
