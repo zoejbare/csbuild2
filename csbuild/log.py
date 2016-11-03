@@ -76,7 +76,10 @@ def _writeLog(color, level, msg, destination=sys.stdout):
 			if match or piece == "</&>":
 				continue
 			else:
-				destination.write(piece)
+				try:
+					destination.write(piece)
+				except UnicodeDecodeError:
+					destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
 
 		destination.write("\n")
 		destination.flush()
