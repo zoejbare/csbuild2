@@ -94,6 +94,16 @@ class Tool(object):
 	#  This is a global setting; multiple instances of this tool will not run concurrently, even for different projects
 	maxParallel = 0
 
+	#: If this is True, this tool will be the only one to act on the input files passed to it, and they will not
+	#  go to any other tool. If an input file passed to a tool marked exclusive should go to another tool, it may
+	#  be returned as an output from Run or RunGroup to forward it to the next tool. Exclusive tools for a given input
+	#  extension will always run before other tools for that input extension regardless of order in the toolchain;
+	#  if multiple tools in a toolchain are marked exclusive, the input files will only be passed to the first one;
+	#  however, if it outputs the same file type, its outputs will be passed to the second exclusive one, whose outputs
+	#  can be passed to the third, and so on; outputs from the last exclusive tool will be passed to all non-exclusive
+	#  tools accepting that file type.
+	exclusive = False
+
 	_initialized = False
 
 	def __init__(self, projectSettings):

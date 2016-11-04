@@ -512,15 +512,15 @@ class Toolchain(object):
 				"""
 				return tool in _classTrackr.activeClasses
 
-			@TypeChecked(extension=(String, type(None)), generatingTool=(_typeType, _classType, type(None)))
-			def GetToolsFor(self, extension, generatingTool=None):
+			@TypeChecked(extension=(String, type(None)), generatingTools=(set, type(None)))
+			def GetToolsFor(self, extension, generatingTools=None):
 				"""
-				Get all tools that take a given input. If a generatingTool is specified, it will be excluded from the result.
+				Get all tools that take a given input. If any generatingTools are specified, they will be excluded from the result.
 
 				:param extension: The extension of the file to be fed to the new tools
 				:type extension: str, bytes
-				:param generatingTool: The tool that generated this input
-				:type generatingTool: class or None
+				:param generatingTools: The tools that generated this input
+				:type generatingTools: set[class] or None
 				:return: A set of all tools that can take this input as group or individual inputs.
 					It's up to the caller to inspect the object to determine which type of input to provide.
 					It's also up to the caller to not call group input tools until IsOutputActive() returns False
@@ -529,40 +529,47 @@ class Toolchain(object):
 				"""
 				ret = ordered_set.OrderedSet()
 				for cls in _classTrackr.activeClasses:
-					if cls is generatingTool:
+					if generatingTools and cls in generatingTools:
 						continue
 
 					if extension is None and cls.inputFiles is None:
+						if cls.exclusive:
+							return ordered_set.OrderedSet([cls])
 						ret.add(cls)
 					elif cls.inputFiles is not None and extension in cls.inputFiles:
+						if cls.exclusive:
+							return ordered_set.OrderedSet([cls])
 						ret.add(cls)
 
 				return ret
 
-			@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
-			def GetGroupToolsFor(self, extension, generatingTool=None):
+			@TypeChecked(extension=String, generatingTools=(set, type(None)))
+			def GetGroupToolsFor(self, extension, generatingTools=None):
 				"""
-				Get all tools that take a given group input. If a generatingTool is specified, it will be excluded from the result.
+				Get all tools that take a given group input. If any generatingTools are specified, they will be excluded from the result.
 
 				:param extension: The extension of the file to be fed to the new tools
 				:type extension: str, bytes
-				:param generatingTool: The tool that generated this input
-				:type generatingTool: class or None
+				:param generatingTools: The tools that generated this input
+				:type generatingTools: set[class] or None
 				:return: A set of all tools that can take this input as group or individual inputs.
 					It's up to the caller to inspect the object to determine which type of input to provide.
 					It's also up to the caller to not call group input tools until IsOutputActive() returns False
 					for ALL of that tool's group inputs.
 				:rtype: set[type]
 				"""
-				ret = set()
+				ret = ordered_set.OrderedSet()
 				for cls in _classTrackr.classes:
-					if cls is generatingTool:
+					if generatingTools and cls in generatingTools:
 						continue
+
 					for dep in cls.dependencies:
 						if self.IsOutputActive(dep):
 							continue
 
 					if extension in cls.inputGroups:
+						if cls.exclusive:
+							return ordered_set.OrderedSet([cls])
 						ret.add(cls)
 
 				return ret
@@ -959,15 +966,15 @@ class Toolchain(object):
 		"""
 		pass
 
-	@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
-	def GetToolsFor(self, extension, generatingTool=None):
+	@TypeChecked(extension=String, generatingTools=(set, type(None)))
+	def GetToolsFor(self, extension, generatingTools=None):
 		"""
-		Get all tools that take a given input. If a generatingTool is specified, it will be excluded from the result.
+		Get all tools that take a given input. If any generatingTools are specified, they will be excluded from the result.
 
 		:param extension: The extension of the file to be fed to the new tools
 		:type extension: str, bytes
-		:param generatingTool: The tool that generated this input
-		:type generatingTool: class or None
+		:param generatingTools: The tools that generated this input
+		:type generatingTools: set[class] or None
 		:return: A set of all tools that can take this input as group or individual inputs.
 			It's up to the caller to inspect the object to determine which type of input to provide.
 			It's also up to the caller to not call group input tools until IsOutputActive() returns False
@@ -976,15 +983,15 @@ class Toolchain(object):
 		"""
 		pass
 
-	@TypeChecked(extension=String, generatingTool=(_typeType, _classType, type(None)))
-	def GetGroupToolsFor(self, extension, generatingTool=None):
+	@TypeChecked(extension=String, generatingTools=(set, type(None)))
+	def GetGroupToolsFor(self, extension, generatingTools=None):
 		"""
-		Get all tools that take a given group input. If a generatingTool is specified, it will be excluded from the result.
+		Get all tools that take a given group input. If any generatingTools are specified, they will be excluded from the result.
 
 		:param extension: The extension of the file to be fed to the new tools
 		:type extension: str, bytes
-		:param generatingTool: The tool that generated this input
-		:type generatingTool: class or None
+		:param generatingTools: The tool that generated this input
+		:type generatingTools: set[class] or None
 		:return: A set of all tools that can take this input as group or individual inputs.
 			It's up to the caller to inspect the object to determine which type of input to provide.
 			It's also up to the caller to not call group input tools until IsOutputActive() returns False

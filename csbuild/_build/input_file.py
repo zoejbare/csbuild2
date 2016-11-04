@@ -130,6 +130,16 @@ class InputFile(object):
 		return self._upToDate
 
 	@property
+	def toolsUsed(self):
+		"""
+		Get the list of tools used to make this input.
+
+		:return: list of used tools
+		:rtype: set
+		"""
+		return self._toolsUsed
+
+	@property
 	def uniqueDirectoryId(self):
 		"""
 		Get the unique identifier for the directory containing the file.

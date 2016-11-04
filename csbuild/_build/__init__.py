@@ -68,13 +68,20 @@ _runningBuilds = 0
 def _canRun(tool):
 	return tool.maxParallel <= 0 or tool.curParallel < tool.maxParallel
 
-def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExtension, doCompileCheck=False):
+def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, inputExtension, doCompileCheck=False):
 	with perf_timer.PerfTimer("Enqueuing build tasks"):
 		global _runningBuilds
 		_runningBuilds += 1
 		tool.curParallel += 1
 
 		buildProject.toolchain.CreateReachability(tool)
+
+		if tool.exclusive:
+			try:
+				buildProject.inputFiles[inputExtension].remove(buildInput)
+			except KeyError:
+				#Wasn't in there so nothing to remove.
+				pass
 
 		if buildInput is None:
 			buildProject.toolchain.DeactivateTool(tool)
@@ -88,7 +95,7 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, outputExten
 			log.Info("Enqueuing build for {} using {} for project {}", buildInput, tool.__name__, buildProject)
 			pool.AddTask(
 				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, buildInput, doCompileCheck),
-				(_buildFinished, pool, projectList, buildProject, tool, outputExtension, [buildInput])
+				(_buildFinished, pool, projectList, buildProject, tool, inputExtension, [buildInput])
 			)
 		else:
 			for inputFile in buildInput:
@@ -254,7 +261,7 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 			buildProject.inputFiles.setdefault(outputExtension, ordered_set.OrderedSet()).add(newInput)
 
 			# Enqueue this file immediately in any tools that take it as a single input, unless they're marked to delay.
-			toolList = buildProject.toolchain.GetToolsFor(outputExtension)
+			toolList = buildProject.toolchain.GetToolsFor(outputExtension, newInput.toolsUsed)
 			for tool in toolList:
 				if not buildProject.toolchain.IsToolActive(tool):
 					continue
@@ -307,11 +314,11 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 
 							_enqueueBuild(proj, tool, None, pool, projectList, None)
 						else:
-							for inputExtension in tool.inputFiles:
-								for projectInput in [x for x in proj.inputFiles.get(inputExtension, []) if not x.WasToolUsed(tool)]:
+							for ext in tool.inputFiles:
+								for projectInput in [x for x in proj.inputFiles.get(ext, []) if not x.WasToolUsed(tool)]:
 									if not _canRun(tool):
 										break
-									_enqueueBuild(proj, tool, projectInput, pool, projectList, inputExtension)
+									_enqueueBuild(proj, tool, projectInput, pool, projectList, ext)
 
 						if not _canRun(tool):
 							continue
@@ -385,7 +392,7 @@ def _build(numThreads, projectBuildList):
 						queuedSomething = True
 					else:
 						log.Info("Looking at files {}", fileList)
-						for inputFile in fileList:
+						for inputFile in list(fileList): #Make a list out of this so it doesn't get a modified-during-iteration error
 							if not _canRun(tool):
 								break
 							_enqueueBuild(buildProject, tool, inputFile, pool, projectBuildList, extension, True)
