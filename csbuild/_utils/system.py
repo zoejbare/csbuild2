@@ -29,12 +29,11 @@ from __future__ import unicode_literals, division, print_function
 
 import imp
 import os
-import csbuild
 import sys
 import platform
 
 from . import shared_globals
-from .. import log, commands, perf_timer
+from .. import commands, perf_timer
 
 if platform.system() == "Windows":
 	def SyncDir(_):
@@ -64,9 +63,6 @@ def CleanUp():
 	with perf_timer.PerfTimer("Cleanup"):
 		if not imp.lock_held():
 			imp.acquire_lock()
-
-		if shared_globals.runMode == csbuild.RunMode.Normal:
-			log.Build("Cleaning up")
 
 		if shared_globals.commandOutputThread is not None:
 			commands.queueOfLogQueues.Put(commands.stopEvent)

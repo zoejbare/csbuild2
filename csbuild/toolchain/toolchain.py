@@ -51,6 +51,7 @@ else:
 	_classType = types.ClassType
 
 staticInitsRun = set()
+overloadedStaticInits = set()
 
 class Toolchain(object):
 	"""
@@ -170,7 +171,7 @@ class Toolchain(object):
 				base.__init__ = _initwrap
 				base.__oldInit__ = oldinit
 				_classTrackr.overloadedInits.add(base.__init__)
-			if base.__static_init__ not in _classTrackr.overloadedInits:
+			if base.__static_init__ not in overloadedStaticInits:
 				oldstaticinit = base.__static_init__
 
 				@staticmethod
@@ -182,6 +183,7 @@ class Toolchain(object):
 				base.__static_init__ = _staticinitwrap
 				base.__old_static_init__ = oldstaticinit
 				base.__old_static_init_owner__ = base
+				overloadedStaticInits.add(base.__static_init__)
 
 		# Collect a list of all the base classes
 		bases = set()

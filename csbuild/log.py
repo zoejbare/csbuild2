@@ -30,61 +30,241 @@ from __future__ import unicode_literals, division, print_function
 import sys
 import threading
 import re
+import time
+import math
 
-from ._utils import terminfo, shared_globals, BytesType, StrType, queue
+from ._utils import terminfo, shared_globals, BytesType, StrType, queue, FormatTime, PlatformUnicode
 from ._utils.shared_globals import Verbosity
+from . import perf_timer
 
 _logQueue = queue.Queue()
 _stopEvent = object()
 _callbackQueue = None
+_barPresent = False
+_lastTotal = 0
+_lastCompleted = 0
+_lastPerc = 0.0
+_sep = "<"
 
 Color = terminfo.TermColor
 
-def _writeLog(color, level, msg, destination=sys.stdout):
-	if shared_globals.colorSupported and color is not None:
-		terminfo.TermInfo.SetColor(color)
-		if level is not None:
-			destination.write("{}: ".format(level))
-		destination.flush()
-		terminfo.TermInfo.ResetColor()
+def _printProgressBar():
+	with perf_timer.PerfTimer("printProgressBar"):
+		global _barPresent
+		global _lastTotal
+		global _lastCompleted
+		global _lastPerc
+		global _sep
+		if shared_globals.columns != 0 and shared_globals.completedBuilds < shared_globals.totalBuilds:
+			_barPresent = True
+			_lastTotal = shared_globals.totalBuilds
+			_lastCompleted = shared_globals.completedBuilds
+			textSize = 42
+			fillChar = "\u2219"
 
-		split = re.split(R"(<&\w*>)(.*?)(</&>|$)", msg)
-		for piece in split:
-			match = re.match(R"<&(\w*)>", piece)
-			if match:
-				color = getattr(Color, match.group(1))
-				terminfo.TermInfo.SetColor(color)
-			elif piece == "</&>":
+			perc = 1 if shared_globals.totalBuilds == 0 else float(shared_globals.completedBuilds)/float(shared_globals.totalBuilds)
+			if perc > _lastPerc:
+				_sep = ">"
+			elif perc < _lastPerc:
+				_sep = "<"
+			_lastPerc = perc
+
+			incr = int(shared_globals.columns / 50)
+			if shared_globals.totalBuilds <= incr:
+				count = shared_globals.totalBuilds * 4
+			elif shared_globals.totalBuilds <= incr * 2:
+				count = incr * 4 + (shared_globals.totalBuilds-incr) * 3
+			elif shared_globals.totalBuilds <= incr * 3:
+				count = incr * 4 + incr * 3 + (shared_globals.totalBuilds-incr*2) * 2
+			else:
+				count = incr * 4 + incr * 3 + incr * 2 + (shared_globals.totalBuilds-incr*3)
+
+			if count >= shared_globals.columns - textSize:
+				count = shared_globals.columns - textSize - 1
+
+			num = int( math.floor( perc * count ) )
+
+			lside = num
+			rside = count - num - 1
+
+			total = lside + rside + textSize
+			maxSpace = (shared_globals.columns-1) / 2
+			spacePerSide = maxSpace - (total/2)
+
+			if spacePerSide <= 1:
+				lfill = ""
+				rfill = ""
+			else:
+				lfill = fillChar * int(math.ceil(spacePerSide))
+				rfill = fillChar * int(math.floor(spacePerSide))
+				if lfill:
+					lfill = lfill[:-1] + " "
+				if rfill:
+					rfill = " " + rfill[1:]
+
+			if shared_globals.colorSupported:
+				terminfo.TermInfo.SetColor(Color.WHITE)
+
+			sys.stdout.write(" [")
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.GREEN)
+
+			sys.stdout.write("{: 4}".format(shared_globals.completedBuilds))
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
 				terminfo.TermInfo.ResetColor()
+
+			sys.stdout.write(" tasks done ")
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.WHITE)
+
+			sys.stdout.write("] ")
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.DGREY)
+			sys.stdout.write(lfill)
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.WHITE)
+
+			sys.stdout.write("[")
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.DGREEN)
+
+			sys.stdout.write("=" * lside)
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.ResetColor()
+
+			sys.stdout.write(_sep)
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.DYELLOW)
+
+			sys.stdout.write("-" * rside)
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.WHITE)
+
+			sys.stdout.write("]")
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.DGREY)
+			sys.stdout.write(rfill)
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.WHITE)
+
+			sys.stdout.write(" [")
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.YELLOW)
+
+			sys.stdout.write("{: 4}".format(shared_globals.totalBuilds))
+
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.ResetColor()
+
+			sys.stdout.write(" discovered ")
+			if shared_globals.colorSupported:
+				sys.stdout.flush()
+				terminfo.TermInfo.SetColor(Color.WHITE)
+			sys.stdout.write("]")
+			sys.stdout.flush()
+
+			if shared_globals.colorSupported:
+				terminfo.TermInfo.ResetColor()
+		else:
+			_barPresent = False
+
+def _clearProgressBar():
+	with perf_timer.PerfTimer("clearProgressBar"):
+		global _barPresent
+		if _barPresent:
+			sys.stdout.write(shared_globals.clearBar)
+			_barPresent = False
+
+def UpdateProgressBar():
+	"""Update the progress bar, foo"""
+	with perf_timer.PerfTimer("updateProgressBar"):
+		_clearProgressBar()
+		_printProgressBar()
+
+_twoTagMatch = re.compile(R"(<&\w*>)(.*?)(</&>|$)")
+_tagNameMatch = re.compile(R"<&(\w*)>")
+
+def _writeLog(color, level, msg, destination=sys.stdout):
+	with perf_timer.PerfTimer("Logging"):
+		_clearProgressBar()
+
+		if shared_globals.colorSupported and color is not None:
+			terminfo.TermInfo.SetColor(color)
+			if level is not None:
+				destination.write("{}: ".format(level))
+			destination.flush()
+			terminfo.TermInfo.ResetColor()
+
+			if "</" in msg:
+				with perf_timer.PerfTimer("Regex splitting"):
+					split = _twoTagMatch.split(msg)
+					for piece in split:
+						match = _tagNameMatch.match(piece)
+						if match:
+							color = getattr(Color, match.group(1))
+							terminfo.TermInfo.SetColor(color)
+						elif piece == "</&>":
+							terminfo.TermInfo.ResetColor()
+						else:
+							try:
+								destination.write(piece)
+							except UnicodeEncodeError:
+								destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
+							destination.flush()
 			else:
-				try:
-					destination.write(piece)
-				except UnicodeEncodeError:
-					destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
-				destination.flush()
+				destination.write(msg)
 
-		destination.write("\n")
-		destination.flush()
-		terminfo.TermInfo.ResetColor()
-	else:
-		if level is not None:
-			destination.write("{}: ".format(level))
+			destination.write("\n")
 
-		split = re.split(R"(<&\w*>)(.*?)(</&>|$)", msg)
-		for piece in split:
-			match = re.match(R"<&(\w*)>", piece)
-			if match or piece == "</&>":
-				continue
+			terminfo.TermInfo.ResetColor()
+		else:
+			if level is not None:
+				destination.write("{}: ".format(level))
+
+			if "</" in msg:
+				with perf_timer.PerfTimer("Regex splitting"):
+					split = _twoTagMatch.split(msg)
+					for piece in split:
+						match = _tagNameMatch.match(piece)
+						if match or piece == "</&>":
+							continue
+						else:
+							try:
+								destination.write(piece)
+							except UnicodeEncodeError:
+								destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
 			else:
-				try:
-					destination.write(piece)
-				except UnicodeEncodeError:
-					destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
+				destination.write(msg)
 
-		destination.write("\n")
+			destination.write("\n")
+
+		if shared_globals.logFile:
+			shared_globals.logFile.write("{0}: {1}\n".format(level, msg))
+		_printProgressBar()
 		destination.flush()
-	if shared_globals.logFile:
-		shared_globals.logFile.write("{0}: {1}\n".format(level, msg))
 
 def Pump():
 	"""
@@ -140,6 +320,13 @@ def _logMsgToStderr(color, level, msg, quietThreshold):
 
 
 def _formatMsg(msg, *args, **kwargs):
+	showTime = kwargs.get("showTime")
+	if showTime is True or showTime is None:
+		curtime = time.time( ) - shared_globals.startTime
+		msg = "{} ({})".format(PlatformUnicode(msg), FormatTime(curtime, False))
+	if showTime is not None:
+		del kwargs["showTime"]
+
 	if not isinstance(msg, BytesType) and not isinstance(msg, StrType):
 		return repr(msg)
 	elif args or kwargs:
@@ -329,7 +516,7 @@ def Stdout(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	msg = _formatMsg(msg, *args, **kwargs)
+	msg = _formatMsg(msg, showTime=False, *args, **kwargs)
 	_logMsg(None, None, msg, Verbosity.Mute)
 
 def Stderr(msg, *args, **kwargs):
@@ -343,5 +530,5 @@ def Stderr(msg, *args, **kwargs):
 	:param kwargs: args to str.format
 	:type kwargs: any
 	"""
-	msg = _formatMsg(msg, *args, **kwargs)
+	msg = _formatMsg(msg, showTime=False, *args, **kwargs)
 	_logMsgToStderr(None, None, msg, Verbosity.Mute)

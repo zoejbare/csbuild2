@@ -110,54 +110,54 @@ with csbuild.Target("A"):
 with csbuild.Target("B"):
 	pass
 
-with csbuild.Project("AlwaysWorks", "."):
+with csbuild.Project("AlwaysWorks", ".", autoDiscoverSourceFiles=False):
 	csbuild.SetOutput("foo", csbuild.ProjectType.Application)
 
-with csbuild.Project("ProjectWithLimitedArchitectures", "."):
+with csbuild.Project("ProjectWithLimitedArchitectures", ".", autoDiscoverSourceFiles=False):
 	csbuild.SetSupportedArchitectures("A", "B", "C")
 	csbuild.SetOutput("arch", csbuild.ProjectType.Application)
 
 with csbuild.Architecture("A", "B", "C"):
-	with csbuild.Project("ProjectWithLimitedArchitectures2", "."):
+	with csbuild.Project("ProjectWithLimitedArchitectures2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("arch2", csbuild.ProjectType.Application)
 
-with csbuild.Project("ProjectWithExcludedTarget", "."):
+with csbuild.Project("ProjectWithExcludedTarget", ".", autoDiscoverSourceFiles=False):
 	csbuild.SetSupportedTargets("A")
 	csbuild.SetOutput("target", csbuild.ProjectType.Application)
 
 with csbuild.Target("A"):
-	with csbuild.Project("ProjectWithExcludedTarget2", "."):
+	with csbuild.Project("ProjectWithExcludedTarget2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("target2", csbuild.ProjectType.Application)
 
-with csbuild.Project("ProjectWithSpecialTarget", "."):
+with csbuild.Project("ProjectWithSpecialTarget", ".", autoDiscoverSourceFiles=False):
 	with csbuild.Target("special"):
 		csbuild.SetOutput("special", csbuild.ProjectType.Application)
 	csbuild.SetOutput("unspecial", csbuild.ProjectType.Application)
 
 with csbuild.Target("special", addToCurrentScope=False):
-	with csbuild.Project("ProjectWithSpecialTarget2", "."):
+	with csbuild.Project("ProjectWithSpecialTarget2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("special2", csbuild.ProjectType.Application)
 
-with csbuild.Project("LimitedToolchains", "."):
+with csbuild.Project("LimitedToolchains", ".", autoDiscoverSourceFiles=False):
 	csbuild.SetSupportedToolchains("B", "C", "D")
 	csbuild.SetOutput("toolchain", csbuild.ProjectType.Application)
 
 with csbuild.Toolchain("B", "C", "D"):
-	with csbuild.Project("LimitedToolchains2", "."):
+	with csbuild.Project("LimitedToolchains2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("toolchain2", csbuild.ProjectType.Application)
 
-with csbuild.Project("WindowsProject", "."):
+with csbuild.Project("WindowsProject", ".", autoDiscoverSourceFiles=False):
 	csbuild.SetSupportedPlatforms("Windows")
 	csbuild.SetOutput("Windows", csbuild.ProjectType.Application)
 
-with csbuild.Project("LinuxProject", "."):
+with csbuild.Project("LinuxProject", ".", autoDiscoverSourceFiles=False):
 	csbuild.SetSupportedPlatforms("Linux")
 	csbuild.SetOutput("Linux", csbuild.ProjectType.Application)
 
 with csbuild.Platform("Windows"):
-	with csbuild.Project("WindowsProject2", "."):
+	with csbuild.Project("WindowsProject2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("Windows2", csbuild.ProjectType.Application)
 
 with csbuild.Platform("Linux"):
-	with csbuild.Project("LinuxProject2", "."):
+	with csbuild.Project("LinuxProject2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("Linux2", csbuild.ProjectType.Application)

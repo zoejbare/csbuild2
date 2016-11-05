@@ -44,7 +44,7 @@ import threading
 from . import recompile
 from . import project_plan, project, input_file
 from .. import log, commands, tools, perf_timer
-from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak
+from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak, PlatformString
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 
@@ -68,11 +68,12 @@ _runningBuilds = 0
 def _canRun(tool):
 	return tool.maxParallel <= 0 or tool.curParallel < tool.maxParallel
 
-def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, inputExtension, doCompileCheck=False):
+def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, projectsWithCrossProjectDeps, inputExtension, doCompileCheck=False):
 	with perf_timer.PerfTimer("Enqueuing build tasks"):
 		global _runningBuilds
 		_runningBuilds += 1
 		tool.curParallel += 1
+		shared_globals.totalBuilds += 1
 
 		buildProject.toolchain.CreateReachability(tool)
 
@@ -88,14 +89,14 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, inputExtens
 			log.Info("Enqueuing null-input build for {} for project {}", tool.__name__, buildProject)
 			pool.AddTask(
 				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, None, doCompileCheck),
-				(_buildFinished, pool, projectList, buildProject, tool, None, None)
+				(_buildFinished, pool, projectList, projectsWithCrossProjectDeps, buildProject, tool, None, None)
 			)
 		elif isinstance(buildInput, input_file.InputFile):
 			buildInput.AddUsedTool(tool)
 			log.Info("Enqueuing build for {} using {} for project {}", buildInput, tool.__name__, buildProject)
 			pool.AddTask(
 				(_logThenRun, tool.Run, tool, buildProject.toolchain, buildProject, buildInput, doCompileCheck),
-				(_buildFinished, pool, projectList, buildProject, tool, inputExtension, [buildInput])
+				(_buildFinished, pool, projectList, projectsWithCrossProjectDeps, buildProject, tool, inputExtension, [buildInput])
 			)
 		else:
 			for inputFile in buildInput:
@@ -104,7 +105,7 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, inputExtens
 			log.Info("Enqueuing multi-build task for {} using {} for project {}", buildProject, buildInput, tool.__name__, buildProject)
 			pool.AddTask(
 				(_logThenRun, tool.RunGroup, tool, buildProject.toolchain, buildProject, buildInput, doCompileCheck),
-				(_buildFinished, pool, projectList, buildProject, tool, None, buildInput)
+				(_buildFinished, pool, projectList, projectsWithCrossProjectDeps, buildProject, tool, None, buildInput)
 			)
 
 def _dependenciesMet(buildProject, tool):
@@ -175,13 +176,14 @@ def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, d
 
 
 	with perf_timer.PerfTimer("Tool execution"):
-		log.Build("Processing {} with {} for project {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__, buildProject)
+		log.Info("Processing {} with {} for project {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__, buildProject)
 		with buildToolchain.Use(buildTool):
 			return function(buildToolchain, buildProject, inputFiles), False
 
 @TypeChecked(
 	pool=thread_pool.ThreadPool,
 	projectList=list,
+	projectsWithCrossProjectDeps=list,
 	buildProject=project.Project,
 	toolUsed=(_classType, _typeType),
 	inputExtension=(String, type(None)),
@@ -189,7 +191,7 @@ def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, d
 	outputFiles=(String, tuple),
 	upToDate=bool
 )
-def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, inputFiles, outputFiles, upToDate):
+def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject, toolUsed, inputExtension, inputFiles, outputFiles, upToDate):
 	"""
 	Build has finished, enqueue another one.
 
@@ -197,6 +199,8 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 	:type pool: thread_pool.ThreadPool
 	:param projectList: list of all projects
 	:type projectList: list[project.Project]
+	:param projectsWithCrossProjectDeps: List of projects that contain cross-project dependencies
+	:type projectsWithCrossProjectDeps: list[project.Project]
 	:param buildProject: project
 	:type buildProject: project.Project
 	:param toolUsed: tool used to build it
@@ -216,119 +220,153 @@ def _buildFinished(pool, projectList, buildProject, toolUsed, inputExtension, in
 		_runningBuilds -= 1
 		buildProject.toolchain.ReleaseReachability(toolUsed)
 
-		if buildProject.toolchain.IsToolActive(toolUsed):
-			done = True
+		with perf_timer.PerfTimer("Checking for tool completion"):
+			if buildProject.toolchain.IsToolActive(toolUsed):
+				done = True
 
-			remainingInputs = [x for x in buildProject.inputFiles.get(inputExtension, []) if not x.WasToolUsed(toolUsed)]
+				remainingInputs = [x for x in buildProject.inputFiles.get(inputExtension, []) if not x.WasToolUsed(toolUsed)]
 
-			if not remainingInputs:
-				# Technically this will happen before the tool is finished building, so we need the
-				# above guard to keep from doing it twice and tossing up exceptions.
-				# The important thing here is that this will stop us from doing a lot of logic further
-				# down to see if we can build for tools that we know we can't build for.
-				if toolUsed.inputFiles is not None:
-					for inputFile in toolUsed.inputFiles:
-						if buildProject.toolchain.IsOutputActive(inputFile):
-							done = False
-							break
-				if done:
-					for inputFile in toolUsed.inputGroups:
-						if buildProject.toolchain.IsOutputActive(inputFile):
-							done = False
-							break
-				if done:
-					log.Info("Tool {} has finished building for project {}", toolUsed.__name__, buildProject)
-					buildProject.toolchain.DeactivateTool(toolUsed)
+				if not remainingInputs:
+					# Technically this will happen before the tool is finished building, so we need the
+					# above guard to keep from doing it twice and tossing up exceptions.
+					# The important thing here is that this will stop us from doing a lot of logic further
+					# down to see if we can build for tools that we know we can't build for.
+					if toolUsed.inputFiles is not None:
+						for inputFile in toolUsed.inputFiles:
+							if buildProject.toolchain.IsOutputActive(inputFile):
+								done = False
+								break
+					if done:
+						for inputFile in toolUsed.inputGroups:
+							if buildProject.toolchain.IsOutputActive(inputFile):
+								done = False
+								break
+					if done:
+						log.Info("Tool {} has finished building for project {}", toolUsed.__name__, buildProject)
+						buildProject.toolchain.DeactivateTool(toolUsed)
 
 		if not isinstance(outputFiles, tuple):
 			outputFiles = (outputFiles, )
 		for outputFile in outputFiles:
-			buildProject.AddArtifact(inputFiles, outputFile)
 			log.Info(
-				"Finished building {} => {}",
-				 "null-input for {} for project {}".format(toolUsed.__name__, buildProject) if inputFiles is None
-					else [os.path.basename(f.filename) for f in inputFiles],
+				"Checking for new tasks created by {}",
 				os.path.basename(outputFile)
 			)
 
-			outputExtension = os.path.splitext(outputFile)[1]
+			with perf_timer.PerfTimer("Processing new inputs"):
+				buildProject.AddArtifact(inputFiles, outputFile)
 
-			if inputExtension == outputExtension:
-				newInput = input_file.InputFile(outputFile, inputFiles, upToDate=upToDate)
-			else:
-				newInput = input_file.InputFile(outputFile, upToDate=upToDate)
+				outputExtension = os.path.splitext(outputFile)[1]
 
-			buildProject.inputFiles.setdefault(outputExtension, ordered_set.OrderedSet()).add(newInput)
+				if inputExtension == outputExtension:
+					newInput = input_file.InputFile(outputFile, inputFiles, upToDate=upToDate)
+				else:
+					newInput = input_file.InputFile(outputFile, upToDate=upToDate)
 
-			# Enqueue this file immediately in any tools that take it as a single input, unless they're marked to delay.
-			toolList = buildProject.toolchain.GetToolsFor(outputExtension, newInput.toolsUsed)
-			for tool in toolList:
-				if not buildProject.toolchain.IsToolActive(tool):
-					continue
+				buildProject.inputFiles.setdefault(outputExtension, ordered_set.OrderedSet()).add(newInput)
 
-				if not _canRun(tool):
-					continue
+				# Enqueue this file immediately in any tools that take it as a single input, unless they're marked to delay.
+				toolList = buildProject.toolchain.GetToolsFor(outputExtension, newInput.toolsUsed)
+				for tool in toolList:
+					if not buildProject.toolchain.IsToolActive(tool):
+						continue
 
-				if not _dependenciesMet(buildProject, tool):
-					continue
+					if not _canRun(tool):
+						continue
 
-				if newInput.WasToolUsed(tool):
-					continue
+					if not _dependenciesMet(buildProject, tool):
+						continue
 
-				_enqueueBuild(buildProject, tool, newInput, pool, projectList, outputExtension)
+					if newInput.WasToolUsed(tool):
+						continue
+
+					_enqueueBuild(buildProject, tool, newInput, pool, projectList, projectsWithCrossProjectDeps, outputExtension)
 
 			isActive = buildProject.toolchain.IsOutputActive(outputExtension)
 			log.Info("Checking if {} is still active... {}", outputExtension, "yes" if isActive else "no")
 
 			# If this was the last file being built of its extension, check whether we can pass it and maybe others to relevant group input tools
 			if not isActive:
-				toolList = buildProject.toolchain.GetActiveTools()
-				for tool in toolList:
-					if not _canRun(tool):
-						continue
-
-					if not tool.inputGroups:
-						continue
-
-					if not _dependenciesMet(buildProject, tool):
-						continue
-
-					# Check for group inputs that have been freed and queue up if all are free
-					fileList = _getGroupInputFiles(buildProject, tool)
-
-					if not fileList:
-						continue
-
-					_enqueueBuild(buildProject, tool, fileList, pool, projectList, None)
-
-				# Check to see if we've freed up any pending builds in other projects as well
-				for proj in projectList:
-					toolList = proj.toolchain.GetActiveTools()
+				with perf_timer.PerfTimer("Checking for newly enabled tools"):
+					toolList = buildProject.toolchain.GetActiveTools()
 					for tool in toolList:
-						if not _dependenciesMet(proj, tool):
+						if not _canRun(tool):
+							continue
+
+						if not _dependenciesMet(buildProject, tool):
 							continue
 
 						if tool.inputFiles is None:
 							if not _canRun(tool):
 								continue
 
-							_enqueueBuild(proj, tool, None, pool, projectList, None)
+							_enqueueBuild(buildProject, tool, None, pool, projectList, projectsWithCrossProjectDeps, None)
 						else:
 							for ext in tool.inputFiles:
-								for projectInput in [x for x in proj.inputFiles.get(ext, []) if not x.WasToolUsed(tool)]:
-									if not _canRun(tool):
-										break
-									_enqueueBuild(proj, tool, projectInput, pool, projectList, ext)
+								with perf_timer.PerfTimer("Enqueuing single-input builds"):
+									for projectInput in [x for x in buildProject.inputFiles.get(ext, []) if not x.WasToolUsed(tool)]:
+										if not _canRun(tool):
+											break
+										_enqueueBuild(buildProject, tool, projectInput, pool, projectList, projectsWithCrossProjectDeps, ext)
 
-						if not _canRun(tool):
+						if not tool.inputGroups:
 							continue
 
-						fileList = _getGroupInputFiles(proj, tool)
+						# Check for group inputs that have been freed and queue up if all are free
+						fileList = _getGroupInputFiles(buildProject, tool)
 
 						if not fileList:
 							continue
 
-						_enqueueBuild(proj, tool, fileList, pool, projectList, None)
+						_enqueueBuild(buildProject, tool, fileList, pool, projectList, projectsWithCrossProjectDeps, None)
+
+					# Check to see if we've freed up any pending builds in other projects as well
+					with perf_timer.PerfTimer("Cross-project dependency checks"):
+						for proj in projectsWithCrossProjectDeps:
+							toolList = proj.toolchain.GetActiveTools()
+							for tool in toolList:
+								if not _canRun(tool):
+									continue
+
+								if outputExtension not in tool.crossProjectDependencies:
+									continue
+
+								if not _dependenciesMet(proj, tool):
+									continue
+
+								if tool.inputFiles is None:
+									if not _canRun(tool):
+										continue
+
+									_enqueueBuild(proj, tool, None, pool, projectList, projectsWithCrossProjectDeps, None)
+								else:
+									for ext in tool.inputFiles:
+										with perf_timer.PerfTimer("Enqueuing single-input builds"):
+											for projectInput in [x for x in proj.inputFiles.get(ext, []) if not x.WasToolUsed(tool)]:
+												if not _canRun(tool):
+													break
+												_enqueueBuild(proj, tool, projectInput, pool, projectList, projectsWithCrossProjectDeps, ext)
+
+								if not tool.inputGroups:
+									continue
+
+								fileList = _getGroupInputFiles(proj, tool)
+
+								if not fileList:
+									continue
+
+								_enqueueBuild(proj, tool, fileList, pool, projectList, projectsWithCrossProjectDeps, None)
+
+		shared_globals.completedBuilds += 1
+
+		log.Info(
+			"Finished building {} => {}",
+			 "null-input for {} for project {}".format(toolUsed.__name__, buildProject) if inputFiles is None
+				else [os.path.basename(f.filename) for f in inputFiles],
+			[os.path.basename(PlatformString(outputFile)) for outputFile in outputFiles] if isinstance(outputFiles, tuple) else os.path.basename(outputFiles)
+		)
+		if shared_globals.verbosity > shared_globals.Verbosity.Verbose:
+			log.UpdateProgressBar()
 
 		if _runningBuilds == 0:
 			# We have no builds running and finishing this build did not spawn a new one
@@ -349,7 +387,7 @@ def _build(numThreads, projectBuildList):
 	:rtype: int
 	"""
 	with perf_timer.PerfTimer("Enqueuing initial builds"):
-		log.Info("Starting builds")
+		log.Build("Starting builds")
 		buildStart = time.time()
 		global _runningBuilds
 		callbackQueue = queue.Queue()
@@ -362,6 +400,14 @@ def _build(numThreads, projectBuildList):
 
 		failures = 0
 		pool.Start()
+
+		projectsWithCrossProjectDeps = []
+
+		for buildProject in projectBuildList:
+			for tool in buildProject.toolchain.GetAllTools():
+				if tool.crossProjectDependencies:
+					projectsWithCrossProjectDeps.append(buildProject)
+					break
 
 		for buildProject in projectBuildList:
 			for extension, fileList in [(None, None)] + list(buildProject.inputFiles.items()):
@@ -388,23 +434,23 @@ def _build(numThreads, projectBuildList):
 						if not buildProject.toolchain.IsToolActive(tool):
 							continue
 
-						_enqueueBuild(buildProject, tool, None, pool, projectBuildList, None)
+						_enqueueBuild(buildProject, tool, None, pool, projectBuildList, projectsWithCrossProjectDeps, None)
 						queuedSomething = True
 					else:
 						log.Info("Looking at files {}", fileList)
 						for inputFile in list(fileList): #Make a list out of this so it doesn't get a modified-during-iteration error
 							if not _canRun(tool):
 								break
-							_enqueueBuild(buildProject, tool, inputFile, pool, projectBuildList, extension, True)
+							_enqueueBuild(buildProject, tool, inputFile, pool, projectBuildList, projectsWithCrossProjectDeps, extension, True)
 							queuedSomething = True
 
 			toolList = buildProject.toolchain.GetAllTools()
 			log.Info("Checking for group inputs we can run already")
 			for tool in toolList:
-				if not _canRun(tool):
+				if not tool.inputGroups:
 					continue
 
-				if not tool.inputGroups:
+				if not _canRun(tool):
 					continue
 
 				try:
@@ -423,7 +469,7 @@ def _build(numThreads, projectBuildList):
 				if not fileList:
 					break
 
-				_enqueueBuild(buildProject, tool, fileList, pool, projectBuildList, None, True)
+				_enqueueBuild(buildProject, tool, fileList, pool, projectBuildList, projectsWithCrossProjectDeps, None, True)
 				queuedSomething = True
 
 	if not queuedSomething:
@@ -434,7 +480,8 @@ def _build(numThreads, projectBuildList):
 	with perf_timer.PerfTimer("Running builds"):
 		callbackQueue.ThreadInit()
 		while True:
-			callback = callbackQueue.GetBlocking()
+			with perf_timer.PerfTimer("Main thread idle"):
+				callback = callbackQueue.GetBlocking()
 
 			if callback is thread_pool.ThreadPool.exitEvent:
 				break
@@ -482,22 +529,16 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 	:type keepArtifactsAndDirectories: bool
 	"""
 	with perf_timer.PerfTimer("Cleaning build artifacts"):
+		log.Build("Cleaning...")
 		def _rmDirIfPossible(cleanProject, dirname):
-			if os.access(dirname, os.F_OK):
-				containsOnlyDirs = True
-				for root, _, files in os.walk(dirname):
-					if files and (len(files) > 1 or os.path.join(root, files[0]) != cleanProject.artifactsFileName):
-						containsOnlyDirs = False
-						break
-				if containsOnlyDirs:
-					if keepArtifactsAndDirectories:
-						for subdir in os.listdir(dirname):
-							subdir = os.path.join(dirname, subdir)
-							if subdir in {cleanProject.artifactsFileName, cleanProject.csbuildDir, cleanProject.intermediateDir, cleanProject.outputDir}:
-								continue
-							log.Build("Removing {}", subdir)
-							shutil.rmtree(subdir)
-					else:
+			with perf_timer.PerfTimer("Removing directories (if possible)"):
+				if os.access(dirname, os.F_OK):
+					containsOnlyDirs = True
+					for root, _, files in os.walk(dirname):
+						if files and (len(files) > 1 or os.path.join(root, files[0]) != cleanProject.artifactsFileName):
+							containsOnlyDirs = False
+							break
+					if containsOnlyDirs:
 						log.Build("Removing {}", dirname)
 						#If it contains only directories and no files, remove everything
 						shutil.rmtree(dirname)
@@ -507,16 +548,15 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 							os.removedirs(parentDir)
 
 		for cleanProject in projectCleanList:
-			for artifacts in cleanProject.lastRunArtifacts.values():
-				for artifact in artifacts:
-					if os.access(artifact, os.F_OK):
-						log.Build("Removing {}", artifact)
-						os.remove(artifact)
+			log.Info("Cleaning project {}", cleanProject)
+			with perf_timer.PerfTimer("Removing artifacts"):
+				for artifacts in cleanProject.lastRunArtifacts.values():
+					for artifact in artifacts:
+						if os.access(artifact, os.F_OK):
+							log.Info("Removing {}", artifact)
+							os.remove(artifact)
 
-			if keepArtifactsAndDirectories:
-				cleanProject.artifactsFile.seek(0)
-				cleanProject.artifactsFile.truncate(0)
-			else:
+			if not keepArtifactsAndDirectories:
 				cleanProject.artifactsFile.flush()
 				os.fsync(cleanProject.artifactsFile.fileno())
 				cleanProject.artifactsFile.close()
@@ -529,10 +569,9 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 				log.Build("Removing {}", cleanProject.artifactsFileName)
 				os.remove(cleanProject.artifactsFileName)
 
-
-			_rmDirIfPossible(cleanProject, cleanProject.csbuildDir)
-			_rmDirIfPossible(cleanProject, cleanProject.intermediateDir)
-			_rmDirIfPossible(cleanProject, cleanProject.outputDir)
+				_rmDirIfPossible(cleanProject, cleanProject.csbuildDir)
+				_rmDirIfPossible(cleanProject, cleanProject.intermediateDir)
+				_rmDirIfPossible(cleanProject, cleanProject.outputDir)
 
 
 def _execfile(filename, glob, loc):
@@ -700,7 +739,8 @@ def Run():
 		#parser.add_argument('--dg', '--dependency-graph', help="Generate dependency graph", action="store_true")
 		#parser.add_argument('--with-libs', help="Include linked libraries in dependency graph", action="store_true")
 
-		parser.add_argument("--perf-report", help="Collect and show perf report at the end of execution", action="store_true")
+		parser.add_argument("--perf-report", help="Collect and show perf report at the end of execution",
+							action = "store", choices = ["tree", "flat"], default = None, const = "tree", nargs = "?")
 
 		#parser.add_argument("-d", "--define", help = "Add defines to each project being built.", action = "append")
 
@@ -759,8 +799,10 @@ def Run():
 		shared_globals.showCommands = args.show_commands
 		shared_globals.runPerfReport = args.perf_report
 
-		if args.force_color:
+		if args.force_color == "on":
 			shared_globals.colorSupported = True
+		elif args.force_color == "off":
+			shared_globals.colorSupported = False
 		else:
 			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 
@@ -800,9 +842,18 @@ def Run():
 		if not args.jobs:
 			args.jobs = multiprocessing.cpu_count()
 
+		if args.force_progress_bar == "on":
+			shared_globals.columns = 80
+		elif args.force_progress_bar == "off":
+			shared_globals.columns = 0
+		else:
+			shared_globals.columns = terminfo.TermInfo.GetNumColumns( )
+		shared_globals.clearBar = "\r" +  " " * shared_globals.columns + "\r"
+
 	projectBuildList = []
 
 	preparationStart = time.time()
+	shared_globals.startTime = preparationStart
 
 	if args.project:
 		projectFilter = set(args.project)
@@ -821,6 +872,7 @@ def Run():
 			system.Exit(1)
 
 	with perf_timer.PerfTimer("Project plan execution"):
+		log.Build("Preparing build...")
 		for toolchainName in toolchainList:
 			log.Info("Collecting projects for toolchain {}", toolchainName)
 			for archName in archList:
@@ -924,5 +976,5 @@ def Run():
 		failures = _build(args.jobs, projectBuildList)
 
 	totaltime = time.time() - preparationStart
-	log.Build("Build took {}".format(FormatTime(totaltime)))
+	log.Build("Total execution took {}".format(FormatTime(totaltime)))
 	system.Exit(failures)

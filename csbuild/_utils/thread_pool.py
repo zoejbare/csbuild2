@@ -32,7 +32,7 @@ import functools
 import sys
 import threading
 
-from .. import log
+from .. import log, perf_timer
 from .._testing import testcase
 from . import queue
 from .decorators import TypeChecked
@@ -150,7 +150,8 @@ class ThreadPool(object):
 	def _threadRunner(self):
 		self.queue.ThreadInit()
 		while True:
-			task = self.queue.GetBlocking()
+			with perf_timer.PerfTimer("Worker thread idle"):
+				task = self.queue.GetBlocking()
 
 			ret = None
 			if task is ThreadPool.exitEvent:

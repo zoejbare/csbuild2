@@ -31,6 +31,7 @@ import unittest
 import fnmatch
 import os
 import imp
+import time
 
 from .. import log
 from .._utils import shared_globals, terminfo
@@ -51,6 +52,7 @@ def RunTests(include, exclude):
 	"""
 	shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 	shared_globals.showCommands = True
+	shared_globals.startTime = time.time()
 	tests = unittest.defaultTestLoader.discover("csbuild", "*.py", ".")
 	for testdir in os.listdir("functional_tests"):
 		log.Test("Loading functional tests from {}", testdir)

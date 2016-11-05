@@ -54,7 +54,7 @@ class InputFile(object):
 	:type filename: str, bytes
 
 	:param sourceInputs: The previous sinput in the chain (if None, this represents the first input)
-	:type sourceInputs: list[InputFile]
+	:type sourceInputs: ordered_set.OrderedSet[InputFile]
 
 	:param upToDate: whether or not the file was up to date (i.e., no build was performed)
 	:type upToDate: bool

@@ -70,3 +70,11 @@ projectMap = {}
 projectBuildList = []
 
 commandOutputThread = None
+
+columns = 0
+clearBar = ""
+
+startTime = 0
+
+totalBuilds = 0
+completedBuilds = 0

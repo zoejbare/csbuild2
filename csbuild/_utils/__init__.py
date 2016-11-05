@@ -93,18 +93,24 @@ else:
 		"""
 		return PlatformString(inputStr)
 
-def FormatTime(totaltime):
+def FormatTime(totaltime, withMillis=True):
 	"""
 	Format a duration of time into minutes:seconds (i.e., 2:55)
 	:param totaltime: duration of time
 	:type totaltime: float
+	:param withMillis: Include milliseconds in output
+	:type withMillis: bool
 	:return: formatted string
 	:rtype: str
 	"""
 	totalmin = math.floor(totaltime / 60)
 	totalsec = math.floor(totaltime % 60)
-	msec = math.floor((totaltime - math.floor(totaltime))*1000)
-	return "{}:{:02}.{:04}".format(int(totalmin), int(totalsec), int(msec))
+	if withMillis:
+		msec = math.floor((totaltime - math.floor(totaltime))*1000)
+		return "{}:{:02}.{:04}".format(int(totalmin), int(totalsec), int(msec))
+	else:
+		return "{}:{:02}".format(int(totalmin), int(totalsec))
+
 
 class MultiBreak(Exception):
 	"""

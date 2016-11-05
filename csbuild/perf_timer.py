@@ -32,7 +32,6 @@ import threading
 import re
 from collections import deque
 
-from . import log
 from ._utils import FormatTime, shared_globals
 
 class PerfTimer(object):
@@ -90,11 +89,26 @@ class PerfTimer(object):
 		"""
 		Print out all the collected data from PerfTimers in a heirarchical tree
 		"""
+		from . import log
+		shared_globals.verbosity = shared_globals.Verbosity.Verbose
 		fullreport = {}
 		threadreports = {}
 		while True:
 			try:
 				pair = PerfTimer.perfQueue.popleft()
+				if shared_globals.runPerfReport == "flat":
+					split = pair[0].rsplit("::", 1)
+					if len(split) == 2:
+						key = split[1]
+					else:
+						key = split[0]
+					pair = (
+						key,
+						pair[1],
+						pair[2],
+						pair[3]
+					)
+
 				fullreport.setdefault(pair[0], [0,0,0,[],[]])
 				fullreport[pair[0]][0] += pair[1]
 				fullreport[pair[0]][1] += pair[2]
@@ -137,11 +151,11 @@ class PerfTimer(object):
 							FormatTime(report[prev[1]][1]/report[prev[1]][2]),
 						)
 						printed.add(prev[1])
-						_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + " \u2503  " + " \u2523\u2501 ", printed, itemfmt)
+						_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + " \u2502  " + " \u251c\u2500 ", printed, itemfmt)
 					prev = (printkey, key)
 
 			if prev != (None, None):
-				printkey = prev[0].replace("\u2523", "\u2517")
+				printkey = prev[0].replace("\u251c", "\u2514")
 				log.Custom(
 					log.Color.WHITE,
 					"PERF",
@@ -154,7 +168,7 @@ class PerfTimer(object):
 					FormatTime(report[prev[1]][1]/report[prev[1]][2]),
 				)
 				printed.add(prev[1])
-				_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + "    " + " \u2523\u2501 ", printed, itemfmt)
+				_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + "    " + " \u251c\u2500 ", printed, itemfmt)
 
 		def _alteredKey(key):
 			return re.sub("([^:]*::)", "    ", key)
@@ -170,15 +184,15 @@ class PerfTimer(object):
 				totalcount += report[key][2]
 
 			log.Custom(log.Color.WHITE, "PERF", "")
-			linefmt = "+={{:=<{}}}=+============+============+=======+============+============+".format(maxlen)
+			linefmt = "+={{:=<{}}}=+============+============+===========+============+============+".format(maxlen)
 			line = linefmt.format('')
 			log.Custom(log.Color.WHITE, "PERF", line)
-			headerfmt = "| {{:<{}}} | INCLUSIVE  | EXCLUSIVE  | CALLS |  INC_MEAN  |  EXC_MEAN  |".format(maxlen)
+			headerfmt = "| {{:<{}}} | INCLUSIVE  | EXCLUSIVE  |   CALLS   |  INC_MEAN  |  EXC_MEAN  |".format(maxlen)
 			log.Custom(log.Color.WHITE, "PERF", headerfmt, threadId)
 			log.Custom(log.Color.WHITE, "PERF", line)
-			itemfmt = "| {{:{}}} | {{:>10}} | {{:>10}} | {{:>5}} | {{:>10}} | {{:>10}} |".format(maxlen)
+			itemfmt = "| {{:{}}} | {{:>10}} | {{:>10}} | {{:>9}} | {{:>10}} | {{:>10}} |".format(maxlen)
 			printed = set()
-			sortedKeys = sorted(report, reverse=True, key=lambda x: report[x][0])
+			sortedKeys = sorted(report, reverse=True, key=lambda x: report[x][0] if shared_globals.runPerfReport == "tree" else report[x][1])
 			total = 0
 			for key in sortedKeys:
 				if key in printed:
@@ -196,8 +210,11 @@ class PerfTimer(object):
 					FormatTime(report[key][0]/report[key][2]),
 					FormatTime(report[key][1]/report[key][2]),
 				)
-				total += report[key][0]
-				_recurse(report, sortedKeys, key + "::", " \u2523\u2501 ", printed, itemfmt)
+				if shared_globals.runPerfReport == "flat":
+					total += report[key][1]
+				else:
+					total += report[key][0]
+				_recurse(report, sortedKeys, key + "::", " \u251c\u2500 ", printed, itemfmt)
 
 			log.Custom(log.Color.WHITE, "PERF", line)
 			log.Custom(

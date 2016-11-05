@@ -98,7 +98,7 @@ class Project(object):
 
 			self.scriptDir = scriptDir
 
-			log.Build("Preparing build tasks for {}", self)
+			log.Info("Preparing build tasks for {}", self)
 
 			#: type: list[Tool]
 			self.tools = projectSettings["tools"]
@@ -359,42 +359,47 @@ class Project(object):
 			if self.autoDiscoverSourceFiles:
 				extensionList = self.toolchain.GetSearchExtensions()
 
-				for sourceDir in ordered_set.OrderedSet([self.workingDirectory]) | self.extraDirs:
-					log.Build("Collecting files from {}", sourceDir)
-					for root, _, filenames in os.walk(sourceDir):
-						absroot = os.path.abspath(root)
-						if absroot in self.excludeDirs:
-							if absroot != self.csbuildDir:
-								log.Info("Skipping dir {}", root)
-							continue
-						if ".csbuild" in root \
-								or root.startswith(self.intermediateDir) \
-								or (root.startswith(self.outputDir) and self.outputDir != self.workingDirectory):
-							continue
-						if absroot == self.csbuildDir or absroot.startswith(self.csbuildDir):
-							continue
-						found = False
-						for testDir in self.excludeDirs:
-							if absroot.startswith(testDir):
-								found = True
+				with perf_timer.PerfTimer("Walking working dir"):
+					for sourceDir in ordered_set.OrderedSet([self.workingDirectory]) | self.extraDirs:
+						log.Build("Collecting files from {}", sourceDir)
+						for root, _, filenames in os.walk(sourceDir):
+							if not filenames:
 								continue
-						if found:
-							if not absroot.startswith(self.csbuildDir):
-								log.Info("Skipping directory {}", root)
-							continue
-						log.Info("Looking in directory {}", root)
-						for extension in extensionList:
-							log.Info("Checking for {}", extension)
-							self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
-								[
-									input_file.InputFile(
-										os.path.join(absroot, filename)
-									) for filename in filenames if os.path.splitext(filename)[1] == extension
-									and os.path.join(absroot, filename) not in self.lastRunArtifacts
-								]
-							)
+							absroot = os.path.abspath(root)
+							if absroot in self.excludeDirs:
+								if absroot != self.csbuildDir:
+									log.Info("Skipping dir {}", root)
+								continue
+							if ".csbuild" in root \
+									or root.startswith(self.intermediateDir) \
+									or (root.startswith(self.outputDir) and self.outputDir != self.workingDirectory):
+								continue
+							if absroot == self.csbuildDir or absroot.startswith(self.csbuildDir):
+								continue
+							found = False
+							for testDir in self.excludeDirs:
+								if absroot.startswith(testDir):
+									found = True
+									continue
+							if found:
+								if not absroot.startswith(self.csbuildDir):
+									log.Info("Skipping directory {}", root)
+								continue
+							log.Info("Looking in directory {}", root)
+							with perf_timer.PerfTimer("Collecting files"):
+								for extension in extensionList:
+									log.Info("Checking for {}", extension)
+									self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
+										[
+											input_file.InputFile(
+												os.path.join(absroot, filename)
+											) for filename in filenames if os.path.splitext(filename)[1] == extension
+											and os.path.join(absroot, filename) not in self.lastRunArtifacts
+										]
+									)
 
-			for filename in self.sourceFiles:
-				extension = os.path.splitext(filename)[1]
-				self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(input_file.InputFile(filename))
+			with perf_timer.PerfTimer("Processing source files"):
+				for filename in self.sourceFiles:
+					extension = os.path.splitext(filename)[1]
+					self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(input_file.InputFile(filename))
 			log.Info("Discovered {}", self.inputFiles)

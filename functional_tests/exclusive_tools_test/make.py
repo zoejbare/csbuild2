@@ -105,9 +105,6 @@ class Adder(AddDoubles):
 	outputFiles = {".second"}
 
 	def RunGroup(self, project, inputFiles):
-		os.mkdir(os.path.join(project.intermediateDir, "dummyDir"))
-		os.mkdir(os.path.join(project.outputDir, "dummyDir"))
-
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
