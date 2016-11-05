@@ -31,6 +31,10 @@ import os
 import csbuild
 
 from .cpp_compiler_base import CppCompilerBase
+from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
+
+DebugLevel = HasDebugLevel.DebugLevel
+OptimizationLevel = HasOptimizationLevel.OptimizationLevel
 
 class GccCppCompiler(CppCompilerBase):
 	"""
@@ -39,18 +43,59 @@ class GccCppCompiler(CppCompilerBase):
 	supportedArchitectures = {"x86", "x64"}
 	outputFiles = {".o"}
 
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
 	def _getOutputFiles(self, project, inputFile):
 		filename = os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o"
 		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
 
 	def _getCommand(self, project, inputFile, isCpp):
 		cmd = "g++" if isCpp else "gcc"
-		ret = [
-			cmd,
-			"-c", inputFile.filename,
-			"-o", self._getOutputFiles(project, inputFile),
-		] + ["-I"+directory for directory in self._includeDirectories]
+		return [cmd] \
+			+ self._getInputFileArgs(inputFile) \
+			+ self._getDefaultArgs(project) \
+			+ self._getOutputFileArgs(project, inputFile) \
+			+ self._getPreprocessorArgs() \
+			+ self._getIncludeDirectoryArgs() \
+			+ self._getDebugArgs() \
+			+ self._getOptimizationArgs()
 
+
+	####################################################################################################################
+	### Internal methods
+	####################################################################################################################
+
+	def _getDefaultArgs(self, project):
+		args = ["--pass-exit-codes"]
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			ret += ["-fPIC"]
-		return ret
+			args.append("-fPIC")
+		return args
+
+	def _getInputFileArgs(self, inputFile):
+		return ["-c", inputFile.filename]
+
+	def _getOutputFileArgs(self, project, inputFile):
+		return ["-o", self._getOutputFiles(project, inputFile)]
+
+	def _getPreprocessorArgs(self):
+		return ["-D{}".format(d) for d in self._defines] + ["-U{}".format(u) for u in self._undefines]
+
+	def _getIncludeDirectoryArgs(self):
+		return ["-I" + d for d in self._includeDirectories]
+
+	def _getDebugArgs(self):
+		if self._debugLevel != DebugLevel.Disabled:
+			return ["-g"]
+		else:
+			return []
+
+	def _getOptimizationArgs(self):
+		arg = {
+			OptimizationLevel.Size: "s",
+			OptimizationLevel.Speed: "fast",
+			OptimizationLevel.Max: "3",
+		}
+		return ["-O{}".format(arg.get(self._optLevel, "0"))]

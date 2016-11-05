@@ -48,20 +48,27 @@ class GccLinker(LinkerBase):
 
 	_failRegex = re.compile(R"ld: cannot find -l(.*)")
 
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
 	def _getOutputFiles(self, project):
-		return os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType))
+		return tuple({os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType))})
 
 	def _getCommand(self, project, inputFiles):
-
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			return ["ar", "rcs", self._getOutputFiles(project)] + [f.filename for f in inputFiles]
-
-		ret = ["gcc", "-o", self._getOutputFiles(project), "-L/"] \
-			   + [f.filename for f in inputFiles] \
-			   + ["-l:"+lib for lib in self._actualLibraryLocations.values()]
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			ret += ["-shared", "-fPIC"]
-		return ret
+			return ["ar", "rcs"] \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles)
+		else:
+			return ["gcc", "-L/"] \
+				+ self._getDefaultArgs(project) \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles) \
+				+ self._getStartGroupArgs() \
+				+ self._getLibraryArgs() \
+				+ self._getEndGroupArgs()
 
 	def _findLibraries(self, libs):
 		shortLibs = ordered_set.OrderedSet(libs)
@@ -137,10 +144,38 @@ class GccLinker(LinkerBase):
 			log.Info("Found library '{}' at {}", lib, ret[lib])
 		return ret
 
-
 	def _getOutputExtension(self, projectType):
 		if projectType == csbuild.ProjectType.SharedLibrary:
 			return ".so"
 		elif projectType == csbuild.ProjectType.StaticLibrary:
 			return ".a"
 		return ""
+
+
+	####################################################################################################################
+	### Internal methods
+	####################################################################################################################
+
+	def _getDefaultArgs(self, project):
+		args = []
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			args += ["-shared", "-fPIC"]
+		return args
+
+	def _getOutputFileArgs(self, project):
+		if project.projectType == csbuild.ProjectType.StaticLibrary:
+			return [self._getOutputFiles(project)[0]]
+		else:
+			return ["-o", self._getOutputFiles(project)[0]]
+
+	def _getInputFileArgs(self, inputFiles):
+		return [f.filename for f in inputFiles]
+
+	def _getLibraryArgs(self):
+		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]
+
+	def _getStartGroupArgs( self ):
+		return ["-Wl,--no-as-needed", "-Wl,--start-group"]
+
+	def _getEndGroupArgs( self ):
+		return ["-Wl,--end-group"]
