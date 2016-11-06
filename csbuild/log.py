@@ -242,7 +242,10 @@ def _writeLog(color, level, msg, destination=sys.stdout):
 								destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
 							destination.flush()
 			else:
-				destination.write(msg)
+				try:
+					destination.write(msg)
+				except UnicodeEncodeError:
+					destination.write(msg.encode("ascii", "replace").decode("ascii", "replace"))
 
 			destination.write("\n")
 
@@ -264,7 +267,10 @@ def _writeLog(color, level, msg, destination=sys.stdout):
 							except UnicodeEncodeError:
 								destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
 			else:
-				destination.write(msg)
+				try:
+					destination.write(msg)
+				except UnicodeEncodeError:
+					destination.write(msg.encode("ascii", "replace").decode("ascii", "replace"))
 
 			destination.write("\n")
 
