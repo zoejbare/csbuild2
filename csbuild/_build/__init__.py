@@ -40,11 +40,12 @@ import encodings
 import importlib
 import pkgutil
 import threading
+import traceback
 
 from . import recompile
 from . import project_plan, project, input_file
 from .. import log, commands, tools, perf_timer
-from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak, PlatformString
+from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak, PlatformString, settings_manager
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 
@@ -74,6 +75,7 @@ def _enqueueBuild(buildProject, tool, buildInput, pool, projectList, projectsWit
 		_runningBuilds += 1
 		tool.curParallel += 1
 		shared_globals.totalBuilds += 1
+		log.UpdateProgressBar()
 
 		buildProject.toolchain.CreateReachability(tool)
 
@@ -391,7 +393,6 @@ def _build(numThreads, projectBuildList):
 		buildStart = time.time()
 		global _runningBuilds
 		callbackQueue = queue.Queue()
-		log.SetCallbackQueue(callbackQueue)
 		pool = thread_pool.ThreadPool(numThreads, callbackQueue)
 		queuedSomething = False
 		for buildProject in projectBuildList:
@@ -478,7 +479,6 @@ def _build(numThreads, projectBuildList):
 		return 0
 
 	with perf_timer.PerfTimer("Running builds"):
-		callbackQueue.ThreadInit()
 		while True:
 			with perf_timer.PerfTimer("Main thread idle"):
 				callback = callbackQueue.GetBlocking()
@@ -515,7 +515,7 @@ def _build(numThreads, projectBuildList):
 			log.Error("Project {} did not finish building.", buildProject)
 			failures += 1
 
-	log.Build("Build finished. Total build time: {}", FormatTime(time.time() - buildStart))
+	log.Build("Build finished. Completed {} tasks in {}", shared_globals.totalBuilds, FormatTime(time.time() - buildStart))
 	return failures
 
 @TypeChecked(projectCleanList=list, keepArtifactsAndDirectories=bool)
@@ -530,12 +530,12 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 	"""
 	with perf_timer.PerfTimer("Cleaning build artifacts"):
 		log.Build("Cleaning...")
-		def _rmDirIfPossible(cleanProject, dirname):
+		def _rmDirIfPossible(dirname):
 			with perf_timer.PerfTimer("Removing directories (if possible)"):
 				if os.access(dirname, os.F_OK):
 					containsOnlyDirs = True
-					for root, _, files in os.walk(dirname):
-						if files and (len(files) > 1 or os.path.join(root, files[0]) != cleanProject.artifactsFileName):
+					for _, _, files in os.walk(dirname):
+						if files:
 							containsOnlyDirs = False
 							break
 					if containsOnlyDirs:
@@ -557,21 +557,9 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 							os.remove(artifact)
 
 			if not keepArtifactsAndDirectories:
-				cleanProject.artifactsFile.flush()
-				os.fsync(cleanProject.artifactsFile.fileno())
-				cleanProject.artifactsFile.close()
-
-				system.SyncDir(os.path.dirname(cleanProject.artifactsFileName))
-
-				# Close and reopen the file to clear it.
-				cleanProject.artifactsFile = None
-
-				log.Build("Removing {}", cleanProject.artifactsFileName)
-				os.remove(cleanProject.artifactsFileName)
-
-				_rmDirIfPossible(cleanProject, cleanProject.csbuildDir)
-				_rmDirIfPossible(cleanProject, cleanProject.intermediateDir)
-				_rmDirIfPossible(cleanProject, cleanProject.outputDir)
+				_rmDirIfPossible(cleanProject.csbuildDir)
+				_rmDirIfPossible(cleanProject.intermediateDir)
+				_rmDirIfPossible(cleanProject.outputDir)
 
 
 def _execfile(filename, glob, loc):
@@ -795,6 +783,9 @@ def Run():
 			print("Maintainer: {} - {}".format(csbuild.__maintainer__, csbuild.__email__))
 			return
 
+		csbDir = os.path.join(mainFileDir, ".csbuild")
+		shared_globals.settings = settings_manager.SettingsManager(os.path.join(csbDir, "settings"))
+
 		shared_globals.verbosity = args.verbosity
 		shared_globals.showCommands = args.show_commands
 		shared_globals.runPerfReport = args.perf_report
@@ -871,6 +862,61 @@ def Run():
 			log.Error("No such project(s): {}", ", ".join(nonexistent))
 			system.Exit(1)
 
+	# Note:
+	# The reason for this bit of code is that the import lock, in the way that CSBuild operates, prevents
+	# us from being able to call subprocess.Popen() or any other process execution function other than os.popen().
+	# csbuild is replacing the global import lock with its own lock to achieve the same functionality without the hang.
+	# We then release the global import lock, but no one using csbuild should ever have to care about that, ever.
+
+	class _importLocker(object):
+		"""
+		This replaces the global import lock with a new lock to get around a hang in subprocess.Popen() when the lock's held
+		"""
+		def __init__(self):
+			self.lock = threading.RLock()
+			self.loader = None
+
+		#pylint: disable=invalid-name
+		def find_module(self, fullname, path=None):
+			"""
+			Find the module loader, always returns self so the load_module will be called and the lock released
+			:param fullname: name of module
+			:type fullname: str
+			:param path: path to look in
+			:type path: str
+			:return: self
+			:rtype: _importBlocker
+			"""
+			self.lock.acquire()
+			sys.meta_path.pop(0)
+			self.loader = imp.find_module(fullname.rpartition(".")[2], path)
+			sys.meta_path.insert(0, self)
+			if self.loader is not None:
+				return self
+			self.lock.release()
+			return None
+
+		def load_module(self, name):
+			"""
+			Load the module from whatever loader we actually found to load it, then release the lock
+			:param name: name of module
+			:type name: str
+			:return: the loaded module
+			:rtype: module
+			"""
+			try:
+				return imp.load_module(name, *self.loader)
+			finally:
+				self.lock.release()
+
+	sys.meta_path.insert(0, _importLocker())
+
+	failures = 0
+
+	if imp.lock_held():
+		imp.release_lock()
+	log.StartLogThread()
+
 	with perf_timer.PerfTimer("Project plan execution"):
 		log.Build("Preparing build...")
 		for toolchainName in toolchainList:
@@ -908,73 +954,17 @@ def Run():
 	totaltime = time.time() - preparationStart
 	log.Build("Build preparation took {}".format(FormatTime(totaltime)))
 
-	def _ignoreError(_):
-		pass
-
-	# Encodings are handled by trying to import a module and then failing to encode if they can't
-	# Import all encodings and cache before releasing the import lock to make sure this can be done in a safe way
-	for _, name, _ in pkgutil.walk_packages(encodings.__path__, onerror=_ignoreError):
-		try:
-			module = importlib.import_module('encodings.' + name)
-			sys.modules[name] = module
-		except:
-			continue
-
-	# Note:
-	# The reason for this line of code is that the import lock, in the way that CSBuild operates, prevents
-	# us from being able to call subprocess.Popen() or any other process execution function other than os.popen().
-	# This exists to prevent multiple threads from importing at the same time, so... Within csbuild, never import
-	# within any thread but the main thread. Any import statements used by threads should be in the module those
-	# thread objects are defined in so they're completed in full on the main thread before that thread starts.
-	#
-	# After this point, the LOCK IS RELEASED. Importing is NO LONGER THREAD-SAFE. DON'T DO IT.
-
-	#Past this point, disable importing entirely! Anything not already in the cache will raise an error on import
-	class _importBlocker(object):
-		"""
-		This import hook prevents any module from being imported. Ever.
-		"""
-		#pylint: disable=invalid-name, unused-argument
-		def find_module(self, fullname, path=None):
-			"""
-			Find the module loader, always returns self so the load_module will be called
-			:param fullname: name of module
-			:type fullname: str
-			:param path: path to look in
-			:type path: str
-			:return: self
-			:rtype: _importBlocker
-			"""
-			return self
-
-		def load_module(self, name):
-			"""
-			Always raises import error
-			:param name: name of module
-			:type name: str
-			:raises ImportError: always
-			"""
-			raise ImportError(
-				"All modules must be imported prior to build starting. If you need local imports, "
-				"make a global import first, or import in a pre-build step, or in plugin/tool static "
-				"init, so that it is cached."
-			)
-
-	sys.meta_path.insert(0, _importBlocker())
-
-	failures = 0
-
 	if args.clean or args.rebuild:
 		_clean(projectBuildList, args.rebuild)
 
 	if not args.clean or args.rebuild:
-		if imp.lock_held():
-			imp.release_lock()
 
 		shared_globals.commandOutputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		shared_globals.commandOutputThread.start()
 		failures = _build(args.jobs, projectBuildList)
 
+	with perf_timer.PerfTimer("Waiting on logging to shut down"):
+		log.StopLogThread()
 	totaltime = time.time() - preparationStart
 	log.Build("Total execution took {}".format(FormatTime(totaltime)))
 	system.Exit(failures)

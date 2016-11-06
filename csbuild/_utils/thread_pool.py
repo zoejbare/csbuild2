@@ -31,6 +31,7 @@ from __future__ import unicode_literals, division, print_function
 import functools
 import sys
 import threading
+import inspect
 
 from .. import log, perf_timer
 from .._testing import testcase
@@ -88,7 +89,7 @@ class ThreadPool(object):
 
 		assert numThreads > 0
 
-		self.queue = queue.Queue(numThreads)
+		self.queue = queue.Queue()
 		self.threads = [threading.Thread(target=self._threadRunner) for _ in range(numThreads)]
 		self.callbackQueue = callbackQueue
 		self.stopOnException = stopOnException
@@ -148,7 +149,6 @@ class ThreadPool(object):
 		Reraise(ThreadedTaskException(excInfo[1], excInfo[2]), excInfo[2])
 
 	def _threadRunner(self):
-		self.queue.ThreadInit()
 		while True:
 			with perf_timer.PerfTimer("Worker thread idle"):
 				task = self.queue.GetBlocking()
@@ -178,13 +178,30 @@ class ThreadPool(object):
 				# Otherwise by the time this runs, task has probably changed to another value and we get invalid results
 				def _makeCallback(callback, ret):
 					def _callback():
-						try:
-							callback(*ret)
-						except TypeError:
-							try:
-								callback(ret)
-							except TypeError:
-								callback()
+						if isinstance(callback, functools.partial):
+							argspec = inspect.getargspec(callback.func) # pylint: disable=deprecated-method
+							if argspec[1]:
+								nargs = -1
+							else:
+								nargs = len(argspec[0]) - len(callback.func.args)
+						else:
+							argspec = inspect.getargspec(callback) # pylint: disable=deprecated-method
+							if argspec[1]:
+								nargs = -1
+							else:
+								nargs = len(argspec[0])
+
+						if isinstance(ret, tuple):
+							if nargs == -1 or nargs == len(argspec[0]):
+								callback(*ret)
+								return
+						if nargs == 1:
+							callback(ret)
+							return
+						if nargs == 0:
+							callback()
+							return
+						raise TypeError("Could not find a way to call {} with parameters {}".format(callback, ret))
 					return _callback
 
 				self.callbackQueue.Put(_makeCallback(task[1], ret))
@@ -242,7 +259,6 @@ class TestThreadPool(testcase.TestCase):
 			expectedCount += i
 			expectedCount += i + 1
 
-		callbackQueue.ThreadInit()
 		while True:
 			cb = callbackQueue.GetBlocking()
 			if cb is ThreadPool.exitEvent:
@@ -266,7 +282,6 @@ class TestThreadPool(testcase.TestCase):
 		pool.Start()
 
 		caughtException = False
-		callbackQueue.ThreadInit()
 		while True:
 			cb = callbackQueue.GetBlocking()
 
@@ -304,7 +319,6 @@ class TestThreadPool(testcase.TestCase):
 		pool.AddTask(_getTwo, _callbackNoArg)
 		pool.Start()
 
-		callbackQueue.ThreadInit()
 		while True:
 			cb = callbackQueue.GetBlocking()
 

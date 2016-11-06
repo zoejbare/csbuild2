@@ -47,7 +47,6 @@ class NoInterleavedOutputTest(FunctionalTest):
 		self.lastValue = -1
 		self.numTallies = 0
 		self.callbackQueue = queue.Queue()
-		self.callbackQueue.ThreadInit()
 
 		#overriding stdout rather than specifying a callback
 		#because callbacks are called in realtime, stdout printing is queued

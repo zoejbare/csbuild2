@@ -32,8 +32,8 @@ import sys
 import subprocess
 import threading
 
-from . import log, perf_timer
-from ._utils import shared_globals, PlatformUnicode, queue
+from . import shared_globals, log, perf_timer
+from ._utils import PlatformUnicode, queue
 from ._utils.decorators import TypeChecked
 
 if sys.version_info[0] >= 3:
@@ -57,12 +57,10 @@ def PrintStaggeredRealTimeOutput():
 	its own queue; this ensures output from a single process is printed as soon as it's available,
 	but output from multiple processes is not interleaved.
 	"""
-	queueOfLogQueues.ThreadInit()
 	while True:
 		innerQueue = queueOfLogQueues.GetBlocking()
 		if innerQueue is stopEvent:
 			break
-		innerQueue.ThreadInit()
 		while True:
 			msg = innerQueue.GetBlocking()
 			if msg is stopEvent:

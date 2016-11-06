@@ -30,6 +30,7 @@ if __name__ == "__main__":
 	import os
 	import sys
 	import signal
+	import time
 
 	def _exitsig(sig, _):
 		if sig == signal.SIGINT:
@@ -70,6 +71,9 @@ if __name__ == "__main__":
 
 	from csbuild._testing.run_unit_tests import RunTests
 	from csbuild import log
+	from csbuild._utils import shared_globals
+
+	shared_globals.startTime = time.time()
 
 	include = []
 	exclude = []

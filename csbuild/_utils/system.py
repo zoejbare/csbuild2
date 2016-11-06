@@ -33,7 +33,7 @@ import sys
 import platform
 
 from . import shared_globals
-from .. import commands, perf_timer
+from .. import commands, perf_timer, log
 
 if platform.system() == "Windows":
 	def SyncDir(_):
@@ -68,18 +68,12 @@ def CleanUp():
 			commands.queueOfLogQueues.Put(commands.stopEvent)
 			shared_globals.commandOutputThread.join()
 
-		for proj in shared_globals.projectBuildList:
-			if proj.artifactsFile is not None:
-				proj.artifactsFile.flush()
-				os.fsync(proj.artifactsFile.fileno())
-				proj.artifactsFile.close()
-
-				SyncDir(os.path.dirname(proj.artifactsFileName))
-
 		sys.meta_path = []
 
 	if shared_globals.runPerfReport:
 		perf_timer.PerfTimer.PrintPerfReport()
+
+	log.StopLogThread()
 
 	# TODO: Kill running subprocesses
 	# TODO: Exit events for plugins

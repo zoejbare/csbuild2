@@ -30,21 +30,14 @@ from __future__ import unicode_literals, division, print_function
 import threading
 from collections import deque
 
-from . import event
-
 class Queue(object):
 	"""
-	Specialized version of queue.Queue without locks, with the exception of the lock in ThreadInit.
-
-	:param numReaderThreads: Number of threads that will be doing blocking get operations on this queue
-	:type numReaderThreads: int
+	Specialized version of queue.Queue tailored to a smaller feature set to reduce unnecessary locking and contention
 	"""
-	def __init__(self, numReaderThreads=1):
+	def __init__(self):
 		self._deque = deque()
-		self._events = [event.Event() for _ in range(numReaderThreads)]
-		self._thisEvent = threading.local()
-		self._usedEventIndices = 0
-		self._eventLock = threading.Lock()
+		self._lock = threading.Lock()
+		self._condition = threading.Condition(self._lock)
 
 	def Put(self, item):
 		"""
@@ -52,9 +45,9 @@ class Queue(object):
 		:param item: whatever
 		:type item: any
 		"""
-		self._deque.append(item)
-		for notifyEvent in self._events:
-			notifyEvent.Notify()
+		with self._lock:
+			self._deque.append(item)
+			self._condition.notify()
 
 	def Get(self):
 		"""
@@ -72,20 +65,9 @@ class Queue(object):
 		:rtype: any
 		"""
 		while True:
-			try:
-				return self._deque.popleft()
-			except IndexError:
-				pass
-			self._thisEvent.event.Wait()
-
-	def ThreadInit(self):
-		"""
-		Initialize the queue for blocking gets on this thread.
-		This should be called once per thread that will call GetBlocking()
-		Do not call this on more threads than the number of threads this was initialized with.
-		"""
-		assert not hasattr(self._thisEvent, "event"), "Thread init can only be called once per thread"
-		with self._eventLock:
-			idx = self._usedEventIndices
-			self._usedEventIndices += 1
-		self._thisEvent.event = self._events[idx]
+			with self._lock:
+				try:
+					return self._deque.popleft()
+				except IndexError:
+					pass
+				self._condition.wait()

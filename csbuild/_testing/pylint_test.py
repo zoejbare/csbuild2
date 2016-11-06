@@ -60,11 +60,11 @@ class TestPylint(testcase.TestCase):
 		failedLints = set()
 		lock = threading.Lock()
 
-		ansi_escape = re.compile(r'\x1b[^m]*m')
+		ansiEscape = re.compile(r'\x1b[^m]*m')
 		def _parseAndRejigger(module, data):
 			out = []
 			data = PlatformUnicode(data)
-			data = ansi_escape.sub('', data)
+			data = ansiEscape.sub('', data)
 			for line in data.splitlines():
 				match = re.match(R".:\s*(\d+),\s*\d+: (.+)", line)
 				if match:
@@ -204,7 +204,6 @@ class TestPylint(testcase.TestCase):
 		pool.Start()
 		errors = False
 
-		callbackQueue.ThreadInit()
 		while True:
 			cb = callbackQueue.GetBlocking()
 

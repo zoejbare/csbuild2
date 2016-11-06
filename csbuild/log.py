@@ -40,29 +40,27 @@ from . import perf_timer
 _logQueue = queue.Queue()
 _stopEvent = object()
 _callbackQueue = None
+_logThread = threading.currentThread()
 _barPresent = False
-_lastTotal = 0
-_lastCompleted = 0
 _lastPerc = 0.0
 _sep = "<"
+_fillChar = "\u2219"
 
 Color = terminfo.TermColor
 
 def _printProgressBar():
 	with perf_timer.PerfTimer("printProgressBar"):
 		global _barPresent
-		global _lastTotal
-		global _lastCompleted
 		global _lastPerc
 		global _sep
-		if shared_globals.columns != 0 and shared_globals.completedBuilds < shared_globals.totalBuilds:
+		global _fillChar
+		completeBuilds = shared_globals.completedBuilds
+		totalBuilds = shared_globals.totalBuilds
+		if shared_globals.columns != 0 and completeBuilds < totalBuilds:
 			_barPresent = True
-			_lastTotal = shared_globals.totalBuilds
-			_lastCompleted = shared_globals.completedBuilds
 			textSize = 42
-			fillChar = "\u2219"
 
-			perc = 1 if shared_globals.totalBuilds == 0 else float(shared_globals.completedBuilds)/float(shared_globals.totalBuilds)
+			perc = 1 if totalBuilds == 0 else float(completeBuilds)/float(totalBuilds)
 			if perc > _lastPerc:
 				_sep = ">"
 			elif perc < _lastPerc:
@@ -70,14 +68,14 @@ def _printProgressBar():
 			_lastPerc = perc
 
 			incr = int(shared_globals.columns / 50)
-			if shared_globals.totalBuilds <= incr:
-				count = shared_globals.totalBuilds * 4
-			elif shared_globals.totalBuilds <= incr * 2:
-				count = incr * 4 + (shared_globals.totalBuilds-incr) * 3
-			elif shared_globals.totalBuilds <= incr * 3:
-				count = incr * 4 + incr * 3 + (shared_globals.totalBuilds-incr*2) * 2
+			if totalBuilds <= incr:
+				count = totalBuilds * 4
+			elif totalBuilds <= incr * 2:
+				count = incr * 4 + (totalBuilds-incr) * 3
+			elif totalBuilds <= incr * 3:
+				count = incr * 4 + incr * 3 + (totalBuilds-incr*2) * 2
 			else:
-				count = incr * 4 + incr * 3 + incr * 2 + (shared_globals.totalBuilds-incr*3)
+				count = incr * 4 + incr * 3 + incr * 2 + (totalBuilds-incr*3)
 
 			if count >= shared_globals.columns - textSize:
 				count = shared_globals.columns - textSize - 1
@@ -95,8 +93,8 @@ def _printProgressBar():
 				lfill = ""
 				rfill = ""
 			else:
-				lfill = fillChar * int(math.ceil(spacePerSide))
-				rfill = fillChar * int(math.floor(spacePerSide))
+				lfill = _fillChar * int(math.ceil(spacePerSide))
+				rfill = _fillChar * int(math.floor(spacePerSide))
 				if lfill:
 					lfill = lfill[:-1] + " "
 				if rfill:
@@ -111,7 +109,7 @@ def _printProgressBar():
 				sys.stdout.flush()
 				terminfo.TermInfo.SetColor(Color.GREEN)
 
-			sys.stdout.write("{: 4}".format(shared_globals.completedBuilds))
+			sys.stdout.write("{: 4}".format(completeBuilds))
 
 			if shared_globals.colorSupported:
 				sys.stdout.flush()
@@ -128,7 +126,13 @@ def _printProgressBar():
 			if shared_globals.colorSupported:
 				sys.stdout.flush()
 				terminfo.TermInfo.SetColor(Color.DGREY)
-			sys.stdout.write(lfill)
+			try:
+				sys.stdout.write(lfill)
+			except UnicodeEncodeError:
+				_fillChar = ":"
+				_printProgressBar()
+				return
+
 			if shared_globals.colorSupported:
 				sys.stdout.flush()
 				terminfo.TermInfo.SetColor(Color.WHITE)
@@ -173,7 +177,7 @@ def _printProgressBar():
 				sys.stdout.flush()
 				terminfo.TermInfo.SetColor(Color.YELLOW)
 
-			sys.stdout.write("{: 4}".format(shared_globals.totalBuilds))
+			sys.stdout.write("{: 4}".format(totalBuilds))
 
 			if shared_globals.colorSupported:
 				sys.stdout.flush()
@@ -201,8 +205,11 @@ def _clearProgressBar():
 def UpdateProgressBar():
 	"""Update the progress bar, foo"""
 	with perf_timer.PerfTimer("updateProgressBar"):
-		_clearProgressBar()
-		_printProgressBar()
+		if threading.current_thread() != _logThread:
+			_callbackQueue.Put(UpdateProgressBar)
+		else:
+			_clearProgressBar()
+			_printProgressBar()
 
 _twoTagMatch = re.compile(R"(<&\w*>)(.*?)(</&>|$)")
 _tagNameMatch = re.compile(R"<&(\w*)>")
@@ -292,14 +299,34 @@ def SetCallbackQueue(callbackQueue):
 	global _callbackQueue
 	_callbackQueue = callbackQueue
 
-_mainThread = threading.currentThread()
+def StartLogThread():
+	"""Start the log thread"""
+	global _callbackQueue
+	_callbackQueue = queue.Queue()
+	global _logThread
+	def _logThreadRunner():
+		while True:
+			task = _callbackQueue.GetBlocking()
+			if task is _stopEvent:
+				return
+			task()
+	_logThread = threading.Thread(target=_logThreadRunner)
+	_logThread.start()
+
+def StopLogThread():
+	"""Stop the log thread if it's running. If not, this is a nop."""
+	global _logThread
+	if threading.currentThread() != _logThread:
+		_callbackQueue.Put(_stopEvent)
+		_logThread.join()
+		_logThread = threading.current_thread()
 
 def _logMsg(color, level, msg, quietThreshold):
 	"""Print a message to stdout"""
 	if shared_globals.verbosity < quietThreshold:
 		if isinstance(msg, BytesType):
 			msg = msg.decode("UTF-8")
-		if threading.currentThread() == _mainThread:
+		if threading.currentThread() == _logThread:
 			_writeLog(color, level, msg)
 		else:
 			assert _callbackQueue is not None, "Threaded logging requires a callback queue (shared with ThreadPool)"
@@ -311,7 +338,7 @@ def _logMsgToStderr(color, level, msg, quietThreshold):
 	if shared_globals.verbosity < quietThreshold:
 		if isinstance(msg, BytesType):
 			msg = msg.decode("UTF-8")
-		if threading.currentThread() == _mainThread:
+		if threading.currentThread() == _logThread:
 			_writeLog(color, level, msg, sys.stderr)
 		else:
 			assert _callbackQueue is not None, "Threaded logging requires a callback queue (shared with ThreadPool)"

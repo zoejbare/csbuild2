@@ -78,3 +78,43 @@ startTime = 0
 
 totalBuilds = 0
 completedBuilds = 0
+
+class InMemoryOnlySettings(object):
+	"""Mockup class for settings_manager.SettingsManager"""
+	def __init__(self):
+		self.dict = {}
+
+	def Get(self, key, default=None):
+		"""
+		Get a value from the dict
+
+		:param key: key
+		:type key: str
+		:param default: value returned if missing
+		:type default: any
+		:return: the value for this key, or default
+		:rtype: any
+		"""
+		return self.dict.get(key, default)
+
+	def Save(self, key, value):
+		"""
+		Save a value to the dict
+
+		:param key: The key
+		:type key: str
+		:param value: The value
+		:type value: any
+		"""
+		self.dict[key] = value
+
+	def Delete(self, key):
+		"""
+		Remove a key from the dict if it exists, nop otherwise
+
+		:param key: key to remove
+		:type key: str
+		"""
+		self.dict.pop(key, None)
+
+settings = InMemoryOnlySettings()

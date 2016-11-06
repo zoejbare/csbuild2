@@ -98,7 +98,7 @@ class Project(object):
 
 			self.scriptDir = scriptDir
 
-			log.Info("Preparing build tasks for {}", self)
+			log.Build("Preparing build tasks for {}", self)
 
 			#: type: list[Tool]
 			self.tools = projectSettings["tools"]
@@ -136,9 +136,10 @@ class Project(object):
 				else:
 					return toConvert
 
-			# We set self.settings here because _convertItem calls FormatMacro and FormatMacro uses self.settings
-			self.settings = projectSettings
-			self.settings = _convertItem(projectSettings)
+			with perf_timer.PerfTimer("Macro formatting"):
+				# We set self.settings here because _convertItem calls FormatMacro and FormatMacro uses self.settings
+				self.settings = projectSettings
+				self.settings = _convertItem(projectSettings)
 
 			self.projectType = projectSettings.get("projectType", csbuild.ProjectType.Application)
 
@@ -184,38 +185,9 @@ class Project(object):
 			if not os.access(self.csbuildDir, os.F_OK):
 				os.makedirs(self.csbuildDir)
 
-			#: type: str
-			self.artifactsFileName = os.path.join(
-				self.csbuildDir,
-				"{}_{}_{}_{}.artifacts".format(
-					self.name,
-					self.toolchainName,
-					self.architectureName,
-					self.targetName
-				)
-			)
-
-			self.lastRunArtifacts = collections.OrderedDict()
-			if os.access(self.artifactsFileName, os.F_OK):
-				with open(self.artifactsFileName, "r") as f:
-					key = []
-					while True:
-						line = f.readline()
-						if not line:
-							break
-						if line == "\n":
-							key = None
-						elif line.startswith("\t"):
-							self.lastRunArtifacts.setdefault(tuple(key) if key is not None else key, ordered_set.OrderedSet()).add(line.strip())
-							key = []
-						else:
-							key.append(line.strip())
+			self.lastRunArtifacts = shared_globals.settings.Get(repr(self)+".artifacts", collections.OrderedDict())
 
 			self.artifacts = collections.OrderedDict()
-			self.artifactsFile = open(
-				self.artifactsFileName,
-				"w"
-			)
 
 			self.outputName = projectSettings.get("outputName", self.name)
 
@@ -248,29 +220,28 @@ class Project(object):
 		# Make a proxy class that gets items from the list of valid items
 		# and convert them as we come across them, using memoization to avoid redundant
 		# conversions. If we do that, we could do each string in one pass.
-		with perf_timer.PerfTimer("Macro formatting"):
-			if "{" in toConvert:
-				prev = ""
-				while toConvert != prev:
-					log.Info("Formatting {}", toConvert)
-					prev = toConvert
-					toConvert = toConvert.format(
-						name=self.name,
-						workingDirectory=self.workingDirectory,
-						dependencyNames=self.dependencyNames,
-						priority=self.priority,
-						ignoreDependencyOrdering=self.ignoreDependencyOrdering,
-						autoDiscoverSourceFiles=self.autoDiscoverSourceFiles,
-						settings=self.settings,
-						toolchainName=self.toolchainName,
-						architectureName=self.architectureName,
-						targetName=self.targetName,
-						toolchain=self.toolchain,
-						userData=self.userData,
-						**self.settings
-					)
-					log.Info("  => {}", toConvert)
-			return PlatformString(toConvert)
+		if "{" in toConvert:
+			prev = ""
+			while toConvert != prev:
+				log.Info("Formatting {}", toConvert)
+				prev = toConvert
+				toConvert = toConvert.format(
+					name=self.name,
+					workingDirectory=self.workingDirectory,
+					dependencyNames=self.dependencyNames,
+					priority=self.priority,
+					ignoreDependencyOrdering=self.ignoreDependencyOrdering,
+					autoDiscoverSourceFiles=self.autoDiscoverSourceFiles,
+					settings=self.settings,
+					toolchainName=self.toolchainName,
+					architectureName=self.architectureName,
+					targetName=self.targetName,
+					toolchain=self.toolchain,
+					userData=self.userData,
+					**self.settings
+				)
+				log.Info("  => {}", toConvert)
+		return PlatformString(toConvert)
 
 	def ResolveDependencies(self):
 		"""
@@ -296,15 +267,7 @@ class Project(object):
 			inputs = tuple(sorted(i.filename for i in inputs))
 		if artifact not in self.artifacts:
 			self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
-			if inputs is None:
-				self.artifactsFile.write("\n")
-			else:
-				for inputFile in inputs:
-					self.artifactsFile.write(inputFile)
-					self.artifactsFile.write("\n")
-			self.artifactsFile.write("\t")
-			self.artifactsFile.write(artifact)
-			self.artifactsFile.write("\n")
+			shared_globals.settings.Save(repr(self)+".artifacts", self.artifacts)
 
 	@TypeChecked(inputs=(input_file.InputFile, list, ordered_set.OrderedSet))
 	def GetLastResult(self, inputs):
@@ -321,6 +284,10 @@ class Project(object):
 		# pylint: disable=redefined-variable-type
 		inputs = tuple(sorted(i.filename for i in inputs))
 		return self.lastRunArtifacts.get(inputs, None)
+
+	def ClearArtifacts(self):
+		"""Remove the artifacts for this project from the settings"""
+		shared_globals.settings.Delete(repr(self)+".artifacts")
 
 	@TypeChecked(inputFile=input_file.InputFile, _return=StrType)
 	def GetIntermediateDirectory(self, inputFile):

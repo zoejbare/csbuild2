@@ -181,6 +181,8 @@ class FunctionalTest(TestCase):
 			shutil.rmtree(outDir)
 		if os.access(intermediateDir, os.F_OK):
 			shutil.rmtree(intermediateDir)
+		if os.access(".csbuild", os.F_OK):
+			shutil.rmtree(".csbuild")
 
 	def tearDown(self):
 		try:
@@ -221,6 +223,7 @@ class FunctionalTest(TestCase):
 		def _runCommand():
 			cmd = [sys.executable, "make.py"]
 			cmd.extend(args)
+			cmd.append("--force-progress-bar=off")
 
 			def _handleStdout(shared, msg):
 				commands.DefaultStdoutHandler(shared, "            {}".format(msg))
@@ -233,7 +236,6 @@ class FunctionalTest(TestCase):
 
 		commandThread = threading.Thread(target=_runCommand)
 		commandThread.start()
-		callbackQueue.ThreadInit()
 		while True:
 			callback = callbackQueue.GetBlocking()
 
@@ -246,7 +248,12 @@ class FunctionalTest(TestCase):
 		log.SetCallbackQueue(None)
 
 		commandThread.join()
-		return _shared.ret
+
+		ansiEscape = re.compile(r'\x1b[^m]*m')
+		returncode, output, errors = _shared.ret
+		output = ansiEscape.sub("", output)
+		errors = ansiEscape.sub("", errors)
+		return returncode, output, errors
 
 	# pylint: disable=invalid-name
 	def assertMakeSucceeds(self, *args):
@@ -290,10 +297,7 @@ class FunctionalTest(TestCase):
 		"""
 		returncode, output, errors = self.RunMake(*args)
 		self.assertNotEqual(returncode, 0)
-		ansi_escape = re.compile(r'\x1b[^m]*m')
 		error = re.compile(error)
-		output = ansi_escape.sub("", output)
-		errors = ansi_escape.sub("", errors)
 		outMatch = error.search(output)
 		errMatch = error.search(errors)
 		self.assertTrue(outMatch is not None or errMatch is not None)

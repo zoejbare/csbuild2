@@ -106,7 +106,7 @@ def FormatTime(totaltime, withMillis=True):
 	totalmin = math.floor(totaltime / 60)
 	totalsec = math.floor(totaltime % 60)
 	if withMillis:
-		msec = math.floor((totaltime - math.floor(totaltime))*1000)
+		msec = math.floor((totaltime - math.floor(totaltime))*10000)
 		return "{}:{:02}.{:04}".format(int(totalmin), int(totalsec), int(msec))
 	else:
 		return "{}:{:02}".format(int(totalmin), int(totalsec))
