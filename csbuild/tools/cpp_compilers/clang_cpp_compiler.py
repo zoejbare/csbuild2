@@ -19,36 +19,32 @@
 # SOFTWARE.
 
 """
-.. package:: tools
-	:synopsis: Set of built-in tools that ship with csbuild
+.. module:: clang_cpp_compiler
+	:synopsis: Clang compiler tool for C++.
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
 
-from .cpp_compilers import CppCompileChecker
+from .gcc_cpp_compiler import GccCppCompiler
 
-from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
-from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
-from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
-
-from .linkers.gcc_linker import GccLinker
-from .linkers.msvc_linker import MsvcLinker
-
-def InitTools():
+class ClangCppCompiler(GccCppCompiler):
 	"""
-	Initialize the built-in csbuild tools
+	Clang compiler implementation
 	"""
-	systemArchitecture = csbuild.GetSystemArchitecture()
-	checkers = {}
-	cppChecker = CppCompileChecker()
 
-	for inputExtension in GccCppCompiler.inputFiles | ClangCppCompiler.inputFiles | MsvcCppCompiler.inputFiles:
-		checkers[inputExtension] = cppChecker
+	####################################################################################################################
+	### Internal methods
+	####################################################################################################################
 
-	csbuild.RegisterToolchain("gcc", systemArchitecture, GccCppCompiler, GccLinker, checkers=checkers)
-	csbuild.RegisterToolchain("clang", systemArchitecture, ClangCppCompiler, GccLinker, checkers=checkers)
-	csbuild.RegisterToolchain("msvc", systemArchitecture, MsvcCppCompiler, MsvcLinker, checkers=checkers)
+	def _getExecutableName(self, isCpp):
+		return "clang++" if isCpp else "clang"
+
+	def _getDefaultArgs(self, project):
+		args = []
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			args.append("-fPIC")
+		return args

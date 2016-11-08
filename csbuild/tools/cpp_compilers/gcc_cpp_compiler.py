@@ -53,7 +53,7 @@ class GccCppCompiler(CppCompilerBase):
 		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
 
 	def _getCommand(self, project, inputFile, isCpp):
-		cmd = "g++" if isCpp else "gcc"
+		cmd = self._getExecutableName(isCpp)
 		return [cmd] \
 			+ self._getInputFileArgs(inputFile) \
 			+ self._getDefaultArgs(project) \
@@ -67,6 +67,9 @@ class GccCppCompiler(CppCompilerBase):
 	####################################################################################################################
 	### Internal methods
 	####################################################################################################################
+
+	def _getExecutableName(self, isCpp):
+		return "g++" if isCpp else "gcc"
 
 	def _getDefaultArgs(self, project):
 		args = ["--pass-exit-codes"]

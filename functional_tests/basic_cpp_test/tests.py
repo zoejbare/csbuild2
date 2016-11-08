@@ -62,10 +62,10 @@ class BasicCppTest(FunctionalTest):
 		else:
 			self.outputFile = "static/hello_world"
 		outDir = "static"
-		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--project=libhello"])
+		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--project=libhello", "--at"])
 
 	def testCompileSucceeds(self):
-		"""Basic tool test"""
+		"""Test that the project succesfully compiles"""
 		self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 
@@ -73,6 +73,19 @@ class BasicCppTest(FunctionalTest):
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
+
+	if platform.system() == "Linux":
+		def testClangCompileSucceeds(self):
+			"""Test that the project succesfully compiles with the clang toolchain"""
+			self.cleanArgs = ["--project=libhello", "--project=hello_world", "--toolchain=clang"]
+
+			self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=libhello", "--show-commands")
+			self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=hello_world", "--show-commands")
+
+			self.assertTrue(os.access(self.outputFile, os.F_OK))
+			out = subprocess.check_output([self.outputFile])
+
+			self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
 	def testLibraryFail(self):
 		"""Test that invalid libraries cause a failure"""
