@@ -29,7 +29,6 @@ from __future__ import unicode_literals, division, print_function
 
 import imp
 import os
-import sys
 import platform
 
 from . import shared_globals
@@ -61,19 +60,18 @@ def CleanUp():
 	Clean up the various plates we're spinning so they don't crash to the ground or spin forever
 	"""
 	with perf_timer.PerfTimer("Cleanup"):
-		if not imp.lock_held():
-			imp.acquire_lock()
 
 		if shared_globals.commandOutputThread is not None:
 			commands.queueOfLogQueues.Put(commands.stopEvent)
 			shared_globals.commandOutputThread.join()
 
-		sys.meta_path = []
-
 	if shared_globals.runPerfReport:
 		perf_timer.PerfTimer.PrintPerfReport()
 
 	log.StopLogThread()
+
+	if not imp.lock_held():
+		imp.acquire_lock()
 
 	# TODO: Kill running subprocesses
 	# TODO: Exit events for plugins
