@@ -58,17 +58,20 @@ class GccLinker(LinkerBase):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			return ["ar", "rcs"] \
+			cmd = ["ar", "rcs"] \
+				+ self._linkerFlags \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
 		else:
-			return ["gcc", "-L/"] \
+			cmd = ["gcc", "-L/"] \
 				+ self._getDefaultArgs(project) \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
-				+ self._getEndGroupArgs()
+				+ self._getEndGroupArgs() \
+				+ self._linkerFlags
+		return [arg for arg in cmd if arg]
 
 	def _findLibraries(self, libs):
 		shortLibs = ordered_set.OrderedSet(libs)

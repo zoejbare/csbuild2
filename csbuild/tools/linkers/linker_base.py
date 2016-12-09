@@ -35,6 +35,7 @@ from abc import ABCMeta, abstractmethod
 from ..common.tool_traits import HasDebugLevel, HasDebugRuntime, HasStaticRuntime
 
 from ... import commands, log
+from ..._utils import ordered_set
 from ..._utils.decorators import MetaClass
 
 def _ignore(_):
@@ -66,8 +67,9 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 	################################################################################
 
 	def __init__(self, projectSettings):
-		self._libraries = projectSettings.get("libraries", [])
-		self._libraryDirectories = projectSettings.get("libraryDirectories", [])
+		self._libraries = projectSettings.get("libraries", ordered_set.OrderedSet())
+		self._libraryDirectories = projectSettings.get("libraryDirectories", ordered_set.OrderedSet())
+		self._linkerFlags = projectSettings.get("linkerFlags", [])
 		self._actualLibraryLocations = {
 			library : library
 			for library in self._libraries
@@ -126,6 +128,16 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:type dirs: str
 		"""
 		csbuild.currentPlan.UnionSet("libraryDirectories", [os.path.abspath(directory) for directory in dirs])
+
+	@staticmethod
+	def AddLinkerFlags(*flags):
+		"""
+		Add linker flags.
+
+		:param flags: List of linker flags.
+		:type flags: str
+		"""
+		csbuild.currentPlan.ExtendList("linkerFlags", flags)
 
 
 	################################################################################

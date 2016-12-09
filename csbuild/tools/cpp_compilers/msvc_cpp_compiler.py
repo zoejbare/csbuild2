@@ -69,16 +69,15 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 
 	def _getCommand(self, project, inputFile, isCpp):
 		compilerPath = os.path.join(self._vcvarsall.binPath, "cl.exe")
+		extraFlags = self._cxxFlags if isCpp else self._cFlags
 		cmd = [compilerPath]  \
 			+ self._getDefaultArgs() \
 			+ self._getPreprocessorArgs() \
-			+ [
-				self._getDebugArg(),
-				self._getOptimizationArg(),
-				self._getRuntimeLinkageArg(),
-				self._getRuntimeErrorChecksArg(),
-			] \
-		    + ["/I" + directory for directory in self._includeDirectories] \
+			+ self._getDebugArgs() \
+			+ self._getOptimizationArgs() \
+			+ self._getRuntimeLinkageArgs() \
+			+ self._getIncludeDirectoryArgs() \
+			+ extraFlags \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
 		return [arg for arg in cmd if arg]
@@ -93,35 +92,42 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 	####################################################################################################################
 
 	def _getDefaultArgs(self):
-		return ["/nologo", "/c", "/Oi", "/GS"]
+		args = ["/nologo", "/c", "/Oi", "/GS"]
+		if self._optLevel == OptimizationLevel.Disabled:
+			args.append("/RTC1")
+		return args
 
-	def _getDebugArg(self):
+	def _getDebugArgs(self):
 		arg = {
 			DebugLevel.EmbeddedSymbols: "/Z7",
 			DebugLevel.ExternalSymbols: "/Zi",
 			DebugLevel.ExternalSymbolsPlus: "/ZI",
 		}
-		return arg.get(self._debugLevel, "")
+		return [arg.get(self._debugLevel, "")]
 
-	def _getOptimizationArg(self):
+	def _getOptimizationArgs(self):
 		arg = {
 			OptimizationLevel.Size: "/O1",
 			OptimizationLevel.Speed: "/O2",
 			OptimizationLevel.Max: "/Ox",
 		}
-		return arg.get(self._optLevel, "/Od")
+		return [arg.get(self._optLevel, "/Od")]
 
-	def _getRuntimeLinkageArg(self):
-		return "/{}{}".format(
+	def _getRuntimeLinkageArgs(self):
+		arg = "/{}{}".format(
 			"MT" if self._staticRuntime else "MD",
 			"d" if self._debugRuntime else ""
 		)
+		return [arg]
 
 	def _getPreprocessorArgs(self):
-		return ["/D{}".format(d) for d in self._defines] + ["/U{}".format(u) for u in self._undefines]
+		defineArgs = ["/D{}".format(d) for d in self._defines]
+		undefineArgs = ["/U{}".format(u) for u in self._undefines]
+		return defineArgs + undefineArgs
 
-	def _getRuntimeErrorChecksArg(self):
-		return "/RTC1" if self._optLevel == OptimizationLevel.Disabled else ""
+	def _getIncludeDirectoryArgs(self):
+		args = ["/I{}".format(directory) for directory in self._includeDirectories]
+		return args
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])

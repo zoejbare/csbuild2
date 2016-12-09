@@ -14,6 +14,7 @@
 
 int main()
 {
-	printf(EXPLICIT_DEFINE_MESSAGE " - " IMPLICIT_DEFINE_MESSAGE);
+	int unused;
+	printf("%s", EXPLICIT_DEFINE_MESSAGE " - " IMPLICIT_DEFINE_MESSAGE);
 	return 0;
 }

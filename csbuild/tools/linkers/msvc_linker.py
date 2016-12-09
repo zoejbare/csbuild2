@@ -86,15 +86,12 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			linkerPath = os.path.join(self._vcvarsall.binPath, "lib.exe")
 		else:
 			linkerPath = os.path.join(self._vcvarsall.binPath, "link.exe")
-		cmd = [
-		      linkerPath,
-		      self._getMachineArg(project),
-		      self._getOutputFileArg(project)
-	      ] \
+		cmd = [linkerPath] \
+			+ self._getOutputFileArgs(project) \
 			+ self._getDefaultArgs(project) \
-			+ self._getImportLibraryAndPdbFileArgs(project) \
+			+ self._linkerFlags \
 			+ self._getLibraryArgs(project) \
-			+ [f.filename for f in inputFiles]
+			+ self._getInputFileArgs(inputFiles)
 		return [arg for arg in cmd if arg]
 
 	def _findLibraries(self, libs):
@@ -164,6 +161,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		args = [
 			"/ERRORREPORT:NONE",
 			"/NOLOGO",
+			"/MACHINE:{}".format(project.architectureName.upper()),
 		]
 		# Arguments for any project that is not a static library.
 		if project.projectType != csbuild.ProjectType.StaticLibrary:
@@ -176,22 +174,6 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			if project.projectType == csbuild.ProjectType.SharedLibrary:
 				args.append("/DLL")
 		return args
-
-	def _getMachineArg(self, project):
-		return "/MACHINE:{}".format(project.architectureName.upper())
-
-	def _getImportLibraryAndPdbFileArgs(self, project):
-		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			# Static libraries do not have these arguments.
-			return []
-		else:
-			outputPath = os.path.join(project.outputDir, project.outputName)
-			args = []
-			if project.projectType == csbuild.ProjectType.SharedLibrary:
-				args.append("/IMPLIB:{}.lib".format(outputPath))
-			if self._debugLevel != DebugLevel.Disabled:
-				args.append("/PDB:{}.pdb".format(outputPath))
-			return args
 
 	def _getLibraryArgs(self, project):
 		# Static libraries don't require the default libraries to be linked, so only add them when building an application or shared library.
@@ -212,9 +194,20 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		args.extend([lib for lib in self._actualLibraryLocations.values()])
 		return args
 
-	def _getOutputFileArg(self, project):
-		ext = {
+	def _getOutputFileArgs(self, project):
+		outExt = {
 			csbuild.ProjectType.SharedLibrary: ".dll",
 			csbuild.ProjectType.StaticLibrary: ".lib",
 		}
-		return "/OUT:{}{}".format(os.path.join(project.outputDir, project.outputName), ext.get(project.projectType, ".exe"))
+		outputPath = os.path.join(project.outputDir, project.outputName)
+		args = ["/OUT:{}{}".format(outputPath, outExt.get(project.projectType, ".exe"))]
+
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			args.append("/IMPLIB:{}.lib".format(outputPath))
+		if self._debugLevel != DebugLevel.Disabled:
+			args.append("/PDB:{}.pdb".format(outputPath))
+
+		return args
+
+	def _getInputFileArgs(self, inputFiles):
+		return [f.filename for f in inputFiles]

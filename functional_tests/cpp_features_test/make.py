@@ -83,3 +83,19 @@ with csbuild.Project("hello_world", "hello_world"):
 			["EXPLICIT_DEFINE"],
 			["IMPLICIT_DEFINE"],
 		)
+	with csbuild.Target("custom_options"):
+		defineProjectSettings(
+			"hello_world",
+			csbuild.DebugLevel.Disabled,
+			csbuild.OptimizationLevel.Disabled,
+			False,
+			False,
+			[],
+			[],
+		)
+		with csbuild.Toolchain("msvc"):
+			csbuild.AddCompilerCxxFlags("/W4")
+			csbuild.AddLinkerFlags("/STACK:1048576")
+		with csbuild.Toolchain("gcc"):
+			csbuild.AddCompilerCxxFlags("-Wunused-variable")
+			csbuild.AddLinkerFlags("-shared-libgcc")

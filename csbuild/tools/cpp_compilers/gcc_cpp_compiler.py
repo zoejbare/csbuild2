@@ -53,15 +53,18 @@ class GccCppCompiler(CppCompilerBase):
 		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
 
 	def _getCommand(self, project, inputFile, isCpp):
-		cmd = self._getExecutableName(isCpp)
-		return [cmd] \
+		cmdExe = self._getExecutableName(isCpp)
+		extraFlags = self._cxxFlags if isCpp else self._cFlags
+		cmd = [cmdExe] \
 			+ self._getInputFileArgs(inputFile) \
 			+ self._getDefaultArgs(project) \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getDebugArgs() \
-			+ self._getOptimizationArgs()
+			+ self._getOptimizationArgs() \
+			+ extraFlags
+		return [arg for arg in cmd if arg]
 
 
 	####################################################################################################################

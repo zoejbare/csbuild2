@@ -57,9 +57,11 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	################################################################################
 
 	def __init__(self, projectSettings):
-		self._includeDirectories = projectSettings.get("includeDirectories", [])
+		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
 		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
 		self._undefines = projectSettings.get("undefines", ordered_set.OrderedSet())
+		self._cFlags = projectSettings.get("cFlags", [])
+		self._cxxFlags = projectSettings.get("cxxFlags", [])
 
 		HasDebugLevel.__init__(self, projectSettings)
 		HasDebugRuntime.__init__(self, projectSettings)
@@ -100,6 +102,26 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 		:type undefines: str
 		"""
 		csbuild.currentPlan.UnionSet("undefines", undefines)
+
+	@staticmethod
+	def AddCompilerCFlags(*flags):
+		"""
+		Add compiler c flags.
+
+		:param flags: List of c flags
+		:type flags: str
+		"""
+		csbuild.currentPlan.ExtendList("cFlags", flags)
+
+	@staticmethod
+	def AddCompilerCxxFlags(*flags):
+		"""
+		Add compiler cxx flags.
+
+		:param flags: List of cxx flags
+		:type flags: str
+		"""
+		csbuild.currentPlan.ExtendList("cxxFlags", flags)
 
 
 	################################################################################
