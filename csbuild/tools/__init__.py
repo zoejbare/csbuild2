@@ -29,7 +29,11 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 
+from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
+
+from .assemblers.msvc_assembler import MsvcAssembler
+from .assemblers.gcc_assembler import GccAssembler
 
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
@@ -45,10 +49,14 @@ def InitTools():
 	systemArchitecture = csbuild.GetSystemArchitecture()
 	checkers = {}
 	cppChecker = CppCompileChecker()
+	asmChecker = AsmCompileChecker()
 
 	for inputExtension in GccCppCompiler.inputFiles | ClangCppCompiler.inputFiles | MsvcCppCompiler.inputFiles:
 		checkers[inputExtension] = cppChecker
 
-	csbuild.RegisterToolchain("gcc", systemArchitecture, GccCppCompiler, GccLinker, checkers=checkers)
-	csbuild.RegisterToolchain("clang", systemArchitecture, ClangCppCompiler, GccLinker, checkers=checkers)
-	csbuild.RegisterToolchain("msvc", systemArchitecture, MsvcCppCompiler, MsvcLinker, checkers=checkers)
+	for inputExtension in MsvcAssembler.inputFiles:
+		checkers[inputExtension] = asmChecker
+
+	csbuild.RegisterToolchain("gcc", systemArchitecture, GccCppCompiler, GccLinker, GccAssembler, checkers=checkers)
+	csbuild.RegisterToolchain("clang", systemArchitecture, ClangCppCompiler, GccLinker, GccAssembler, checkers=checkers)
+	csbuild.RegisterToolchain("msvc", systemArchitecture, MsvcCppCompiler, MsvcLinker, MsvcAssembler, checkers=checkers)

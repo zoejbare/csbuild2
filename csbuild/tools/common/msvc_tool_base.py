@@ -89,7 +89,7 @@ class MsvcToolBase(Tool):
 	def SetupForProject(self, project):
 		Tool.SetupForProject(self, project)
 		currentArch = csbuild.GetSystemArchitecture()
-		supportedSystemArchs= {
+		supportedSystemArchs = {
 			"x86",
 			"x64",
 			"arm",
