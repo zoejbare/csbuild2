@@ -55,6 +55,7 @@ class AssemblerBase(Tool):
 	################################################################################
 
 	def __init__(self, projectSettings):
+		super(Tool, self).__init__()
 		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
 		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
 		self._asmFlags = projectSettings.get("asmFlags", [])

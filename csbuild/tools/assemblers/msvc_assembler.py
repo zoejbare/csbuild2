@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: msvc_cpp_compiler
-	:synopsis: msvc compiler tool for C++
+.. module:: msvc_assembler
+	:synopsis: msvc assembler tool
 
 .. moduleauthor:: Brandon Bare
 """

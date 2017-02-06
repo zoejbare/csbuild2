@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. package:: linker_flags
+.. module:: linker_flags
 	:synopsis: Abstract base class for tools requiring linker flags.
 
 .. moduleauthor:: Brandon Bare
@@ -35,9 +35,21 @@ from ...toolchain import Tool
 
 @MetaClass(ABCMeta)
 class LinkerFlags(Tool):
+	"""
+	Helper class to add arbitrary flags to a linker tool.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary.
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 		self._linkerFlags = []
 
 	def AddLinkerFlags(self, *flags):
+		"""
+		Add flags to the linker.
+
+		:param flags: Flags to pass to the linker.
+		:type flags: any
+		"""
 		self._linkerFlags += list(flags)

@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. package:: compiler_flags
+.. module:: compiler_flags
 	:synopsis: Abstract base class for tools requiring compiler flags.
 
 .. moduleauthor:: Brandon Bare
@@ -35,13 +35,31 @@ from ...toolchain import Tool
 
 @MetaClass(ABCMeta)
 class CppCompilerFlags(Tool):
+	"""
+	Helper class to add arbitrary flags to a cpp compiler tool.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary.
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 		self._cFlags = []
 		self._cxxFlags = []
 
 	def AddCFlags(self, *flags):
+		"""
+		Add C flags to the compiler (only applies to C files).
+
+		:param flags: Flags to pass to the compiler.
+		:type flags: any
+		"""
 		self._cFlags += list(flags)
 
 	def AddCxxFlags(self, *flags):
+		"""
+		Add CXX flags to the compiler (only applies to C++ files).
+
+		:param flags: Flags to pass to the compiler.
+		:type flags: any
+		"""
 		self._cxxFlags += list(flags)

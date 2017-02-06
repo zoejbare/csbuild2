@@ -97,7 +97,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def _findLibraries(self, libs):
 		notFound = set()
 		found = {}
-		allLibraryDirectories = self._libraryDirectories + self._vcvarsall.libPaths
+		allLibraryDirectories = [x for x in self._libraryDirectories] + self._vcvarsall.libPaths
 
 		for libraryName in libs:
 			if os.access(libraryName, os.F_OK):

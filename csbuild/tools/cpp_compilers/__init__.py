@@ -51,6 +51,9 @@ class CppCompileChecker(CompileChecker):
 		with open(inputFile.filename, "r") as f:
 			contents = f.read()
 		ret = []
+		#TODO: Calling GetIncludeDirectories() will fail here because it's returning a list of OrderedSets.
+		#      Leaving the break here to remind us that we need to change how this gets called so it calls
+		#      the function only for cpp compiler tools.
 		includeDirs = [os.path.dirname(inputFile.filename)] + list(buildProject.toolchain.GetIncludeDirectories())
 		for header in _includeRegex.findall(contents):
 			for includeDir in includeDirs:
