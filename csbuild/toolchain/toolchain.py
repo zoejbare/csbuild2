@@ -31,7 +31,6 @@ import contextlib
 import threading
 import sys
 import types
-from collections import Callable
 
 from .._utils import shared_globals
 from . import Tool as ToolClass, CompileChecker
@@ -53,6 +52,12 @@ else:
 
 staticInitsRun = set()
 overloadedStaticInits = set()
+
+class InvalidFunctionCall(Exception):
+	"""
+	Exception indicating an invalid function call.
+	"""
+	pass
 
 class Toolchain(object):
 	"""
@@ -98,15 +103,14 @@ class Toolchain(object):
 						# Since base class data is shared, we don't want to initialize them more than once
 						self.initialized = set()
 
-						# Limited class lookup table. When non-empty, only classes in this set will be
-						# visible when performing member lookups
-						self.limit = set()
-
 						# List of inits that are already overloaded so we don't wrap them multiple times
 						self.overloadedInits = set()
 
 						# Mutable list of classes
 						self.classes = ordered_set.OrderedSet()
+
+						# Mutable list of bases
+						self.bases = ordered_set.OrderedSet()
 
 						# List of paths by which files can go through tools at various starting points.
 						self.paths = {}
@@ -130,10 +134,19 @@ class Toolchain(object):
 				# those elements that exist on this class or its bases will be visible
 				_threadSafeClassTrackr.lastClass = None
 
+				# Limited class lookup table. When non-empty, only classes in this set will be
+				# visible when performing member lookups
+				_threadSafeClassTrackr.limit = ordered_set.OrderedSet()
+
 				def _getLastClass():
 					if hasattr(_threadSafeClassTrackr, "lastClass"):
 						return _threadSafeClassTrackr.lastClass
 					return None
+
+				def _getLimit():
+					if hasattr(_threadSafeClassTrackr, "limit"):
+						return _threadSafeClassTrackr.limit
+					return ordered_set.OrderedSet()
 
 				@contextlib.contextmanager
 				def Use(cls):
@@ -188,7 +201,6 @@ class Toolchain(object):
 						overloadedStaticInits.add(base.__static_init__)
 
 			# Collect a list of all the base classes
-			bases = set()
 			for cls in classes:
 				assert (cls.inputFiles is None or cls.inputFiles or cls.inputGroups), "Tool {} has no inputs set".format(cls.__name__)
 				assert cls.outputFiles, "Tool {} has no outputs set".format(cls.__name__)
@@ -202,7 +214,7 @@ class Toolchain(object):
 						_setinit(base)
 					if base is ToolClass:
 						break
-					bases.add(base)
+					_classTrackr.bases.add(base)
 
 			# Create paths for each tool, showing the total path a file will take from this tool to its final output
 			for cls in classes:
@@ -231,14 +243,15 @@ class Toolchain(object):
 								needAnotherPass = True
 				_classTrackr.paths[cls] = path
 
+
+			_classTrackr.classes = ordered_set.OrderedSet(classes)
+			_classTrackr.activeClasses = ordered_set.OrderedSet(classes)
+
 			# Set up a map of class to member variable dict
 			# All member variables will be stored here instead of in the class's __dict__
 			# This is what allows for both sharing of base class values, and separation of
 			# derived class values that share the same name, so they don't overwrite each other
-			classValues = {cls : {} for cls in set(classes) | bases}
-
-			_classTrackr.classes = ordered_set.OrderedSet(classes)
-			_classTrackr.activeClasses = ordered_set.OrderedSet(classes)
+			classValues = {cls : {} for cls in _classTrackr.classes | _classTrackr.bases}
 
 			with perf_timer.PerfTimer("Template class construction"):
 				# Create a class so that we can call methods on that class
@@ -247,20 +260,45 @@ class Toolchain(object):
 					# The constructor takes the list of tools to limit to - i.e., toolchain.Tool(SomeClass, OtherClass)
 					def __init__(self, obj, *tools):
 						self.obj = obj
-						self.tools = set(tools)
+
+						# Ensure resolution order of these tools is the same as the classes themselves
+						if len(tools) > 1:
+							self.tools = ordered_set.OrderedSet()
+							for cls in classes:
+								for tool in tools:
+									if cls == tool or issubclass(cls, tool):
+										self.tools.add(tool)
+										break
+								if len(tools) == len(self.tools):
+									break
+						else:
+							self.tools = ordered_set.OrderedSet(tools)
 
 					# When asked for an attribute, set the class tracker's limit set and then retrieve the attribute
 					# from the toolchain class (this class) that generated the LimitView. Resolution will be limited
 					# to the tools provided above.
 					def __getattr__(self, item):
+						_threadSafeClassTrackr.limit = self.tools
+
+						try:
+							val = getattr(self.obj, item)
+						except:
+							_threadSafeClassTrackr.limit = ordered_set.OrderedSet()
+							raise
+
 						def _limit(*args, **kwargs):
-							_classTrackr.limit = self.tools
 							try:
-								getattr(self.obj, item)(*args, **kwargs)
+								return val(*args, **kwargs)
 							finally:
-								_classTrackr.limit = set()
+								_threadSafeClassTrackr.limit = ordered_set.OrderedSet()
+
 						_limit.__name__ = item
-						return _limit
+
+						if isinstance(val, types.MethodType) or isinstance(val, types.FunctionType):
+							return _limit
+						else:
+							_threadSafeClassTrackr.limit = ordered_set.OrderedSet()
+							return val
 
 				class ReadOnlySettingsView(object):
 					"""
@@ -381,7 +419,7 @@ class Toolchain(object):
 									cls.__init__(self, ReadOnlySettingsView(projectSettings))
 							_threadSafeClassTrackr.lastClass = None
 
-							for base in bases:
+							for base in _classTrackr.bases:
 								base.__init__ = base.__oldInit__
 								del base.__oldInit__
 								#base.__static_init__ = base.__old_static_init__
@@ -596,8 +634,15 @@ class Toolchain(object):
 
 					def __setattr__(self, name, val):
 						lastClass =  _getLastClass()
-						assert lastClass is not None, "Setting attributes is not supported outside of tool methods. " \
-													  "If you need to change static data, access the class directly."
+						limit = _getLimit()
+						if not lastClass and len(limit) == 1:
+							for dummy in limit:
+								with Use(dummy):
+									setattr(self, name, val)
+									return
+
+						assert lastClass is not None, "Setting attributes is not supported on Toolchain instances. " \
+							"Use toolchain.Tool(FooTool) to limit to a single tool before setting attributes."
 						if lastClass is self:
 							object.__setattr__(self, name, val)
 							return
@@ -651,7 +696,7 @@ class Toolchain(object):
 							# Replace the base class's __init__ so we can track members properly
 							if runInit:
 								_setinit(base)
-							bases.add(base)
+							_classTrackr.bases.add(base)
 							classValues.setdefault(base, {})
 
 						classValues[tool] = {}
@@ -697,17 +742,29 @@ class Toolchain(object):
 
 					def __getattribute__(self, name):
 						with perf_timer.PerfTimer("Toolchain attribute resolution"):
+							if name[0] == "$":
+								name = name[1:]
+								for cls in _classTrackr.classes | _classTrackr.bases:
+									if cls.__name__ == name:
+										return self.Tool(cls)
+								raise AttributeError("The requested tool '{}' was not found in this toolchain.".format(name))
+
 							if hasattr(ToolchainTemplate, name):
 								# Anything implemented in ToolchainTemplate has priority over things implemented elsewhere
 								# Return these things as actions on the toolchain itself rather than on its tools.
 								return object.__getattribute__(self, name)
 
 							lastClass = _getLastClass()
-							if lastClass or name.startswith("_"):
-								# For private variables, as mentioned above, we have to know the scope we're looking in.
-								# Likewise, if we're in a class scope, we want that class to act like it normally would,
-								# and look things up only within its mro(), not within the whole toolchain.
-								assert lastClass, "Cannot access private tool data ({}) from outside tool methods".format(name)
+							limit = _getLimit()
+							if not lastClass and len(limit) == 1:
+								for dummy in limit:
+									with Use(dummy):
+										return getattr(self, name)
+
+							if lastClass:
+								# If we only have one class to look at, we can shortcut a little bit.
+								# Also we can give access to instance methods and instance data that we can't give access to with
+								# multiple classes in view.
 
 								if lastClass is self:
 									return object.__getattribute__(self, name)
@@ -735,42 +792,38 @@ class Toolchain(object):
 											val = cls2.__dict__[name]
 											break
 									assert val is not sentinel, "this shouldn't happen"
-									if isinstance(val, Callable) or isinstance(val, property) or isinstance(val, staticmethod):
-										def _runPrivateFunc(*args, **kwargs):
-											if isinstance(val, property):
-												# pylint: disable=no-member
-												return val.__get__(self)
-											elif isinstance(val, staticmethod):
-												# pylint: disable=no-member
-												return val.__get__(cls)(*args, **kwargs)
-											else:
-												assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
-												return val(self, *args, **kwargs)
-										return _runPrivateFunc
+									if isinstance(val, property):
+										# pylint: disable=no-member
+										return val.__get__(self)
+									elif isinstance(val, staticmethod) or isinstance(val, classmethod):
+										# pylint: disable=no-member
+										return val.__get__(cls)
+									elif isinstance(val, types.FunctionType) or isinstance(types.MethodType):
+										assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
+										return types.MethodType(val, self)
 									else:
 										return val
 
-								# If we didn't find it, delegate to the normal attribute location method.
-								# For 99.9% of cases this means "throw an AttributeError" but we're letting
-								# python's internals do that
-								return object.__getattribute__(self, name)
+								if hasattr(object, name) or hasattr(ToolClass, name):
+									return object.__getattribute__(self, name)
+								raise AttributeError("'{}' object has no attribute '{}'".format(cls.__name__, name))
 							else:
 								# For public variables we want to return a wrapper function that calls all
 								# matching functions. This should definitely be a function. If it's not a function,
 								# things will not work.
 								def _runMultiFunc(*args, **kwargs):
-									calledSomething = False
 									functions = {}
-									ret = []
 
 									# Iterate through all classes and collect functions that match this name
 									# We'll keep a list of all the functions that match, but only call each matching
 									# function once. And when we call it we'll use the most base class we find that
 									# has it - which should be the one that defined it - and only call each one once
 									# (so if there are two subclasses of a base that base's functions won't get called twice)
-									for cls in _classTrackr.classes:
-										if _classTrackr.limit and cls not in _classTrackr.limit:
-											continue
+									if limit:
+										classes = limit
+									else:
+										classes = _classTrackr.classes
+									for cls in classes:
 										if hasattr(cls, name):
 											# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
 											# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
@@ -782,55 +835,42 @@ class Toolchain(object):
 											assert func is not None, "this shouldn't happen"
 											if func not in functions or issubclass(functions[func], cls):
 												functions[func] = cls
-											calledSomething = True
 
 									# Having collected all functions, iterate and call them
 									for func, cls in functions.items():
 										with Use(cls):
-											if isinstance(func, property):
-												ret.append(func.__get__(self))
-											elif isinstance(func, staticmethod):
-												ret.append(func.__get__(cls)(*args, **kwargs))
-											else:
-												assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
-												ret.append(func(self, *args, **kwargs))
+											func.__get__(cls)(*args, **kwargs)
 
-									# Finding one tool without this function present on it is not an error.
-									# However, if no tools had this function, that is an error - let python internals
-									# throw us an AttributeError
-									if not calledSomething:
-										return object.__getattribute__(self, name)
-									if len(ret) == 1:
-										return ret[0]
-									return ret
-
-								allProperties = True
 								hasNonFunc = False
-								for cls in _classTrackr.classes:
-									if _classTrackr.limit and cls not in _classTrackr.limit:
-										continue
+								if limit:
+									classes = limit
+								else:
+									classes = _classTrackr.classes
+								found = False
+								for cls in classes:
 									if hasattr(cls, name):
 										# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
 										# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
 										func = None
+										found = True
 										for cls2 in cls.mro():
 											if name in cls2.__dict__:
 												func = cls2.__dict__[name]
 												break
 
 										assert func is not None, "this shouldn't happen"
-										if (isinstance(func, Callable) or isinstance(func, property) or isinstance(func, staticmethod))\
-												and not isinstance(func, _classType) and not isinstance(func, _typeType):
-											if not isinstance(func, property):
-												allProperties = False
-										else:
+										if isinstance(func, types.FunctionType) or isinstance(func, types.MethodType) or isinstance(func, property):
+											raise InvalidFunctionCall(
+												"Function call is invalid. '{}' is an instance method and is being called on a toolchain with more than one tool in its view. "
+												"Only staticmethods and classmethods are automatically bundled, non-static methods must be called with toolchain.Tool(FooTool).BarMethod()"
+												.format(name)
+											)
+										elif not isinstance(func, staticmethod) and not isinstance(func, classmethod):
 											hasNonFunc = True
 
 								if hasNonFunc:
 									values = {}
-									for cls in _classTrackr.classes:
-										if _classTrackr.limit and cls not in _classTrackr.limit:
-											continue
+									for cls in classes:
 										if hasattr(cls, name):
 											# Have to use __dict__ instead of getattr() because otherwise we can't identify static methods
 											# See http://stackoverflow.com/questions/14187973/python3-check-if-method-is-static
@@ -851,11 +891,13 @@ class Toolchain(object):
 											values[clsContainingVal] = val
 									return values.popitem()[1]
 
-								#If they're properties, call the function now instead of returning it
-								if allProperties:
-									return _runMultiFunc()
-								else:
-									return _runMultiFunc
+								# Finding one tool without this function present on it is not an error.
+								# However, if no tools had this function, that is an error - let python internals
+								# throw us an AttributeError
+								if not found:
+									return object.__getattribute__(self, name)
+
+								return _runMultiFunc
 
 			with perf_timer.PerfTimer("Final toolchain creation"):
 				return type(PlatformString("Toolchain"), classes, dict(ToolchainTemplate.__dict__))()
@@ -1135,13 +1177,16 @@ class TestToolchainMixin(testcase.TestCase):
 			def Run(self, *args):
 				pass
 
-			def DoBaseThing(self):
+			@staticmethod
+			def DoBaseThing():
 				_sharedLocals.doBaseThingCalledInBase += 1
 
-			def DoBaseThing2(self):
+			@staticmethod
+			def DoBaseThing2():
 				_sharedLocals.doBaseThing2CalledInBase += 1
 
-			def OverloadedFn(self):
+			@staticmethod
+			def OverloadedFn():
 				_sharedLocals.overloadFnCalledInBase += 1
 
 			def SetSomeVal(self):
@@ -1176,7 +1221,8 @@ class TestToolchainMixin(testcase.TestCase):
 				_sharedLocals.derived1AccessSomeValResult = self._someval
 				_sharedLocals.derived1AccessTestResult = self._test
 
-			def OverloadedFn(self):
+			@staticmethod
+			def OverloadedFn():
 				_sharedLocals.overloadFnCalledInDerived1 += 1
 
 			def _baseInternalThing(self):
@@ -1188,10 +1234,12 @@ class TestToolchainMixin(testcase.TestCase):
 			def _sameNamePrivateThing(self):
 				_sharedLocals.derived1SameNameThingCalled += 1
 
-			def DoDerived1Thing(self):
+			@staticmethod
+			def DoDerived1Thing():
 				_sharedLocals.doDerived1ThingCalled += 1
 
-			def DoMultiThing(self):
+			@staticmethod
+			def DoMultiThing():
 				_sharedLocals.doMultiThingCalledInDerived1 += 1
 
 			@staticmethod
@@ -1218,10 +1266,12 @@ class TestToolchainMixin(testcase.TestCase):
 				_sharedLocals.derived2AccessSomeValResult = self._someval
 				_sharedLocals.derived2AccessTestResult = self._test
 
-			def OverloadedFn(self):
+			@staticmethod
+			def OverloadedFn():
 				_sharedLocals.overloadFnCalledInDerived2 += 1
 
-			def DoBaseThing(self):
+			@staticmethod
+			def DoBaseThing():
 				_sharedLocals.doBaseThingCalledInDerived2 += 1
 
 			def Derived2SetSomeVal(self):
@@ -1237,10 +1287,12 @@ class TestToolchainMixin(testcase.TestCase):
 			def _sameNamePrivateThing(self):
 				_sharedLocals.derived2SameNameThingCalled += 1
 
-			def DoDerived2Thing(self):
+			@staticmethod
+			def DoDerived2Thing():
 				_sharedLocals.doDerived2ThingCalled += 1
 
-			def DoMultiThing(self):
+			@staticmethod
+			def DoMultiThing():
 				_sharedLocals.doMultiThingCalledInDerived2 += 1
 
 			@staticmethod
@@ -1298,7 +1350,7 @@ class TestToolchainMixin(testcase.TestCase):
 		# This should call _basePrivateThing on the base class and _baseInternalThing on the child
 		# And it should call Derived1PrivateThing on Derived1
 		# And it should call the function named _sameNamePrivateThing defined in Derived1, but NOT the one defined in Derived2
-		self.mixin.Derived1CallInternals()
+		self.mixin.Tool(self._derived1).Derived1CallInternals()
 
 		self.assertChanged(
 			basePrivateThingCalledInBase=1,
@@ -1311,7 +1363,7 @@ class TestToolchainMixin(testcase.TestCase):
 		# This should call _basePrivateThing on the derived class and _baseInternalThing on the base
 		# And it should call Derived2PrivateThing on Derived2
 		# And it should call the function named _sameNamePrivateThing defined in Derived2, but NOT the one defined in Derived1
-		self.mixin.Derived2CallInternals()
+		self.mixin.Tool(self._derived2).Derived2CallInternals()
 
 		self.assertChanged(
 			baseInternalThingCalledInBase=1,
@@ -1343,7 +1395,8 @@ class TestToolchainMixin(testcase.TestCase):
 	def testBaseClassFunctionNotCalledIfOverloaded(self):
 		"""Test that a base class implementation is not called if all derived classes override it"""
 		# This should call the overloaded functions on both Derived1 and Derived2 and should NOT call the base implementation
-		self.mixin.OverloadedFn()
+		self.mixin.Tool(self._derived1).OverloadedFn()
+		self.mixin.Tool(self._derived2).OverloadedFn()
 
 		self.assertChanged(
 			overloadFnCalledInDerived1=1,
@@ -1355,7 +1408,7 @@ class TestToolchainMixin(testcase.TestCase):
 		that accessing data initialized by the child class is isolated from other classes using the same name"""
 		# This should access self._someVal and self._test in Derived1 as set up by their constructors
 		# self._test should be 1 because it should see the Derived1 instance of it, and not the Derived2 instance
-		self.mixin.Derived1AccessSomeVal()
+		self.mixin.Tool(self._derived1).Derived1AccessSomeVal()
 
 		self.assertChanged(
 			derived1AccessSomeValResult=0,
@@ -1364,7 +1417,7 @@ class TestToolchainMixin(testcase.TestCase):
 
 		# This should access self._someVal and self._test in Derived2 as set up by their constructors
 		# self._test should be 2 because it should see the Derived2 instance of it, and not the Derived1 instance
-		self.mixin.Derived2AccessSomeVal()
+		self.mixin.Tool(self._derived2).Derived2AccessSomeVal()
 
 		self.assertChanged(
 			derived2AccessSomeValResult=0,
@@ -1374,14 +1427,14 @@ class TestToolchainMixin(testcase.TestCase):
 	def testChangeSharedDataInBase(self):
 		"""Test that changes to shared data by the base class are seen by all children"""
 		# Set self._someVal to 12345 in the base class. This should affect both child classes
-		self.mixin.SetSomeVal()
+		self.mixin.Tool(self._base).SetSomeVal()
 
 		self.assertChanged(
 			setSomeValCalledInBase=1,
 		)
 
 		# Access values again via Derived1. self.someVal should be 12345 now.
-		self.mixin.Derived1AccessSomeVal()
+		self.mixin.Tool(self._derived1).Derived1AccessSomeVal()
 
 		self.assertChanged(
 			derived1AccessSomeValResult=12345,
@@ -1389,20 +1442,28 @@ class TestToolchainMixin(testcase.TestCase):
 		)
 
 		# Access values again via Derived2. Just like with Derived1, self.someVal should be 12345 now.
-		self.mixin.Derived2AccessSomeVal()
+		self.mixin.Tool(self._derived2).Derived2AccessSomeVal()
 
 		self.assertChanged(
 			derived2AccessSomeValResult=12345,
 			derived2AccessTestResult=2,
 		)
 
+	def testCallNonStaticMethodWithoutLimitViewThrows(self):
+		"""Test that trying to call an instance method without defining a single class for scope throws an exception"""
+		with self.assertRaises(InvalidFunctionCall):
+			self.mixin.SetSomeVal()
+
+		with self.assertRaises(InvalidFunctionCall):
+			self.mixin.Derived1AccessSomeVal()
+
 	def testChangeSharedDataInDerived(self):
 		"""Test that changes to shared data by a derived class are seen by other derived classes"""
 		# Set SomeVal by way of Derived2, which despite being a child class should still set the base class instance
-		self.mixin.Derived2SetSomeVal()
+		self.mixin.Tool(self._derived2).Derived2SetSomeVal()
 
 		# Access values again via Derived1. self.someVal should be 54321 now as set by Derived2.
-		self.mixin.Derived1AccessSomeVal()
+		self.mixin.Tool(self._derived1).Derived1AccessSomeVal()
 
 		self.assertChanged(
 			derived1AccessSomeValResult=54321,
@@ -1410,7 +1471,7 @@ class TestToolchainMixin(testcase.TestCase):
 		)
 
 		# Access values again via Derived2. Just like with Derived1, self.someVal should be 54321 now.
-		self.mixin.Derived2AccessSomeVal()
+		self.mixin.Tool(self._derived2).Derived2AccessSomeVal()
 
 		self.assertChanged(
 			derived2AccessSomeValResult=54321,
@@ -1420,14 +1481,14 @@ class TestToolchainMixin(testcase.TestCase):
 	def testFunctionsImplementedOnlyInOneClass(self):
 		"""Test that functions work correctly even if not all tools support it"""
 		# Call a function defined only in Derived1 and not in the base class
-		self.mixin.DoDerived1Thing()
+		self.mixin.Tool(self._derived1).DoDerived1Thing()
 
 		self.assertChanged(
 			doDerived1ThingCalled=1,
 		)
 
 		# Call a function defined only in Derived2 and not in the base class
-		self.mixin.DoDerived2Thing()
+		self.mixin.Tool(self._derived2).DoDerived2Thing()
 
 		self.assertChanged(
 			doDerived2ThingCalled=1,

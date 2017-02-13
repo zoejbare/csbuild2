@@ -48,14 +48,12 @@ class AssemblerBase(Tool):
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
 	"""
-	dependencies={}
-
 	################################################################################
 	### Initialization
 	################################################################################
 
 	def __init__(self, projectSettings):
-		super(Tool, self).__init__()
+		Tool.__init__(self, projectSettings)
 		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
 		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
 		self._asmFlags = projectSettings.get("asmFlags", [])
@@ -160,7 +158,6 @@ class AssemblerBase(Tool):
 		"""
 		log.Build("Assembling {}...", os.path.basename(inputFile.filename))
 
-		_, extension = os.path.splitext(inputFile.filename)
 		returncode, _, _ = commands.Run(self._getCommand(project, inputFile), env=self._getEnv(project))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(project, inputFile)

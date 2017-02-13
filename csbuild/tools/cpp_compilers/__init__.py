@@ -37,6 +37,10 @@ class CppCompileChecker(CompileChecker):
 	"""
 	CompileChecker for C++ files that knows how to get C++ file dependency lists.
 	"""
+	def __init__(self, compiler):
+		CompileChecker.__init__(self)
+		self._compiler = compiler
+
 	def GetDependencies(self, buildProject, inputFile):
 		"""
 		Get a list of dependencies for a file.
@@ -51,10 +55,8 @@ class CppCompileChecker(CompileChecker):
 		with open(inputFile.filename, "r") as f:
 			contents = f.read()
 		ret = []
-		#TODO: Calling GetIncludeDirectories() will fail here because it's returning a list of OrderedSets.
-		#      Leaving the break here to remind us that we need to change how this gets called so it calls
-		#      the function only for cpp compiler tools.
-		includeDirs = [os.path.dirname(inputFile.filename)] + list(buildProject.toolchain.GetIncludeDirectories())
+
+		includeDirs = [os.path.dirname(inputFile.filename)] + list(buildProject.toolchain.Tool(self._compiler).GetIncludeDirectories())
 		for header in _includeRegex.findall(contents):
 			for includeDir in includeDirs:
 				maybeHeaderLoc = os.path.join(includeDir, header)

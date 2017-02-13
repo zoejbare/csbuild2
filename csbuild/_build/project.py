@@ -202,7 +202,7 @@ class Project(object):
 			self.RediscoverFiles()
 
 	def __repr__(self):
-		return "{} ({}/{}/{})".format(self.name, self.toolchainName, self.architectureName, self.targetName)
+		return "{} ({}-{}-{})".format(self.name, self.toolchainName, self.architectureName, self.targetName)
 
 	def FormatMacro(self, toConvert):
 		"""

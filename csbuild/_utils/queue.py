@@ -36,8 +36,8 @@ class Queue(object):
 	"""
 	def __init__(self):
 		self._deque = deque()
-		self._lock = threading.Lock()
-		self._condition = threading.Condition(self._lock)
+		# Semaphore used as an event to prevent Put() from having to take a lock to wake a thread in GetBlocking().
+		self._sema = threading.Semaphore(0)
 
 	def Put(self, item):
 		"""
@@ -45,9 +45,8 @@ class Queue(object):
 		:param item: whatever
 		:type item: any
 		"""
-		with self._lock:
-			self._deque.append(item)
-			self._condition.notify()
+		self._deque.append(item)
+		self._sema.release()
 
 	def Get(self):
 		"""
@@ -56,6 +55,8 @@ class Queue(object):
 		:return: Whatever was put into the queue
 		:rtype: any
 		"""
+		if not self._sema.acquire(False):
+			raise IndexError("Get() on an empty queue")
 		return self._deque.popleft()
 
 	def GetBlocking(self):
@@ -64,10 +65,5 @@ class Queue(object):
 		:return: Whatever was put into the queue
 		:rtype: any
 		"""
-		while True:
-			with self._lock:
-				try:
-					return self._deque.popleft()
-				except IndexError:
-					pass
-				self._condition.wait()
+		self._sema.acquire()
+		return self._deque.popleft()

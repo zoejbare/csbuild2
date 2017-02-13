@@ -48,15 +48,21 @@ def InitTools():
 	"""
 	systemArchitecture = csbuild.GetSystemArchitecture()
 	checkers = {}
-	cppChecker = CppCompileChecker()
-	asmChecker = AsmCompileChecker()
 
-	for inputExtension in GccCppCompiler.inputFiles | ClangCppCompiler.inputFiles | MsvcCppCompiler.inputFiles:
-		checkers[inputExtension] = cppChecker
+	for name, compiler, linker, assembler in [
+		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
+		( "clang", ClangCppCompiler, GccLinker, GccAssembler ),
+		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler )
+	]:
+		cppChecker = CppCompileChecker(compiler)
+		asmChecker = AsmCompileChecker(assembler)
 
-	for inputExtension in MsvcAssembler.inputFiles:
-		checkers[inputExtension] = asmChecker
+		for inputExtension in compiler.inputFiles:
+			checkers[inputExtension] = cppChecker
 
-	csbuild.RegisterToolchain("gcc", systemArchitecture, GccCppCompiler, GccLinker, GccAssembler, checkers=checkers)
-	csbuild.RegisterToolchain("clang", systemArchitecture, ClangCppCompiler, GccLinker, GccAssembler, checkers=checkers)
-	csbuild.RegisterToolchain("msvc", systemArchitecture, MsvcCppCompiler, MsvcLinker, MsvcAssembler, checkers=checkers)
+		for inputExtension in assembler.inputFiles:
+			checkers[inputExtension] = asmChecker
+
+		csbuild.RegisterToolchain(name, systemArchitecture, compiler, linker, assembler, checkers=checkers)
+
+	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")

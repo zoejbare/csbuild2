@@ -770,8 +770,12 @@ def Run():
 		# 	for option in _options:
 		# 		group.add_argument(*option[0], **option[1])
 
-		args, remainder = parser.parse_known_args()
-		args.remainder = remainder
+		#args, remainder = parser.parse_known_args()
+		#args.remainder = remainder
+		#TODO: temporary, set runPerfReport to false so unknown flags don't trigger perf report to get printed
+		#Once custom options are implemented this will not be needed and will go away.
+		shared_globals.runPerfReport = False
+		args = parser.parse_args()
 
 		if args.version:
 			shared_globals.runMode = csbuild.RunMode.Version
@@ -947,7 +951,8 @@ def Run():
 		with perf_timer.PerfTimer("Project setup"):
 			#Now all dependencies have been resolved, so let toolchains do their post-resolution setup
 			for proj in projectBuildList:
-				proj.toolchain.SetupForProject(proj)
+				for tool in proj.toolchain.GetAllTools():
+					proj.toolchain.Tool(tool).SetupForProject(proj)
 
 	shared_globals.projectBuildList = projectBuildList
 

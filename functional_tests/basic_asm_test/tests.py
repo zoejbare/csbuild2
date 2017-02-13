@@ -44,10 +44,11 @@ class BasicAsmTest(FunctionalTest):
 		else:
 			self.outputFile = "out/hello_world"
 		outDir = "out"
-		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--at"])
+		FunctionalTest.setUp(self, outDir=outDir)
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
+		self.cleanArgs = ["--project=hello_world", "--arch=x86"]
 		self.assertMakeSucceeds("-v", "--arch=x86", "--project=hello_world", "--show-commands")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))

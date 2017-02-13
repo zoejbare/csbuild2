@@ -104,6 +104,6 @@ csbuild.SetDefaultToolchain("AddDoubles")
 csbuild.SetFoo()
 
 with csbuild.Project("TestProject", "."):
-	csbuild.SetUserData("platformFooStr", "{}/{{toolchain.foo}}".format(platform.system()))
+	csbuild.SetUserData("platformFooStr", "{}/{{toolchain.$AddDoubles.foo}}".format(platform.system()))
 	csbuild.SetOutputDirectory("out/{toolchainName}/{userData.platformFooStr}")
 	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
