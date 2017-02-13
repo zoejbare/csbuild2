@@ -30,9 +30,389 @@ from __future__ import unicode_literals, division, print_function
 import time
 import threading
 import re
-from collections import deque
+import math
+import sys
+import os
 
-from ._utils import FormatTime, shared_globals
+from collections import deque
+_collecting = True
+
+class ReportMode(object):
+	TREE = 0
+	FLAT = 1
+	HTML = 2
+
+def EnablePerfTracking(enable=True):
+	global _collecting
+	_collecting = enable
+
+_htmlHeader = """<!DOCTYPE html><HTML>
+	<HEAD>
+		<title>Perf report for pydevconsole.py</title>
+		<script type="text/javascript">
+			var scriptLoaded = false;
+			function checkScriptLoaded() {{
+				if (!scriptLoaded) {{
+					document.getElementById("errorbar").innerHTML="Could not contact gstatic.com to access google charts API.Tree maps will not be available until connection is restored.";
+				}}
+			}}
+			function _width(s, w) {{
+				s = "0000" + s
+				return s.substring(s.length - w)
+			}}
+
+			function _formatTime(totaltime){{
+				totalmin = Math.floor(totaltime / 60)
+				totalsec = Math.floor(totaltime % 60)
+				msec = Math.floor((totaltime - Math.floor(totaltime))*10000)
+				return totalmin + ":" + _width(totalsec, 2) + "." + _width(msec, 4)
+			}}
+		</script>
+		<style>
+			.hoversort {{
+			 	cursor: pointer; cursor: hand;
+			}}
+			.hoversort:hover{{
+				color:blue;
+			}}
+			.percentbar {{
+				height:22px;
+				background-color:#a060ff;
+				margin-top:-22px;
+
+			}}
+
+			.gradient {{
+				background: rgba(235,233,249,1);
+				background: -moz-linear-gradient(top, rgba(235,233,249,1) 0%, rgba(216,208,239,1) 50%, rgba(206,199,236,1) 51%, rgba(193,191,234,1) 100%);
+				background: -webkit-gradient(left top, left bottom, color-stop(0%, rgba(235,233,249,1)), color-stop(50%, rgba(216,208,239,1)), color-stop(51%, rgba(206,199,236,1)), color-stop(100%, rgba(193,191,234,1)));
+				background: -webkit-linear-gradient(top, rgba(235,233,249,1) 0%, rgba(216,208,239,1) 50%, rgba(206,199,236,1) 51%, rgba(193,191,234,1) 100%);
+				background: -o-linear-gradient(top, rgba(235,233,249,1) 0%, rgba(216,208,239,1) 50%, rgba(206,199,236,1) 51%, rgba(193,191,234,1) 100%);
+				background: -ms-linear-gradient(top, rgba(235,233,249,1) 0%, rgba(216,208,239,1) 50%, rgba(206,199,236,1) 51%, rgba(193,191,234,1) 100%);
+				background: linear-gradient(to bottom, rgba(235,233,249,1) 0%, rgba(216,208,239,1) 50%, rgba(206,199,236,1) 51%, rgba(193,191,234,1) 100%);
+				filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ebe9f9', endColorstr='#c1bfea', GradientType=0 );
+			}}
+		</style>
+	</HEAD>
+	<BODY onload="checkScriptLoaded()">
+		<div id="errorbar" style="background-color:#ff0000"></div>
+		<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js" onload="scriptLoaded=true;" ></script>
+		<h1>Perf Report: <i>{0}</i></h1>
+"""
+
+_blocks = [
+"""		<div style="margin:2px 10px;padding: 5px 10px;background-color:lavender;border: 1px solid grey;">
+			<h3>{1}</h3>
+
+			<div id="chart_div_{0}"></div>
+			<script type="text/javascript">
+				google.charts.load("current", {{"packages":["treemap"]}});
+				google.charts.setOnLoadCallback(drawChart);
+				function drawChart() {{
+					var data = new google.visualization.DataTable();
+					data.addColumn("string", "ID");
+					data.addColumn("string", "Parent");
+					data.addColumn("number", "Exclusive Time in Seconds");
+					data.addColumn("number", "Inclusive time in seconds");
+					data.addRows([
+""",
+"""					]);
+					var tree = new google.visualization.TreeMap(document.getElementById("chart_div_{0}"));
+					function showFullTooltip(row, size, value) {{
+						return '<div style="background:#fd9; padding:10px; border-style:solid">' +
+						'<span style="font-family:Courier"><b>' +
+						data.getValue(row, 0).split("\x0b").join("").split("<").join("&lt;").split(">").join("&gt;")
+						+ ':</b>' + _formatTime(data.getValue(row, 2)) + ' seconds</span></div>'
+					}}
+					var options = {{
+						highlightOnMouseOver: true,
+						maxDepth: 1,
+						maxPostDepth: 20,
+						minHighlightColor: "#80a0ff",
+						midHighlightColor: "#ffffff",
+						maxHighlightColor: "#ff0000",
+						minColor: "#7390E6",
+						midColor: "#E6E6E6",
+						maxColor: "#e60000",
+						headerHeight: 15,
+						showScale: false,
+						height: 500,
+						useWeightedAverageForAggregation: true,
+						generateTooltip: showFullTooltip
+					}};
+					tree.draw(data, options);
+				}}
+			</script>
+			<script type="text/javascript">
+				var datas_{0} = [
+""",
+"""				function HideChildren_{0}(parentId) {{
+						className = '{0}_Parent_' + parentId
+						elems = document.getElementsByClassName(className)
+						arrowElem = document.getElementById("arrow_{0}_"+parentId)
+						for(var i = 0; i < elems.length; ++i) {{
+							var elem = elems[i]
+							if(elem.style.maxHeight == '0px') {{
+								elem.style.maxHeight=elem.rememberMaxHeight
+								arrowElem.innerHTML = '&#x25bc;'
+							}}
+							else
+							{{
+								elem.style.maxHeight='0px'
+								arrowElem.innerHTML = '&#x25b6;'
+							}}
+						}}
+					}}
+
+					var mode_{0} = "tree"
+
+					function Flatten_{0}() {{
+						ret = {{}}
+						function recurse(datas) {{
+							if(datas.length == 0) {{
+								return;
+							}}
+							for(var i = 0; i < datas.length; ++i) {{
+								if(datas[i][0] in ret) {{
+									item = ret[datas[i][0]]
+									item[0] += datas[i][1]
+									item[1] += datas[i][2]
+									item[2] += datas[i][3]
+									item[3] += datas[i][4]
+									item[4] += datas[i][5]
+									item[5] += datas[i][6]
+									item[6] += datas[i][7]
+									item[7] += datas[i][8]
+									item[8] += datas[i][9]
+								}}
+								else {{
+									ret[datas[i][0]] = [
+										datas[i][1],
+										datas[i][2],
+										datas[i][3],
+										datas[i][4],
+										datas[i][5],
+										datas[i][6],
+										datas[i][7],
+										datas[i][8],
+										datas[i][9]
+									];
+								}}
+								recurse(datas[i][10]);
+							}}
+						}}
+						recurse(datas_{0});
+						retArray = []
+						for(var key in ret) {{
+							item = ret[key]
+							retArray.push([
+								key,
+								item[0],
+								item[1],
+								item[2],
+								item[3],
+								item[4],
+								item[5],
+								item[6],
+								item[7],
+								item[8],
+								[]
+							]);
+						}}
+						return retArray;
+					}}
+
+					var prevSortKey_{0} = 1
+					var prevSortType_{0} = -1
+					var maxId_{0} = -1
+					function Populate_{0}(sortKey) {{
+						var sortType = 1
+						if(sortKey == 0) {{
+							sortType = -1
+						}}
+						if(prevSortKey_{0} == sortKey && prevSortType_{0} == sortType) {{
+							sortType *= -1
+						}}
+						prevSortKey_{0} = sortKey
+						prevSortType_{0} = sortType
+
+						elem = document.getElementById("stack_{0}")
+						bg1 = "#DFDFF2"
+						bg2 = "#D3D3E6"
+						var s = '<div style="border:1px solid black"><div style="font-weight:bold;border-bottom:1px solid black;" class="gradient">'
+						s += '<span class="hoversort" style="width:37%;display:inline-block;text-align:center;" onclick="Populate_{0}(0)">Block</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(1)">Inclusive</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(2)">Exclusive</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(3)">Count</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(4)">Inclusive Max</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(5)">Inclusive Min</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(6)">Inclusive Mean</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(7)">Exclusive Max</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(8)">Exclusive Min</span>'
+						s += '<span class="hoversort" style="width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;" onclick="Populate_{0}(9)">Exclusive Mean</span>'
+						s += '</div>'
+						var id = 1
+						function recurse(oneLevel, depth, parentId) {{
+							oneLevel = oneLevel.sort(function(a, b) {{
+								var x = a[sortKey]; var y = b[sortKey];
+								return ((x < y) ? 1 : ((x > y) ? -1 : 0)) * sortType;
+							}});
+							for(var i=0; i < oneLevel.length; ++i) {{
+								var thisId = id;
+								id += 1;
+								if(thisId %2 == 0) {{
+									bg1 = "#C8C6F2"
+									bg2 = "#B3B1D9"
+								}}
+								else {{
+									bg1 = "#BDBBE6"
+									bg2 = "#A8A7CC"
+								}}
+								s += '<div style="width:100%;overflow:hidden;transition:max-height 0.5s linear" class="{0}_Parent_'+parentId+'", id="{0}_'+thisId+'">'
+								s += '<div style="line-height:22px;"><span style="height:100%;width:37%;display:inline-block;background-color:'+bg1+'" '
+								if(oneLevel[i][10].length != 0) {{
+									s += 'class="hoversort" onclick="HideChildren_{0}(\\''+thisId+'\\')"'
+								}}
+								s += '><span style="width:20px;display:inline-block;margin-left:' + (depth * 15) + 'px;" id="arrow_{0}_'+thisId+'">'
+								if(oneLevel[i][10].length != 0) {{
+									s += '&#x25bc;'
+								}}
+								s += '</span>' + oneLevel[i][0] + '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg2+'">' + _formatTime(oneLevel[i][1])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][1]/totals_{0}[0] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg1+'">' + _formatTime(oneLevel[i][2])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][2]/totals_{0}[0] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg2+'">' + oneLevel[i][3]
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][3]/totals_{0}[1] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg1+'">' + _formatTime(oneLevel[i][4])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][4]/totals_{0}[2] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg2+'">' + _formatTime(oneLevel[i][5])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][5]/totals_{0}[3] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg2+'">' + _formatTime(oneLevel[i][6])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][6]/totals_{0}[4] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg2+'">' + _formatTime(oneLevel[i][7])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][7]/totals_{0}[5] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg2+'">' + _formatTime(oneLevel[i][8])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][8]/totals_{0}[6] * 100) + '%;"></div>'
+								s += '</span>'
+								s += '<span style="height:100%;width:7%;display:inline-block;border-left:1px solid black;margin-left:-1px;text-align:center;background-color:'+bg2+'">' + _formatTime(oneLevel[i][9])
+								s += '<div class="percentbar", style="width:' + Math.min(100,oneLevel[i][9]/totals_{0}[7] * 100) + '%;"></div>'
+								s += '</span></div>'
+								recurse(oneLevel[i][10], depth + 1, thisId)
+								s += "</div>"
+							}}
+						}}
+						var datas;
+						if(mode_{0} == "flat") {{
+							datas = Flatten_{0}();
+						}}
+						else {{
+							datas = datas_{0};
+						}}
+						recurse(datas, 0, 0)
+						s += '</div>'
+						elem.innerHTML = s
+						for(var i = 0; i < id; ++i) {{
+							className = '{0}_Parent_' + i
+							elems = document.getElementsByClassName(className)
+							for(var j = 0; j < elems.length; ++j) {{
+								var elem = elems[j]
+								elem.style.maxHeight = Math.max(22, elem.clientHeight) + "px"
+								elem.rememberMaxHeight = elem.style.maxHeight
+							}}
+						}}
+						maxId_{0} = id
+					}}
+
+					function ExpandAll_{0}() {{
+						for(var i = 1; i < maxId_{0}; ++i) {{
+							className = '{0}_Parent_' + i
+							elems = document.getElementsByClassName(className)
+							arrowElem = document.getElementById("arrow_{0}_"+i)
+							for(var j = 0; j < elems.length; ++j) {{
+								var elem = elems[j]
+								elem.style.maxHeight=elem.rememberMaxHeight
+								arrowElem.innerHTML = '&#x25bc;'
+							}}
+						}}
+						return false;
+					}}
+
+					function CollapseAll_{0}() {{
+						for(var i = 1; i < maxId_{0}; ++i) {{
+							className = '{0}_Parent_' + i
+							elems = document.getElementsByClassName(className)
+							arrowElem = document.getElementById("arrow_{0}_"+i)
+							for(var j = 0; j < elems.length; ++j) {{
+								var elem = elems[j]
+								elem.style.maxHeight='0px'
+								arrowElem.innerHTML = '&#x25b6;'
+							}}
+						}}
+						return false;
+					}}
+
+					function RenderTreeView_{0}() {{
+						if(mode_{0} != "tree") {{
+							mode_{0} = "tree";
+							prevSortType_{0} *= -1
+							Populate_{0}(prevSortKey_{0})
+							elem = document.getElementById("expandcollapse_{0}")
+							elem.style.opacity = 100
+							elem.style.visibility = "visible"
+						}}
+						return false;
+					}}
+
+					function RenderFlatView_{0}() {{
+						if(mode_{0} != "flat") {{
+							mode_{0} = "flat";
+							prevSortType_{0} *= -1
+							Populate_{0}(prevSortKey_{0})
+							elem = document.getElementById("expandcollapse_{0}")
+							elem.style.opacity = 0
+							elem.style.visibility = "hidden"
+						}}
+						return false;
+					}}
+
+			</script>
+			<div>
+			<div style="border:1px solid black;padding:0px 6px">
+				<div style="float:left;transition:opacity 0.5s, visibility 0.5s" id="expandcollapse_{0}">
+					<a href="javascript:;" onclick="ExpandAll_{0}()">expand all</a> |
+					<a href="javascript:;" onclick="CollapseAll_{0}()">collapse all</a>
+				</div>
+				&nbsp;
+				<div style="float:right">
+					View as:
+					<a href="javascript:;" onclick="RenderTreeView_{0}()">tree</a> |
+					<a href="javascript:;" onclick="RenderFlatView_{0}()">flat</a>
+				</div>
+			</div>
+			<div style="clear:left" id="stack_{0}"></div>
+			</div>
+			<script type="text/javascript">Populate_{0}(1);</script>
+		</div>
+"""
+]
+
+_htmlFooter = """	</BODY>
+</HTML>"""
+
+
+def _formatTime(totaltime):
+	totalmin = math.floor(totaltime / 60)
+	totalsec = math.floor(totaltime % 60)
+	msec = math.floor((totaltime - math.floor(totaltime))*10000)
+	return "{}:{:02}.{:04}".format(int(totalmin), int(totalsec), int(msec))
 
 class PerfTimer(object):
 	"""
@@ -46,7 +426,7 @@ class PerfTimer(object):
 	perfStack = threading.local()
 
 	def __init__(self, blockName):
-		if shared_globals.runPerfReport:
+		if _collecting:
 			self.blockName = blockName
 			self.incstart = 0
 			self.excstart = 0
@@ -55,7 +435,7 @@ class PerfTimer(object):
 			self.scopeName = blockName
 
 	def __enter__(self):
-		if shared_globals.runPerfReport:
+		if _collecting:
 			now = time.time()
 			try:
 				prev = PerfTimer.perfStack.stack[-1]
@@ -70,7 +450,7 @@ class PerfTimer(object):
 			self.excstart = now
 
 	def __exit__(self, excType, excVal, excTb):
-		if shared_globals.runPerfReport:
+		if _collecting:
 			now = time.time()
 			try:
 				prev = PerfTimer.perfStack.stack[-2]
@@ -85,18 +465,26 @@ class PerfTimer(object):
 			PerfTimer.perfStack.stack.pop()
 
 	@staticmethod
-	def PrintPerfReport():
+	def PrintPerfReport(reportMode, output=None):
 		"""
 		Print out all the collected data from PerfTimers in a heirarchical tree
 		"""
-		from . import log
-		shared_globals.verbosity = shared_globals.Verbosity.Verbose
+
 		fullreport = {}
 		threadreports = {}
+		class Position:
+			Inclusive = 0
+			Exclusive = 1
+			Count = 2
+			MaxInc = 3
+			MaxExc = 4
+			MinInc = 5
+			MinExc = 6
+
 		while True:
 			try:
 				pair = PerfTimer.perfQueue.popleft()
-				if shared_globals.runPerfReport == "flat":
+				if reportMode == ReportMode.FLAT:
 					split = pair[0].rsplit("::", 1)
 					if len(split) == 2:
 						key = split[1]
@@ -109,133 +497,327 @@ class PerfTimer(object):
 						pair[3]
 					)
 
-				fullreport.setdefault(pair[0], [0,0,0,[],[]])
-				fullreport[pair[0]][0] += pair[1]
-				fullreport[pair[0]][1] += pair[2]
-				fullreport[pair[0]][2] += 1
+				fullreport.setdefault(pair[0], [0,0,0,0,0,999999999,999999999])
+				fullreport[pair[0]][Position.Inclusive] += pair[1]
+				fullreport[pair[0]][Position.Exclusive] += pair[2]
+				fullreport[pair[0]][Position.Count] += 1
+				fullreport[pair[0]][Position.MaxInc] = max(pair[1], fullreport[pair[0]][Position.MaxInc])
+				fullreport[pair[0]][Position.MaxExc] = max(pair[2], fullreport[pair[0]][Position.MaxExc])
+				fullreport[pair[0]][Position.MinInc] = min(pair[1], fullreport[pair[0]][Position.MinInc])
+				fullreport[pair[0]][Position.MinExc] = min(pair[2], fullreport[pair[0]][Position.MinExc])
 
 				threadreport = threadreports.setdefault(pair[3], {})
-				threadreport.setdefault(pair[0], [0,0,0])
-				threadreport[pair[0]][0] += pair[1]
-				threadreport[pair[0]][1] += pair[2]
-				threadreport[pair[0]][2] += 1
+				threadreport.setdefault(pair[0], [0,0,0,0,0,999999999,999999999])
+				threadreport[pair[0]][Position.Inclusive] += pair[1]
+				threadreport[pair[0]][Position.Exclusive] += pair[2]
+				threadreport[pair[0]][Position.Count] += 1
+				threadreport[pair[0]][Position.MaxInc] = max(pair[1], threadreport[pair[0]][Position.MaxInc])
+				threadreport[pair[0]][Position.MaxExc] = max(pair[2], threadreport[pair[0]][Position.MaxExc])
+				threadreport[pair[0]][Position.MinInc] = min(pair[1], threadreport[pair[0]][Position.MinInc])
+				threadreport[pair[0]][Position.MinExc] = min(pair[2], threadreport[pair[0]][Position.MinExc])
 			except IndexError:
 				break
 
 		if not fullreport:
 			return
 
-		log.Custom(log.Color.WHITE, "PERF", "Perf reports:")
+		if reportMode == ReportMode.HTML:
+			if output is None:
+				output = os.path.basename(os.path.splitext(sys.modules["__main__"].__file__)[0] + "_PERF.html")
 
-		def _recurse(report, sortedKeys, prefix, replacementText, printed, itemfmt):
-			prev = (None, None)
+			with open(output, "w") as f:
+				class SharedLocals:
+					identifiers = {}
+					lastId = {}
+					totalExc = 0
+					totalCount = 0
+					maxExcMean = 0
+					maxIncMean = 0
+					maxExcMax = 0
+					maxExcMin = 0
+					maxIncMax = 0
+					maxIncMin = 0
 
-			for key in sortedKeys:
-				if key in printed:
-					continue
+				def _getIdentifier(s):
+					_,_,base = s.rpartition("::")
+					if s not in SharedLocals.identifiers:
+						SharedLocals.identifiers[s] = SharedLocals.lastId.setdefault(base, 0)
+						SharedLocals.lastId[base] += 1
+					return base + "\\x0b" * SharedLocals.identifiers[s]
 
-				if key.startswith(prefix):
-					printkey = key.replace(prefix, replacementText, 1)
-					if printkey.find("::") != -1:
-						continue
-					if prev != (None, None):
-						log.Custom(
-							log.Color.WHITE,
-							"PERF",
-							itemfmt,
-							prev[0],
-							FormatTime(report[prev[1]][0]),
-							FormatTime(report[prev[1]][1]),
-							report[prev[1]][2],
-							FormatTime(report[prev[1]][0]/report[prev[1]][2]),
-							FormatTime(report[prev[1]][1]/report[prev[1]][2]),
+				def _recurseHtml(report, sortedKeys, prefix, printed, itemfmt, indent):
+					first = True
+					for key in sortedKeys:
+						if key in printed:
+							continue
+
+						if key.startswith(prefix):
+							printkey = key.replace(prefix, "", 1)
+							if printkey.find("::") != -1:
+								continue
+							if not first:
+								f.write("\t" * (indent+1))
+								f.write("],\n")
+							f.write("\n")
+							f.write("\t" * (indent+1))
+							f.write(
+								itemfmt.format(
+									printkey,
+									report[key][Position.Inclusive],
+									report[key][Position.Exclusive],
+									report[key][Position.Count],
+									report[key][Position.MaxInc],
+									report[key][Position.MinInc],
+									report[key][Position.Inclusive]/report[key][Position.Count],
+									report[key][Position.MaxExc],
+									report[key][Position.MinExc],
+									report[key][Position.Exclusive]/report[key][Position.Count],
+								)
+							)
+
+							SharedLocals.totalExc += report[key][Position.Exclusive]
+							SharedLocals.totalCount += report[key][Position.Count]
+							SharedLocals.maxExcMean = max(SharedLocals.maxExcMean, report[key][Position.Exclusive]/report[key][Position.Count])
+							SharedLocals.maxIncMean = max(SharedLocals.maxIncMean, report[key][Position.Inclusive]/report[key][Position.Count])
+							SharedLocals.maxExcMax = max(SharedLocals.maxExcMax, report[key][Position.MaxExc])
+							SharedLocals.maxIncMax = max(SharedLocals.maxIncMax, report[key][Position.MaxInc])
+							SharedLocals.maxExcMin = max(SharedLocals.maxExcMin, report[key][Position.MinExc])
+							SharedLocals.maxIncMin = max(SharedLocals.maxIncMin, report[key][Position.MinInc])
+
+							f.write("\t" * (indent+2))
+							f.write("[")
+							printed.add(key)
+							_recurseHtml(report, sortedKeys, key + "::", printed, itemfmt, indent + 2)
+							first = False
+					if not first:
+						f.write("\t" * (indent+1))
+						f.write("]\n")
+						f.write("\t" * indent)
+					f.write("]\n")
+
+				def _printReportHtml(report, threadId):
+					if not report:
+						return
+					totalcount = 0
+					for key in report:
+						totalcount += report[key][2]
+
+					sortedKeys = sorted(report, reverse=True, key=lambda x: report[x][0] if reportMode == ReportMode.TREE else report[x][1])
+
+					threadScriptId = threadId.replace(" ", "_")
+					f.write(_blocks[0].format(threadScriptId, threadId))
+
+					f.write("\t\t\t\t\t\t['<{}_root>', null, 0, 0 ],\n".format(threadScriptId))
+					for key in sortedKeys:
+						parent, _, thisKey = key.rpartition("::")
+						ident = _getIdentifier(key)
+						f.write("\t\t\t\t\t\t['" + ident + "', ")
+						if parent:
+							f.write("'" + _getIdentifier(parent) + "', ")
+						else:
+							f.write("'<{}_root>',".format(threadScriptId))
+						f.write(str(report[key][0]))
+						f.write(", ")
+						f.write(str(report[key][0]))
+						f.write("],\n")
+
+						exclusiveIdent = _getIdentifier(key + "::<" +thisKey + ">")
+						f.write("\t\t\t\t\t\t['" + exclusiveIdent + "', ")
+						f.write("'" + ident + "', ")
+						f.write(str(max(report[key][1], 0.0000000001)))
+						f.write(", ")
+						f.write(str(max(report[key][1], 0.0000000001)))
+						f.write("],\n")
+
+					f.write(_blocks[1].format(threadScriptId, threadId))
+
+					itemfmt = "[ \"{}\", {}, {}, {}, {}, {}, {}, {}, {}, {},\n"
+					printed = set()
+					first = True
+					for key in sortedKeys:
+						if key in printed:
+							continue
+						if key.find("::") != -1:
+							continue
+						if not first:
+							f.write("\t\t\t\t\t],\n")
+						f.write("\t\t\t\t\t")
+						f.write(
+							itemfmt.format(
+								key,
+								report[key][Position.Inclusive],
+								report[key][Position.Exclusive],
+								report[key][Position.Count],
+								report[key][Position.MaxInc],
+								report[key][Position.MinInc],
+								report[key][Position.Inclusive]/report[key][Position.Count],
+								report[key][Position.MaxExc],
+								report[key][Position.MinExc],
+								report[key][Position.Exclusive]/report[key][Position.Count],
+							)
 						)
-						printed.add(prev[1])
-						_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + " \u2502  " + " \u251c\u2500 ", printed, itemfmt)
-					prev = (printkey, key)
 
-			if prev != (None, None):
-				printkey = prev[0].replace("\u251c", "\u2514")
-				log.Custom(
-					log.Color.WHITE,
-					"PERF",
-					itemfmt,
-					printkey,
-					FormatTime(report[prev[1]][0]),
-					FormatTime(report[prev[1]][1]),
-					report[prev[1]][2],
-					FormatTime(report[prev[1]][0]/report[prev[1]][2]),
-					FormatTime(report[prev[1]][1]/report[prev[1]][2]),
-				)
-				printed.add(prev[1])
-				_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + "    " + " \u251c\u2500 ", printed, itemfmt)
+						SharedLocals.totalExc += report[key][Position.Exclusive]
+						SharedLocals.totalCount += report[key][Position.Count]
+						SharedLocals.maxExcMean = max(SharedLocals.maxExcMean, report[key][Position.Exclusive]/report[key][Position.Count])
+						SharedLocals.maxIncMean = max(SharedLocals.maxIncMean, report[key][Position.Inclusive]/report[key][Position.Count])
+						SharedLocals.maxExcMax = max(SharedLocals.maxExcMax, report[key][Position.MaxExc])
+						SharedLocals.maxIncMax = max(SharedLocals.maxIncMax, report[key][Position.MaxInc])
+						SharedLocals.maxExcMin = max(SharedLocals.maxExcMin, report[key][Position.MinExc])
+						SharedLocals.maxIncMin = max(SharedLocals.maxIncMin, report[key][Position.MinInc])
+						f.write("\t\t\t\t\t\t[")
 
-		def _alteredKey(key):
-			return re.sub("([^:]*::)", "    ", key)
+						SharedLocals.totalExc += report[key][1]
+						SharedLocals.totalCount += report[key][2]
+						SharedLocals.maxExcMean = max(SharedLocals.maxExcMean, report[key][Position.Exclusive]/report[key][Position.Count])
+						SharedLocals.maxIncMean = max(SharedLocals.maxIncMean, report[key][Position.Inclusive]/report[key][Position.Count])
+						SharedLocals.maxExcMax = max(SharedLocals.maxExcMax, report[key][Position.MaxExc])
+						SharedLocals.maxIncMax = max(SharedLocals.maxIncMax, report[key][Position.MaxInc])
+						SharedLocals.maxExcMin = max(SharedLocals.maxExcMin, report[key][Position.MinExc])
+						SharedLocals.maxIncMin = max(SharedLocals.maxIncMin, report[key][Position.MinInc])
 
-		def _printReport(report, threadId):
-			if not report:
-				return
+						_recurseHtml(report, sortedKeys, key + "::", printed, itemfmt, 6)
+						first = False
 
-			maxlen = len(str(threadId))
-			totalcount = 0
-			for key in report:
-				maxlen = max(len(_alteredKey(key)), maxlen)
-				totalcount += report[key][2]
+					f.write(
+						"\t\t\t\t\t]"
+						"\n\t\t\t\t]"
+					)
+					f.write("\n\t\t\t\tvar totals_{} = [{}, {}, {}, {}, {}, {}, {}, {}]\n".format(
+						threadScriptId, SharedLocals.totalExc, SharedLocals.totalCount,
+						SharedLocals.maxIncMax, SharedLocals.maxIncMin, SharedLocals.maxIncMean,
+						SharedLocals.maxExcMax, SharedLocals.maxExcMin, SharedLocals.maxExcMean,
+					))
+					f.write(_blocks[2].format(threadScriptId, threadId))
 
-			log.Custom(log.Color.WHITE, "PERF", "")
-			linefmt = "+={{:=<{}}}=+============+============+===========+============+============+".format(maxlen)
-			line = linefmt.format('')
-			log.Custom(log.Color.WHITE, "PERF", line)
-			headerfmt = "| {{:<{}}} | INCLUSIVE  | EXCLUSIVE  |   CALLS   |  INC_MEAN  |  EXC_MEAN  |".format(maxlen)
-			log.Custom(log.Color.WHITE, "PERF", headerfmt, threadId)
-			log.Custom(log.Color.WHITE, "PERF", line)
-			itemfmt = "| {{:{}}} | {{:>10}} | {{:>10}} | {{:>9}} | {{:>10}} | {{:>10}} |".format(maxlen)
-			printed = set()
-			sortedKeys = sorted(report, reverse=True, key=lambda x: report[x][0] if shared_globals.runPerfReport == "tree" else report[x][1])
-			total = 0
-			for key in sortedKeys:
-				if key in printed:
+				f.write(_htmlHeader.format(os.path.basename(sys.modules["__main__"].__file__)))
+
+				for threadId, report in threadreports.items():
+					if threadId == threading.current_thread().ident:
+						continue
+					else:
+						_printReportHtml(report, "Worker Thread {}".format(threadId))
+
+				_printReportHtml(threadreports[threading.current_thread().ident], "Main Thread")
+				if len(threadreports) != 1:
+					_printReportHtml(fullreport, "CUMULATIVE")
+
+				f.write(_htmlFooter)
+
+		else:
+			if output is None:
+				def printIt(*args, **kwargs):
+					print(*args, **kwargs)
+				output = printIt
+			output("Perf reports:")
+
+			def _recurse(report, sortedKeys, prefix, replacementText, printed, itemfmt):
+				prev = (None, None)
+
+				for key in sortedKeys:
+					if key in printed:
+						continue
+
+					if key.startswith(prefix):
+						printkey = key.replace(prefix, replacementText, 1)
+						if printkey.find("::") != -1:
+							continue
+						if prev != (None, None):
+							output(
+								itemfmt.format(
+									prev[0],
+									_formatTime(report[prev[1]][Position.Inclusive]),
+									_formatTime(report[prev[1]][Position.Exclusive]),
+									report[prev[1]][Position.Count],
+									_formatTime(report[prev[1]][Position.MinInc]),
+									_formatTime(report[prev[1]][Position.MaxInc]),
+									_formatTime(report[prev[1]][Position.Inclusive]/report[key][Position.Count]),
+									_formatTime(report[prev[1]][Position.MinExc]),
+									_formatTime(report[prev[1]][Position.MaxExc]),
+									_formatTime(report[prev[1]][Position.Exclusive]/report[key][Position.Count]),
+								)
+							)
+							printed.add(prev[1])
+							_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + " \u2502  " + " \u251c\u2500 ", printed, itemfmt)
+						prev = (printkey, key)
+
+				if prev != (None, None):
+					printkey = prev[0].replace("\u251c", "\u2514")
+					output(
+						itemfmt.format(
+							printkey,
+							_formatTime(report[prev[1]][Position.Inclusive]),
+							_formatTime(report[prev[1]][Position.Exclusive]),
+							report[prev[1]][Position.Count],
+							_formatTime(report[prev[1]][Position.MinInc]),
+							_formatTime(report[prev[1]][Position.MaxInc]),
+							_formatTime(report[prev[1]][Position.Inclusive]/report[key][Position.Count]),
+							_formatTime(report[prev[1]][Position.MinExc]),
+							_formatTime(report[prev[1]][Position.MaxExc]),
+							_formatTime(report[prev[1]][Position.Exclusive]/report[key][Position.Count]),
+						)
+					)
+					printed.add(prev[1])
+					_recurse(report, sortedKeys, prev[1] + "::", replacementText[:-4] + "    " + " \u251c\u2500 ", printed, itemfmt)
+
+			def _alteredKey(key):
+				return re.sub("([^:]*::)", "    ", key)
+
+			def _printReport(report, threadId):
+				if not report:
+					return
+
+				maxlen = len(str(threadId))
+				totalcount = 0
+				for key in report:
+					maxlen = max(len(_alteredKey(key)), maxlen)
+					totalcount += report[key][2]
+
+				output("")
+				linefmt = "+={{:=<{}}}=+============+============+===========+============+============+============+============+============+============+".format(maxlen)
+				line = linefmt.format('')
+				output(line)
+				headerfmt = "| {{:<{}}} | INCLUSIVE  | EXCLUSIVE  |   CALLS   |  INC_MIN   |  INC_MAX   |  INC_MEAN  |  EXC_MIN   |  EXC_MAX   |  EXC_MEAN  |".format(maxlen)
+				output(headerfmt.format(threadId))
+				output(line)
+				itemfmt = "| {{:{}}} | {{:>10}} | {{:>10}} | {{:>9}} | {{:>10}} | {{:>10}} | {{:>10}} | {{:>10}} | {{:>10}} | {{:>10}} |".format(maxlen)
+				printed = set()
+				sortedKeys = sorted(report, reverse=True, key=lambda x: report[x][0] if reportMode == ReportMode.TREE else report[x][1])
+				total = 0
+				for key in sortedKeys:
+					if key in printed:
+						continue
+					if key.find("::") != -1:
+						continue
+					output(
+						itemfmt.format(
+							key,
+							_formatTime(report[key][Position.Inclusive]),
+							_formatTime(report[key][Position.Exclusive]),
+							report[key][Position.Count],
+							_formatTime(report[key][Position.MinInc]),
+							_formatTime(report[key][Position.MaxInc]),
+							_formatTime(report[key][Position.Inclusive]/report[key][Position.Count]),
+							_formatTime(report[key][Position.MinExc]),
+							_formatTime(report[key][Position.MaxExc]),
+							_formatTime(report[key][Position.Exclusive]/report[key][Position.Count]),
+						)
+					)
+					if reportMode == ReportMode.FLAT:
+						total += report[key][1]
+					else:
+						total += report[key][0]
+					_recurse(report, sortedKeys, key + "::", " \u251c\u2500 ", printed, itemfmt)
+
+				output(line)
+
+			for threadId, report in threadreports.items():
+				if threadId == threading.current_thread().ident:
 					continue
-				if key.find("::") != -1:
-					continue
-				log.Custom(
-					log.Color.WHITE,
-					"PERF",
-					itemfmt,
-					key,
-					FormatTime(report[key][0]),
-					FormatTime(report[key][1]),
-					report[key][2],
-					FormatTime(report[key][0]/report[key][2]),
-					FormatTime(report[key][1]/report[key][2]),
-				)
-				if shared_globals.runPerfReport == "flat":
-					total += report[key][1]
 				else:
-					total += report[key][0]
-				_recurse(report, sortedKeys, key + "::", " \u251c\u2500 ", printed, itemfmt)
+					_printReport(report, "Worker Thread {}".format(threadId))
 
-			log.Custom(log.Color.WHITE, "PERF", line)
-			log.Custom(
-				log.Color.WHITE,
-				"PERF",
-				itemfmt,
-				"TOTAL",
-				FormatTime(total),
-				FormatTime(total),
-				totalcount,
-				FormatTime(total/totalcount),
-				FormatTime(total/totalcount)
-			)
-			log.Custom(log.Color.WHITE, "PERF", line)
+			_printReport(threadreports[threading.current_thread().ident], "Main Thread")
+			if len(threadreports) != 1:
+				_printReport(fullreport, "CUMULATIVE")
 
-
-		for threadId, report in threadreports.items():
-			if threadId == threading.current_thread().ident:
-				continue
-			else:
-				_printReport(report, "Worker Thread {}".format(threadId))
-
-		_printReport(threadreports[threading.current_thread().ident], "Main Thread")
-		_printReport(fullreport, "CUMULATIVE")

@@ -728,7 +728,7 @@ def Run():
 		#parser.add_argument('--with-libs', help="Include linked libraries in dependency graph", action="store_true")
 
 		parser.add_argument("--perf-report", help="Collect and show perf report at the end of execution",
-							action = "store", choices = ["tree", "flat"], default = None, const = "tree", nargs = "?")
+							action = "store", choices = ["tree", "flat", "html"], default = None, const = "tree", nargs = "?")
 
 		#parser.add_argument("-d", "--define", help = "Add defines to each project being built.", action = "append")
 
@@ -774,7 +774,7 @@ def Run():
 		#args.remainder = remainder
 		#TODO: temporary, set runPerfReport to false so unknown flags don't trigger perf report to get printed
 		#Once custom options are implemented this will not be needed and will go away.
-		shared_globals.runPerfReport = False
+		perf_timer.EnablePerfTracking(False)
 		args = parser.parse_args()
 
 		if args.version:
@@ -792,7 +792,14 @@ def Run():
 
 		shared_globals.verbosity = args.verbosity
 		shared_globals.showCommands = args.show_commands
-		shared_globals.runPerfReport = args.perf_report
+		if args.perf_report is not None:
+			perf_timer.EnablePerfTracking(True)
+			if args.perf_report == "tree":
+				shared_globals.runPerfReport = perf_timer.ReportMode.TREE
+			elif args.perf_report == "flat":
+				shared_globals.runPerfReport = perf_timer.ReportMode.FLAT
+			else:
+				shared_globals.runPerfReport = perf_timer.ReportMode.HTML
 
 		if args.force_color == "on":
 			shared_globals.colorSupported = True

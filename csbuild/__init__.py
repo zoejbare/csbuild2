@@ -33,6 +33,7 @@ once that thread tries to use it. Long story short: Don't import modules within 
 from __future__ import unicode_literals, division, print_function
 
 import glob
+import traceback
 
 from . import perf_timer
 from ._utils import StrType
@@ -42,8 +43,6 @@ with perf_timer.PerfTimer("csbuild module init"):
 	import signal
 	import os
 	import platform
-	# this is to ensure glob.glob doesn't throw an import exception if it hits after build starts
-	import posixpath # pylint: disable=unused-import
 
 	from collections import Callable
 
@@ -330,6 +329,16 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type kwargs: any
 		:return:
 		"""
+		names = set()
+		for tool in tools:
+			if tool.__name__ in names:
+				log.Warn(
+					"Toolchain {} contains multiple tools with the same class name ('{}'). "
+					"All but the first will be inaccessible in macro formatting, which accesses tools by class name.",
+					name,
+					tool.__name__
+				 )
+			names.add(tool.__name__)
 		shared_globals.allToolchains.add(name)
 
 		checkers = kwargs.get("checkers", {})
@@ -661,7 +670,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 			)
 			shared_globals.sortedProjects.Add(currentPlan, self._depends)
 
-		def __exit__(self, excType, excValue, traceback):
+		def __exit__(self, excType, excValue, backtrace):
 			"""
 			Leave the project context
 
@@ -669,8 +678,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 			:type excType: type
 			:param excValue: value of thrown exception (ignored)
 			:type excValue: any
-			:param traceback: traceback attached to the thrown exception (ignored)
-			:type traceback: traceback
+			:param backtrace: traceback attached to the thrown exception (ignored)
+			:type backtrace: traceback
 			:return: Always false
 			:rtype: bool
 			"""
@@ -707,8 +716,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 			_build.Run()
 			system.Exit(0)
 		except:
+			traceback.print_exc()
 			system.CleanUp()
-			raise
+			# pylint: disable=protected-access
+			os._exit(1)
 
 if os.getenv(PlatformString("CSBUILD_NO_AUTO_RUN")) != "1":
 	Run()

@@ -28,19 +28,17 @@ from __future__ import unicode_literals, division, print_function
 import os
 import threading
 
+import sys
+
+from . import PlatformBytes
+
 try:
 	import cPickle as pickle
 except ImportError:
 	import pickle
-import collections
-from . import ordered_set
 from .. import perf_timer
 
 _sentinel = object()
-
-class _classDescriptor(object):
-	def __init__(self, name):
-		self.name = name
 
 class SettingsManager(object):
 	"""
@@ -66,12 +64,6 @@ class SettingsManager(object):
 		:type value: any
 		"""
 		with perf_timer.PerfTimer("SettingsManager save"):
-			# Handle some things that can't serialize properly between versions of python
-			if isinstance(value, collections.OrderedDict):
-				value = [_classDescriptor("OrderedDict")] + list(value.items())
-			elif isinstance(value, ordered_set.OrderedSet):
-				value = [_classDescriptor("OrderedSet")] + list(value)
-
 			with self.lock:
 				self.settings[key] = value
 				dirFromKey = os.path.join(self.settingsDir, os.path.dirname(key))
@@ -102,13 +94,13 @@ class SettingsManager(object):
 						return default
 
 					with open(pathFromKey, "rb") as f:
-						ret = pickle.load(f)
+						data = f.read()
+						if sys.version_info[0] == 2:
+							data = data.replace(PlatformBytes("cUserString"), PlatformBytes("ccollections"))
+							data = data.replace(PlatformBytes("cUserList"), PlatformBytes("ccollections"))
+						ret = pickle.loads(data)
 
-					if isinstance(ret, list) and len(ret) >= 1 and isinstance(ret[0], _classDescriptor):
-						if ret[0].name == "OrderedDict":
-							self.settings[key] = collections.OrderedDict(ret[1:])
-						elif ret[0].name == "OrderedSet":
-							self.settings[key] = ordered_set.OrderedSet(ret[1:])
+					self.settings[key] = ret
 
 					return self.settings[key]
 				return ret

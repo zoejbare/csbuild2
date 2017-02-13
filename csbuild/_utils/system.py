@@ -27,9 +27,11 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import functools
 import imp
 import os
 import platform
+import traceback
 
 from . import shared_globals
 from .. import commands, perf_timer, log
@@ -59,22 +61,29 @@ def CleanUp():
 	"""
 	Clean up the various plates we're spinning so they don't crash to the ground or spin forever
 	"""
-	with perf_timer.PerfTimer("Cleanup"):
+	try:
+		with perf_timer.PerfTimer("Cleanup"):
 
-		if shared_globals.commandOutputThread is not None:
-			commands.queueOfLogQueues.Put(commands.stopEvent)
-			shared_globals.commandOutputThread.join()
+			if shared_globals.commandOutputThread is not None:
+				commands.queueOfLogQueues.Put(commands.stopEvent)
+				shared_globals.commandOutputThread.join()
 
-	if shared_globals.runPerfReport:
-		perf_timer.PerfTimer.PrintPerfReport()
+		if shared_globals.runPerfReport:
+			if shared_globals.runPerfReport != perf_timer.ReportMode.HTML:
+				output = functools.partial(log.Custom, log.Color.WHITE, "PERF")
+			else:
+				output = None
+			perf_timer.PerfTimer.PrintPerfReport(shared_globals.runPerfReport, output=output)
 
-	log.StopLogThread()
-
-	if not imp.lock_held():
-		imp.acquire_lock()
+		log.StopLogThread()
+	except:
+		traceback.print_exc()
+	finally:
+		if not imp.lock_held():
+			imp.acquire_lock()
 
 	# TODO: Kill running subprocesses
-	# TODO: Exit events for plugins
+	# TODO: Exit events for plugins and toolchains
 
 def Exit(code = 0):
 	"""
