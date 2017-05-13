@@ -472,6 +472,8 @@ class PerfTimer(object):
 
 		fullreport = {}
 		threadreports = {}
+
+		#pylint: disable=missing-docstring
 		class Position:
 			Inclusive = 0
 			Exclusive = 1
@@ -526,6 +528,7 @@ class PerfTimer(object):
 				output = os.path.basename(os.path.splitext(sys.modules["__main__"].__file__)[0] + "_PERF.html")
 
 			with open(output, "w") as f:
+				#pylint: disable=missing-docstring
 				class SharedLocals:
 					identifiers = {}
 					lastId = {}
@@ -538,6 +541,7 @@ class PerfTimer(object):
 					maxIncMax = 0
 					maxIncMin = 0
 
+				#pylint: disable=invalid-name
 				def _getIdentifier(s):
 					_,_,base = s.rpartition("::")
 					if s not in SharedLocals.identifiers:
@@ -706,6 +710,7 @@ class PerfTimer(object):
 
 		else:
 			if output is None:
+				#pylint: disable=invalid-name,missing-docstring
 				def printIt(*args, **kwargs):
 					print(*args, **kwargs)
 				output = printIt
@@ -820,4 +825,3 @@ class PerfTimer(object):
 			_printReport(threadreports[threading.current_thread().ident], "Main Thread")
 			if len(threadreports) != 1:
 				_printReport(fullreport, "CUMULATIVE")
-

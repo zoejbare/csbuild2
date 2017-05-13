@@ -91,10 +91,13 @@ class HeaderCheck(BaseChecker):
 	options = ()
 
 	def process_module(self, module):
-		"""process a module
-		the module's content is accessible via node.stream() function
 		"""
-		with module.file_stream as stream:
+		Process a module the module's content is accessible via node.stream() function.
+
+		:param module: Module being processed.
+		:type module: :class:`astroid.scoped_nodes.Module`
+		"""
+		with module.stream() as stream:
 			txt = b"".join(stream).decode("UTF-8")
 
 			txt = txt.replace("\r", "")

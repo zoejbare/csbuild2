@@ -106,8 +106,8 @@ class GccLinker(LinkerBase):
 					if match:
 						lib = match.group(1)
 						if lib not in shortLibs:
-							for line in lines:
-								log.Error(line)
+							for errorLine in lines:
+								log.Error(errorLine)
 							return None
 						shortLibs.remove(lib)
 						longLibs.append(lib)
@@ -168,8 +168,7 @@ class GccLinker(LinkerBase):
 	def _getOutputFileArgs(self, project):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
 			return [self._getOutputFiles(project)[0]]
-		else:
-			return ["-o", self._getOutputFiles(project)[0]]
+		return ["-o", self._getOutputFiles(project)[0]]
 
 	def _getInputFileArgs(self, inputFiles):
 		return [f.filename for f in inputFiles]

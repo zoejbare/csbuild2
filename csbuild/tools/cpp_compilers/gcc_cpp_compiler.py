@@ -95,8 +95,7 @@ class GccCppCompiler(CppCompilerBase):
 	def _getDebugArgs(self):
 		if self._debugLevel != DebugLevel.Disabled:
 			return ["-g"]
-		else:
-			return []
+		return []
 
 	def _getOptimizationArgs(self):
 		arg = {

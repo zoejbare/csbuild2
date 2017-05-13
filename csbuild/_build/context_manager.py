@@ -165,7 +165,7 @@ class ContextManager(object):
 
 				return _wrapCsbuildMethod
 			else:
-				if (isinstance(obj, _classType) or isinstance(obj, _typeType)) and issubclass(obj, ContextManager):
+				if isinstance(obj, (_classType, _typeType)) and issubclass(obj, ContextManager):
 					return NestedContext(obj, self)
 				return obj
 

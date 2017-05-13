@@ -89,8 +89,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 							func = cls.__dict__[item]
 							break
 
-					if not (isinstance(func, Callable) or isinstance(func, property) or isinstance(func, staticmethod))\
-							or isinstance(func, _classType) or isinstance(func, _typeType):
+					if not isinstance(func, (Callable, property, staticmethod)) or isinstance(func, (_classType, _typeType)):
 						hasNonFunc = True
 						funcs.add((None, cls, func))
 						vals.add(func)
@@ -308,7 +307,6 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type name: str, bytes
 		:param projectType: Type of project
 		:type projectType: ProjectType
-		:return:
 		"""
 		currentPlan.SetValue("outputName", name)
 		currentPlan.SetValue("projectType", projectType)
@@ -327,7 +325,6 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param kwargs: Specify parameter `checkers` to include a dictionary of extension to csbuild.toolchain.CompileChecker instances
 			These checkers will be used to determine whether or not to recompile files
 		:type kwargs: any
-		:return:
 		"""
 		names = set()
 		for tool in tools:
@@ -341,16 +338,16 @@ with perf_timer.PerfTimer("csbuild module init"):
 			names.add(tool.__name__)
 		shared_globals.allToolchains.add(name)
 
+		currentPlan.EnterContext(("toolchain", (name,)))
+
 		checkers = kwargs.get("checkers", {})
 		if checkers:
 			currentPlan.UpdateDict("checkers", checkers)
 
-		currentPlan.EnterContext(("toolchain", (name,)))
 		currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
 		currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False, checkers=checkers))
 		currentPlan.defaultArchitectureMap[name] = defaultArchitecture
 		currentPlan.LeaveContext()
-
 
 		for tool in tools:
 			if tool.supportedArchitectures is not None:
@@ -365,7 +362,6 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type name: str
 		:param toolchains: Toolchain to alias
 		:type toolchains: str
-		:return:
 		"""
 		shared_globals.toolchainGroups[name] = set(toolchains)
 

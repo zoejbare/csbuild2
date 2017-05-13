@@ -3,19 +3,19 @@
 
 #ifdef IS_PLATFORM_MACOS
 
-; MacOS function name
+/* MacOS function name */
 .global _getnum
 _getnum:
 
 #else
 
-; Linux function name
+/* Linux function name */
 .global getnum
 getnum:
 
 #endif
 
-	; Move the integer value "4" into the output register.
+	/* Move the integer value "4" into the output register. */
 #ifdef IS_ARCH_X86
 	mov $4, %eax
 #else

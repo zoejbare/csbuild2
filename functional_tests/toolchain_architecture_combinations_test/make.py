@@ -41,8 +41,8 @@ class WriteOutput(Tool):
 		self._ext = ext
 		Tool.__init__(self, projectSettings)
 
-	def Run(self, project, inputFile):
-		outFile = os.path.join(project.outputDir, project.outputName + "." + project.architectureName + "." + project.targetName + "." + self._ext)
+	def Run(self, inputProject, inputFile):
+		outFile = os.path.join(inputProject.outputDir, ".".join([inputProject.outputName, inputProject.architectureName, inputProject.targetName, self._ext]))
 		csbuild.log.Build("Writing {}", outFile)
 		with open(outFile, "w") as f:
 			f.write("foo")

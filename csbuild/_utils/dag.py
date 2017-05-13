@@ -55,7 +55,6 @@ class DAG(object):
 		:type value: any
 		:param dependencies: List of keys that must precede this one in the graph
 		:type dependencies: list(any)
-		:return:
 		"""
 		assert self._keyFunc(value) not in self._graph, "Duplicate item in dependency graph: {}".format(self._keyFunc(value))
 		for dependency in dependencies:

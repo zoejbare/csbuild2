@@ -48,13 +48,13 @@ class Sleeper(Tool):
 
 	running = False
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		assert not Sleeper.running
 		Sleeper.running = True
 		time.sleep(1)
 		with open(inputFile.filename, "r") as f:
 			value = f.read()
-		outFile = os.path.join(project.outputDir, project.outputName + "." + os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
+		outFile = os.path.join(inputProject.outputDir, inputProject.outputName + "." + os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(value)
 			f.flush()

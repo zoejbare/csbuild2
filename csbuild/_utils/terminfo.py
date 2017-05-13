@@ -41,7 +41,7 @@ class TermColor(object):
 	"""
 	Abstracts color in a cross-platform way. Values and types will differ based on platform.
 	"""
-	# pylint: disable=invalid-name,redefined-variable-type
+	# pylint: disable=invalid-name
 	if platform.system() == "Windows":
 		DGREY = 0 | 8
 		RED = 4 | 8
@@ -123,8 +123,7 @@ class TermInfo(object):
 			if res:
 				(_, _, _, _, _, left, _, right, _, _, _) = struct.unpack("hhhhHhhhhhh", csbi.raw)
 				return right - left
-			else:
-				return 0
+			return 0
 
 		else:
 			if TermInfo._cursesValid:
@@ -165,8 +164,8 @@ class TermInfo(object):
 
 			_, _, _, _, wattr, _, _, _, _, _, _ = struct.unpack("hhhhHhhhhhh", csbi.raw)
 			return wattr
-		else:
-			return "0"
+
+		return "0"
 
 
 	if platform.system() == "Windows":

@@ -85,6 +85,7 @@ class TestPylint(testcase.TestCase):
 				out = _parseAndRejigger(moduleFullPath, out)
 				log.Error("LINTING {}:\n\n{}", module, PlatformString(out))
 			if fd.returncode != 0:
+				#pylint: disable=not-context-manager
 				with lock:
 					failedLints.add(module)
 			self.assertEqual(0, fd.returncode)

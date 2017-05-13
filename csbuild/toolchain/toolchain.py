@@ -294,11 +294,11 @@ class Toolchain(object):
 
 						_limit.__name__ = item
 
-						if isinstance(val, types.MethodType) or isinstance(val, types.FunctionType):
+						if isinstance(val, (types.MethodType, types.FunctionType)):
 							return _limit
-						else:
-							_threadSafeClassTrackr.limit = ordered_set.OrderedSet()
-							return val
+
+						_threadSafeClassTrackr.limit = ordered_set.OrderedSet()
+						return val
 
 				class ReadOnlySettingsView(object):
 					"""
@@ -795,14 +795,13 @@ class Toolchain(object):
 									if isinstance(val, property):
 										# pylint: disable=no-member
 										return val.__get__(self)
-									elif isinstance(val, staticmethod) or isinstance(val, classmethod):
+									elif isinstance(val, (staticmethod, classmethod)):
 										# pylint: disable=no-member
 										return val.__get__(cls)
 									elif isinstance(val, types.FunctionType) or isinstance(types.MethodType):
 										assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
 										return types.MethodType(val, self)
-									else:
-										return val
+									return val
 
 								if hasattr(object, name) or hasattr(ToolClass, name):
 									return object.__getattribute__(self, name)
@@ -859,7 +858,7 @@ class Toolchain(object):
 												break
 
 										assert func is not None, "this shouldn't happen"
-										if isinstance(func, types.FunctionType) or isinstance(func, types.MethodType) or isinstance(func, property):
+										if isinstance(func, (types.FunctionType, types.MethodType, property)):
 											raise InvalidFunctionCall(
 												"Function call is invalid. '{}' is an instance method and is being called on a toolchain with more than one tool in its view. "
 												"Only staticmethods and classmethods are automatically bundled, non-static methods must be called with toolchain.Tool(FooTool).BarMethod()"
@@ -1174,7 +1173,7 @@ class TestToolchainMixin(testcase.TestCase):
 				ToolClass.__static_init__()
 				_sharedLocals.baseStaticInitialized += 1
 
-			def Run(self, *args):
+			def Run(self, inputProject, inputFile):
 				pass
 
 			@staticmethod

@@ -48,11 +48,11 @@ class Doubler(AddDoubles):
 
 	outputFiles = {".second"}
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
-		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
+		outFile = os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()
@@ -66,12 +66,12 @@ class Adder(AddDoubles):
 	inputGroups = {".second"}
 	outputFiles = {".third"}
 
-	def RunGroup(self, project, inputFiles):
+	def RunGroup(self, inputProject, inputFiles):
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
 				value += int(f.read())
-		outFile = os.path.join(project.outputDir, project.outputName + ".third")
+		outFile = os.path.join(inputProject.outputDir, inputProject.outputName + ".third")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()

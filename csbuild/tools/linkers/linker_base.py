@@ -208,21 +208,21 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 	### Base class methods containing logic shared by all subclasses
 	################################################################################
 
-	def RunGroup(self, project, inputFiles):
+	def RunGroup(self, inputProject, inputFiles):
 		"""
 		Execute a group build step. Note that this method is run massively in parallel with other build steps.
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param project:
-		:type project: csbuild._build.project.Project
+		:param inputProject:
+		:type inputProject: csbuild._build.project.Project
 		:param inputFiles: List of files to build
 		:type inputFiles: list[input_file.InputFile]
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		"""
-		log.Linker("Linking {}{}...", project.outputName, self._getOutputExtension(project.projectType))
-		returncode, _, _ = commands.Run(self._getCommand(project, inputFiles), env=self._getEnv(project))
+		log.Linker("Linking {}{}...", inputProject.outputName, self._getOutputExtension(inputProject.projectType))
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject))
 		if returncode != 0:
-			raise csbuild.BuildFailureException(project, inputFiles)
-		return self._getOutputFiles(project)
+			raise csbuild.BuildFailureException(inputProject, inputFiles)
+		return self._getOutputFiles(inputProject)

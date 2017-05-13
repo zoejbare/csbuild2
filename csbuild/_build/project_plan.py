@@ -192,13 +192,13 @@ class ProjectPlan(object):
 					settings[key] -= val
 					settings[key] |= val
 					continue
-				if isinstance(val, dict) or isinstance(val, collections.OrderedDict):
+				if isinstance(val, (dict, collections.OrderedDict)):
 					settings[key] = dict(settings.get(key, {}))
 					settings[key].update(val)
 				elif isinstance(val, list):
 					settings[key] = list(settings.get(key, []))
 					settings[key] += val
-				elif isinstance(val, ordered_set.OrderedSet) or isinstance(val, set):
+				elif isinstance(val, (set, ordered_set.OrderedSet)):
 					settings[key] = ordered_set.OrderedSet(settings.get(key, []))
 					settings[key] |= val
 				else:
@@ -600,7 +600,7 @@ class TestProjectPlan(testcase.TestCase):
 			inputFiles = None
 			outputFiles = {""}
 
-			def Run(self, inputProject, inputFiles):
+			def Run(self, inputProject, inputFile):
 				pass
 
 		global allPlans

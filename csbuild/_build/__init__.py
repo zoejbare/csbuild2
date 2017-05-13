@@ -139,17 +139,17 @@ def _checkDependenciesPreBuild(checkProject, tool, dependencies):
 	with perf_timer.PerfTimer("Dependency checks"):
 		log.Info("Checking if we can enqueue a new build for tool {} for project {}", checkProject, tool.__name__, checkProject)
 		for dependency in dependencies:
-			for tool in checkProject.toolchain.GetAllTools():
-				if tool.inputFiles is None:
-					extensionSet = tool.inputGroups
+			for checkTool in checkProject.toolchain.GetAllTools():
+				if checkTool.inputFiles is None:
+					extensionSet = checkTool.inputGroups
 				else:
-					extensionSet = tool.inputFiles | tool.inputGroups
+					extensionSet = checkTool.inputFiles | checkTool.inputGroups
 				hasExtension = False
 				for dependentExtension in extensionSet:
 					if checkProject.inputFiles.get(dependentExtension):
 						hasExtension = True
 						break
-				if hasExtension and checkProject.toolchain.CanCreateOutput(tool, dependency):
+				if hasExtension and checkProject.toolchain.CanCreateOutput(checkTool, dependency):
 					return False
 		return True
 

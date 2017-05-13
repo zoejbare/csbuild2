@@ -300,7 +300,6 @@ def SetCallbackQueue(callbackQueue):
 
 	:param callbackQueue: A queue for executing Pump calls
 	:type callbackQueue: queue.Queue
-	:return:
 	"""
 	global _callbackQueue
 	_callbackQueue = callbackQueue

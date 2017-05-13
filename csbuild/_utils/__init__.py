@@ -108,8 +108,7 @@ def FormatTime(totaltime, withMillis=True):
 	if withMillis:
 		msec = math.floor((totaltime - math.floor(totaltime))*10000)
 		return "{}:{:02}.{:04}".format(int(totalmin), int(totalsec), int(msec))
-	else:
-		return "{}:{:02}".format(int(totalmin), int(totalsec))
+	return "{}:{:02}".format(int(totalmin), int(totalsec))
 
 
 class MultiBreak(Exception):

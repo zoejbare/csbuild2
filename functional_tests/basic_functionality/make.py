@@ -38,7 +38,7 @@ class NullClass(Tool):
 	inputFiles=None
 	outputFiles={""}
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		return ""
 
 csbuild.RegisterToolchain("msvc", "dummy", NullClass)

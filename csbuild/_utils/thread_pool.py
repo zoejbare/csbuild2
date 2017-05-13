@@ -239,6 +239,8 @@ class TestThreadPool(testcase.TestCase):
 
 		def _incrementCount2(i):
 			time.sleep(random.uniform(0.001, 0.0125))
+
+			#pylint: disable=not-context-manager
 			with lock:
 				_sharedLocals.count += i
 				_sharedLocals.iter += 1
@@ -247,6 +249,8 @@ class TestThreadPool(testcase.TestCase):
 
 		def _incrementCount(i):
 			time.sleep(random.uniform(0.001, 0.0125))
+
+			#pylint: disable=not-context-manager
 			with lock:
 				_sharedLocals.count += i
 				_sharedLocals.iter += 1

@@ -47,13 +47,13 @@ def InitTools():
 	Initialize the built-in csbuild tools
 	"""
 	systemArchitecture = csbuild.GetSystemArchitecture()
-	checkers = {}
 
 	for name, compiler, linker, assembler in [
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
 		( "clang", ClangCppCompiler, GccLinker, GccAssembler ),
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler )
 	]:
+		checkers = {}
 		cppChecker = CppCompileChecker(compiler)
 		asmChecker = AsmCompileChecker(assembler)
 

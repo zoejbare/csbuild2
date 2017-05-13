@@ -127,14 +127,13 @@ class Project(object):
 			def _convertItem(toConvert):
 				if isinstance(toConvert, list):
 					return _convertList(toConvert)
-				elif isinstance(toConvert, dict) or isinstance(toConvert, collections.OrderedDict):
+				elif isinstance(toConvert, (dict, collections.OrderedDict)):
 					return _convertDict(toConvert)
-				elif isinstance(toConvert, set) or isinstance(toConvert, ordered_set.OrderedSet):
+				elif isinstance(toConvert, (set, ordered_set.OrderedSet)):
 					return _convertSet(toConvert)
-				elif isinstance(toConvert, StrType) or isinstance(toConvert, BytesType):
+				elif isinstance(toConvert, (StrType, BytesType)):
 					return self.FormatMacro(toConvert)
-				else:
-					return toConvert
+				return toConvert
 
 			with perf_timer.PerfTimer("Macro formatting"):
 				# We set self.settings here because _convertItem calls FormatMacro and FormatMacro uses self.settings
@@ -258,12 +257,10 @@ class Project(object):
 		:type inputs: input_file.InputFile or list[input_file.InputFile] or ordered_set.OrderedSet[input_file.InputFile]
 		:param artifact: absolute path to the file
 		:type artifact: str
-		:return:
 		"""
 		if inputs is not None:
 			if isinstance(inputs, input_file.InputFile):
 				inputs = [inputs]
-			# pylint: disable=redefined-variable-type
 			inputs = tuple(sorted(i.filename for i in inputs))
 		if artifact not in self.artifacts:
 			self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
@@ -281,7 +278,6 @@ class Project(object):
 		"""
 		if isinstance(inputs, input_file.InputFile):
 			inputs = [inputs]
-		# pylint: disable=redefined-variable-type
 		inputs = tuple(sorted(i.filename for i in inputs))
 		return self.lastRunArtifacts.get(inputs, None)
 
@@ -304,6 +300,7 @@ class Project(object):
 		#TODO: Investigate a lock-free solution to creating this directory.
 		if not os.access(directory, os.F_OK):
 			# Lock in case multiple threads get here at the same time.
+			#pylint: disable=not-context-manager
 			with Project._lock:
 				# If the directory still does not exist, create it.
 				if not os.access(directory, os.F_OK):

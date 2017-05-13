@@ -173,14 +173,14 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 			self._defines.add("CSB_APPLICATION=1")
 		self._defines.add("CSB_TARGET_{}=1".format(project.targetName.upper()))
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		"""
 		Execute a single build step. Note that this method is run massively in parallel with other build steps.
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param project: project being built
-		:type project: csbuild._build.project.Project
+		:param inputProject: project being built
+		:type inputProject: csbuild._build.project.Project
 		:param inputFile: File to build
 		:type inputFile: input_file.InputFile
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
@@ -189,7 +189,7 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 		log.Build("Compiling {}...", os.path.basename(inputFile.filename))
 
 		_, extension = os.path.splitext(inputFile.filename)
-		returncode, _, _ = commands.Run(self._getCommand(project, inputFile, extension in {".cpp", ".cc", ".cxx"}), env=self._getEnv(project))
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile, extension in {".cpp", ".cc", ".cxx"}), env=self._getEnv(inputProject))
 		if returncode != 0:
-			raise csbuild.BuildFailureException(project, inputFile)
-		return self._getOutputFiles(project, inputFile)
+			raise csbuild.BuildFailureException(inputProject, inputFile)
+		return self._getOutputFiles(inputProject, inputFile)

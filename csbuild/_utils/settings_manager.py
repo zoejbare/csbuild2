@@ -64,6 +64,7 @@ class SettingsManager(object):
 		:type value: any
 		"""
 		with perf_timer.PerfTimer("SettingsManager save"):
+			#pylint: disable=not-context-manager
 			with self.lock:
 				self.settings[key] = value
 				dirFromKey = os.path.join(self.settingsDir, os.path.dirname(key))
@@ -85,6 +86,7 @@ class SettingsManager(object):
 		:rtype: any
 		"""
 		with perf_timer.PerfTimer("SettingsManager load"):
+			#pylint: disable=not-context-manager
 			with self.lock:
 				ret = self.settings.get(key, _sentinel)
 
@@ -112,6 +114,7 @@ class SettingsManager(object):
 		:param key: Key to delete. Must be a legitimate filename.
 		:type key: str
 		"""
+		#pylint: disable=not-context-manager
 		with self.lock:
 			self.settings.pop(key, None)
 			pathFromKey = os.path.join(self.settingsDir, key)

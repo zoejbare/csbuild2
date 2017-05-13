@@ -48,10 +48,10 @@ class FirstCopier(AddDoubles):
 
 	outputFiles = {".firstcopy"}
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		with open(inputFile.filename, "r") as f:
 			value = f.read()
-		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".firstcopy")
+		outFile = os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".firstcopy")
 		with open(outFile, "w") as f:
 			f.write(value)
 			f.flush()
@@ -66,13 +66,13 @@ class Doubler(AddDoubles):
 	dependencies = {".firstcopy"}
 	outputFiles = {".second"}
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
-		with open(os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".firstcopy"), "r") as f:
+		with open(os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".firstcopy"), "r") as f:
 			value += int(f.read())
-		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
+		outFile = os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".second")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()
@@ -87,10 +87,10 @@ class SecondCopier(AddDoubles):
 
 	outputFiles = {".secondcopy"}
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		with open(inputFile.filename, "r") as f:
 			value = f.read()
-		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".secondcopy")
+		outFile = os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".secondcopy")
 		with open(outFile, "w") as f:
 			f.write(value)
 			f.flush()
@@ -105,14 +105,14 @@ class Adder(AddDoubles):
 	dependencies = {".secondcopy"}
 	outputFiles = {".third"}
 
-	def RunGroup(self, project, inputFiles):
+	def RunGroup(self, inputProject, inputFiles):
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
 				value += int(f.read())
 			with open(os.path.splitext(inputFile.filename)[0] + ".secondcopy", "r") as f:
 				value += int(f.read())
-		outFile = os.path.join(project.outputDir, project.outputName + ".third")
+		outFile = os.path.join(inputProject.outputDir, inputProject.outputName + ".third")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()

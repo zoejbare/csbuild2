@@ -48,11 +48,11 @@ class Doubler(AddDoubles):
 	outputFiles = {".first"}
 	exclusive = True
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 2
-		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".double.first")
+		outFile = os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".double.first")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()
@@ -67,11 +67,11 @@ class Tripler(AddDoubles):
 	outputFiles = {".first"}
 	exclusive = True
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 3
-		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".triple.first")
+		outFile = os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".triple.first")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()
@@ -86,11 +86,11 @@ class Quadrupler(AddDoubles):
 	outputFiles = {".first"}
 	exclusive = True
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		with open(inputFile.filename, "r") as f:
 			value = int(f.read())
 		value *= 4
-		outFile = os.path.join(project.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".quadruple.first")
+		outFile = os.path.join(inputProject.intermediateDir, os.path.splitext(os.path.basename(inputFile.filename))[0] + ".quadruple.first")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()
@@ -104,12 +104,12 @@ class Adder(AddDoubles):
 	inputGroups = {".first"}
 	outputFiles = {".second"}
 
-	def RunGroup(self, project, inputFiles):
+	def RunGroup(self, inputProject, inputFiles):
 		value = 0
 		for inputFile in inputFiles:
 			with open(inputFile.filename, "r") as f:
 				value += int(f.read())
-		outFile = os.path.join(project.outputDir, project.outputName + ".second")
+		outFile = os.path.join(inputProject.outputDir, inputProject.outputName + ".second")
 		with open(outFile, "w") as f:
 			f.write(str(value))
 			f.flush()

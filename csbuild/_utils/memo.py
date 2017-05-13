@@ -66,6 +66,8 @@ class MemoObject(object):
 		:rtype: any
 		"""
 		# Cannot rely on GIL for this since this, by design, must block.
+
+		#pylint: disable=not-context-manager
 		with self._lock:
 			return self.value
 
@@ -184,6 +186,7 @@ class Memo(object):
 		:return: 2-tuple of (writeResponsibilityGranted, memo object)
 		:rtype: tuple[bool, MemoObject]
 		"""
+		#pylint: disable=not-context-manager
 		with self.lock:
 			try:
 				return False, self.vals[key]

@@ -41,7 +41,7 @@ class Execute(Tool):
 	outputFiles = {".fake"}
 	supportedArchitectures = None
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		log.Command("Executing {}", inputFile.filename)
 		subprocess.check_output([inputFile.filename])
 		return "blah.fake"

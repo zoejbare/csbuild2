@@ -123,41 +123,41 @@ class Tool(object):
 		assert not Tool._initialized
 		Tool._initialized = True
 
-	def Run(self, project, inputFile):
+	def Run(self, inputProject, inputFile):
 		"""
 		Execute a single build step. Note that this method is run massively in parallel with other build steps.
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param project: project being built
-		:type project: csbuild._build.project.Project
+		:param inputProject: project being built
+		:type inputProject: csbuild._build.project.Project
 		:param inputFile: File to build
 		:type inputFile: input_file.InputFile
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		:raises NotImplementedError: if the subclass defines inputFiles and does not implement it
 		"""
-		_ignore(project)
+		_ignore(inputProject)
 		_ignore(inputFile)
 		if _eliminatePylintAbstractMethodCheck:
 			raise NotImplementedError()
 		return ""
 
-	def RunGroup(self, project, inputFiles):
+	def RunGroup(self, inputProject, inputFiles):
 		"""
 		Execute a group build step. Note that this method is run massively in parallel with other build steps.
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param project: project being built
-		:type project: csbuild._build.project.Project
+		:param inputProject: project being built
+		:type inputProject: csbuild._build.project.Project
 		:param inputFiles: List of files to build
 		:type inputFiles: list[input_file.InputFile]
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		:raises NotImplementedError: if the subclass defines inputGroups and does not implement it
 		"""
-		_ignore(project)
+		_ignore(inputProject)
 		_ignore(inputFiles)
 		if _eliminatePylintAbstractMethodCheck:
 			raise NotImplementedError()
