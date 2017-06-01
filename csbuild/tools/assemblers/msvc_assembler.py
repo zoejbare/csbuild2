@@ -51,7 +51,7 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 		AssemblerBase.__init__(self, projectSettings)
 
 	def _getEnv(self, project):
-		return self._vcvarsall.env
+		return self.vcvarsall.env
 
 	def _getOutputFiles(self, project, inputFile):
 		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
@@ -80,7 +80,7 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 	####################################################################################################################
 
 	def _getExecutablePath(self, project):
-		return os.path.join(self._vcvarsall.binPath, "ml64.exe" if project.architectureName == "x64" else "ml.exe")
+		return os.path.join(self.vcvarsall.binPath, "ml64.exe" if project.architectureName == "x64" else "ml.exe")
 
 	def _getDefaultArgs(self):
 		args = ["/nologo", "/c"]

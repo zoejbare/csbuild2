@@ -57,7 +57,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		LinkerBase.__init__(self, projectSettings)
 
 	def _getEnv(self, project):
-		return self._vcvarsall.env
+		return self.vcvarsall.env
 
 	def _getOutputFiles(self, project):
 		outputPath = os.path.join(project.outputDir, project.outputName)
@@ -83,9 +83,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			linkerPath = os.path.join(self._vcvarsall.binPath, "lib.exe")
+			linkerPath = os.path.join(self.vcvarsall.binPath, "lib.exe")
 		else:
-			linkerPath = os.path.join(self._vcvarsall.binPath, "link.exe")
+			linkerPath = os.path.join(self.vcvarsall.binPath, "link.exe")
 		cmd = [linkerPath] \
 			+ self._getOutputFileArgs(project) \
 			+ self._getDefaultArgs(project) \
@@ -97,7 +97,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def _findLibraries(self, libs):
 		notFound = set()
 		found = {}
-		allLibraryDirectories = [x for x in self._libraryDirectories] + self._vcvarsall.libPaths
+		allLibraryDirectories = [x for x in self._libraryDirectories] + self.vcvarsall.libPaths
 
 		for libraryName in libs:
 			if os.access(libraryName, os.F_OK):

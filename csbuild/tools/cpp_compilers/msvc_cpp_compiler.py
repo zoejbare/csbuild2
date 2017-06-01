@@ -54,7 +54,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		CppCompilerBase.__init__(self, projectSettings)
 
 	def _getEnv(self, project):
-		return self._vcvarsall.env
+		return self.vcvarsall.env
 
 	def _getOutputFiles(self, project, inputFile):
 		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
@@ -68,7 +68,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		return tuple(outputFiles)
 
 	def _getCommand(self, project, inputFile, isCpp):
-		compilerPath = os.path.join(self._vcvarsall.binPath, "cl.exe")
+		compilerPath = os.path.join(self.vcvarsall.binPath, "cl.exe")
 		extraFlags = self._cxxFlags if isCpp else self._cFlags
 		cmd = [compilerPath]  \
 			+ self._getDefaultArgs() \
