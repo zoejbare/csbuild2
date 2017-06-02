@@ -182,7 +182,7 @@ class _InstallDataPost2017(_BaseInstallData):
 
 		if not os.access(vsWhereFilePath, os.F_OK):
 			# The file doesn't exist, so Visual Studio 2017 (or newer) hasn't been installed.
-			return
+			return []
 
 		cmd = [
 			vsWhereFilePath,
