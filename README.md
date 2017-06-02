@@ -2,10 +2,14 @@
 
 **Test Suite**        | **Status** | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 :-------------------: | :---------------------------------------------------------------------------------------------------------------------------:  | ---
-**Linux/Python2.7**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_UnitTests_Python2_Linux)/statusIcon)]()| |
-**Linux/Python3.5**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_UnitTests_Python3_Linux)/statusIcon)]()| |
-**Windows/Python2.7** | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_UnitTests_Python2_Windows)/statusIcon)]()| |
-**Windows/Python3.5** | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_UnitTests_Python3_Windows)/statusIcon)]()| |
+**Linux/Python2.7**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_LinuxPython2)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_LinuxPython2&guest=1)| |
+**Linux/Python3.5**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_LinuxPython3)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_LinuxPython3&guest=1)| |
+**macOS/Python2.7**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_MacOSPython2)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_MacOSPython2&guest=1)| |
+**macOS/Python3.5**   | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_MacOSPython3)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_MacOSPython3&guest=1)| |
+**Windows/Python2.7** | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython27)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython27&guest=1)| |
+**Windows/Python3.5** | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython34)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython34&guest=1)| |
+**Windows/Python2.7** | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython35)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython35&guest=1)| |
+**Windows/Python3.5** | [![TeamCity](http://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython36)/statusIcon)](http://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython36&guest=1)| |
 
 <br><br>
 CSBuild is a language-agnostic build system focused on maximizing developer iteration time and providing tools for enabling
@@ -19,7 +23,7 @@ What it currently can do:
 
 What's still missing that exists in old CSBuild:
 - OSX, Android, and iOS support
-- "Chunking" - intelligently combining multiple translation units into one and breaking them back apart to improve build tunaround
+- "Chunking" - intelligently combining multiple translation units into one and breaking them back apart to improve build turn-around
 - Solution generation for Visual Studio and QtCreator
 - Build GUI showing the progress of individual files and projects as they're build
 - Dependency graph generation
