@@ -149,7 +149,7 @@ class Toolchain(object):
 					return ordered_set.OrderedSet()
 
 				@contextlib.contextmanager
-				def Use(cls):
+				def Use(cls): # pylint: disable=missing-yield-doc, missing-yield-type-doc
 					"""
 					Simple context manager to simplify scope management for the class tracker
 					:param cls: The class to manage, or 'self' to access self variables
@@ -883,7 +883,7 @@ class Toolchain(object):
 											assert val is not None, "this shouldn't happen"
 											if clsContainingVal in values:
 												continue
-											if len(values) != 0:
+											if values:
 												raise AttributeError(
 													"Toolchain attribute {} is ambiguous (exists on multiple tools). Try accessing on the class directly, or through toolchain.Tool(class)".format(name)
 												)
