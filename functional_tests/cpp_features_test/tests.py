@@ -143,4 +143,4 @@ class CppFeaturesTest(FunctionalTest):
 		elif platform.system() == "Linux":
 			self.assertIsNot(re.compile(R"^COMMAND: .* (-Wunused-variable )", re.M).search(out), None)
 			self.assertIsNot(re.compile(R"^COMMAND: .* (-shared-libgcc )", re.M).search(out), None)
-			self.assertIn("warning: unused variable \u2018unused\u2019 [-Wunused-variable]", err)
+			self.assertRegex(err, R"warning: unused variable .unused. \[-Wunused-variable\]")

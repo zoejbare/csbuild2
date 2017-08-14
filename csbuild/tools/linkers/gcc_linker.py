@@ -58,12 +58,12 @@ class GccLinker(LinkerBase):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			cmd = ["ar", "rcs"] \
+			cmd = [self._getArchiverName(), "rcs"] \
 				+ self._linkerFlags \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
 		else:
-			cmd = ["gcc", "-L/"] \
+			cmd = [self._getBinaryLinkerName(), "-L/"] \
 				+ self._getDefaultArgs(project) \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
@@ -76,8 +76,6 @@ class GccLinker(LinkerBase):
 	def _findLibraries(self, libs):
 		shortLibs = ordered_set.OrderedSet(libs)
 		longLibs = []
-
-		out = ""
 		ret = {}
 
 		for lib in libs:
@@ -93,7 +91,7 @@ class GccLinker(LinkerBase):
 		# and the vast majority of the cases that require a third pass will not require a fourth... but, everything
 		# is possible! Still better than doing a pass per file like we used to.
 		while True:
-			cmd = ["ld", "-M", "-o", "/dev/null"] + \
+			cmd = [self._getLdName(), "-M", "-o", "/dev/null"] + \
 				  ["-l"+lib for lib in shortLibs] + \
 				  ["-l:"+lib for lib in longLibs] + \
 				  ["-L"+path for path in self._libraryDirectories]
@@ -145,6 +143,7 @@ class GccLinker(LinkerBase):
 			ret[lib] = matches[i+len(shortLibs)]
 		for lib in libs:
 			log.Info("Found library '{}' at {}", lib, ret[lib])
+
 		return ret
 
 	def _getOutputExtension(self, projectType):
@@ -158,6 +157,15 @@ class GccLinker(LinkerBase):
 	####################################################################################################################
 	### Internal methods
 	####################################################################################################################
+
+	def _getLdName(self):
+		return "ld"
+
+	def _getBinaryLinkerName(self):
+		return "gcc"
+
+	def _getArchiverName(self):
+		return "ar"
 
 	def _getDefaultArgs(self, project):
 		args = []

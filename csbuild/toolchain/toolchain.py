@@ -149,7 +149,7 @@ class Toolchain(object):
 					return ordered_set.OrderedSet()
 
 				@contextlib.contextmanager
-				def Use(cls): # pylint: disable=missing-yield-doc, missing-yield-type-doc
+				def Use(cls):
 					"""
 					Simple context manager to simplify scope management for the class tracker
 					:param cls: The class to manage, or 'self' to access self variables
@@ -174,6 +174,18 @@ class Toolchain(object):
 					if base.__init__ not in _classTrackr.overloadedInits:
 						oldinit = base.__init__
 
+						for superbase in list(base.mro())[1:]:
+							if superbase is object:
+								break
+							if hasattr(oldinit, '__func__'):
+								if hasattr(superbase.__init__, '__func__') and oldinit.__func__ is superbase.__init__.__func__:
+									base.__oldInit__ = oldinit
+									return
+							else:
+								if not hasattr(superbase.__init__, '__func__') and oldinit is superbase.__init__:
+									base.__oldInit__ = oldinit
+									return
+
 						def _initwrap(self, *args, **kwargs):
 							# Don't re-init if already initialized
 							if base not in _classTrackr.initialized:
@@ -188,6 +200,12 @@ class Toolchain(object):
 						_classTrackr.overloadedInits.add(base.__init__)
 					if base.__static_init__ not in overloadedStaticInits:
 						oldstaticinit = base.__static_init__
+
+						for superbase in list(base.mro())[1:]:
+							if superbase is object:
+								break
+							if oldstaticinit is superbase.__static_init__:
+								return
 
 						@staticmethod
 						def _staticinitwrap(*args, **kwargs):

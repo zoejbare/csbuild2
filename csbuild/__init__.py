@@ -714,6 +714,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 		except:
 			traceback.print_exc()
 			system.CleanUp()
+			sys.stdout.flush()
+			sys.stderr.flush()
 			# pylint: disable=protected-access
 			os._exit(1)
 

@@ -19,19 +19,17 @@
 # SOFTWARE.
 
 """
-.. module:: clang_cpp_compiler
-	:synopsis: Clang compiler tool for C++.
+.. module:: clang_linker
+	:synopsis: Clang linker tool.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
+from .gcc_linker import GccLinker
 
-from .gcc_cpp_compiler import GccCppCompiler
-
-class ClangCppCompiler(GccCppCompiler):
+class ClangLinker(GccLinker):
 	"""
 	Clang compiler implementation
 	"""
@@ -40,11 +38,5 @@ class ClangCppCompiler(GccCppCompiler):
 	### Internal methods
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
-		return "clang++" if isCpp else "clang"
-
-	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("-fPIC")
-		return args
+	def _getBinaryLinkerName(self):
+		return "clang"

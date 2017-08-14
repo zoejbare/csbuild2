@@ -32,13 +32,14 @@ import csbuild
 from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
 
-from .assemblers.msvc_assembler import MsvcAssembler
 from .assemblers.gcc_assembler import GccAssembler
+from .assemblers.msvc_assembler import MsvcAssembler
 
-from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
+from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
 
+from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.msvc_linker import MsvcLinker
 
@@ -50,7 +51,7 @@ def InitTools():
 
 	for name, compiler, linker, assembler in [
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
-		( "clang", ClangCppCompiler, GccLinker, GccAssembler ),
+		( "clang", ClangCppCompiler, ClangLinker, GccAssembler ),
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler )
 	]:
 		checkers = {}
