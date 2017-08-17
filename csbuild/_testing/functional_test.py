@@ -156,8 +156,12 @@ class FunctionalTest(TestCase):
 	"""
 	def setUp(self, outDir="out", intermediateDir="intermediate", cleanAtEnd=True, cleanArgs=None): #pylint: disable=arguments-differ
 		self._prevdir = os.getcwd()
-		module = __import__(self.__class__.__module__)
-		path = os.path.dirname(module.__file__)
+
+		if os.getenv(PlatformString("CSBUILD_RUNNING_THROUGH_PYTHON_UNITTEST")) != PlatformString("1"):
+			module = __import__(self.__class__.__module__)
+			path = os.path.dirname(module.__file__)
+		else:
+			path = os.path.dirname(self.__class__.__module__.replace('.', os.path.sep))
 
 		self.mtx = _namedMutex(os.path.join(path, "lock"))
 		self.mtx.acquire()
@@ -221,7 +225,7 @@ class FunctionalTest(TestCase):
 			ret = None
 
 		def _runCommand():
-			cmd = [sys.executable, "make.py"]
+			cmd = [sys.executable, os.path.abspath("make.py")]
 			cmd.extend(args)
 			cmd.append("--force-progress-bar=off")
 
@@ -231,7 +235,7 @@ class FunctionalTest(TestCase):
 			def _handleStderr(shared, msg):
 				commands.DefaultStderrHandler(shared, "            {}".format(msg))
 
-			_shared.ret = commands.Run(cmd, stdout=_handleStdout, stderr=_handleStderr)
+			_shared.ret = commands.Run(cmd, stdout=_handleStdout, stderr=_handleStderr, cwd=os.getcwd(), env=os.environ)
 			callbackQueue.Put(commands.stopEvent)
 
 		commandThread = threading.Thread(target=_runCommand)

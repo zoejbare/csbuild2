@@ -455,6 +455,9 @@ def MetaClass(meta):
 class TestTypeCheck(testcase.TestCase):
 	"""Test for the TypeChecked decorator"""
 
+	def setUp(self):
+		Overload.funcs = {}
+
 	# pylint: disable=unused-argument,unused-variable,no-self-use,invalid-name
 	def testSimpleTypeCheck(self):
 		"""Simple test that type checks work for built-in types"""

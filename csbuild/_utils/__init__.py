@@ -116,3 +116,28 @@ class MultiBreak(Exception):
 	Simple exception type to quickly break out of deeply nested loops.
 	"""
 	pass
+
+def load_tests(_loader, _tests, _pattern): #pylint: disable=invalid-name
+	"""Load tests"""
+	import os
+	import importlib
+
+	from unittest import TestSuite, defaultTestLoader
+	suite = TestSuite()
+
+	print("DUDE?!")
+	for testFile in os.listdir("csbuild/_utils"):
+		if testFile.endswith("_py3.py") and sys.version_info[0] != 3:
+			continue
+
+		if testFile.endswith("_py2.py") and sys.version_info[0] != 2:
+			continue
+
+		if testFile == "__init__.py":
+			continue
+
+		modulepath = os.path.join("csbuild/_utils", testFile)
+		if os.access(modulepath, os.F_OK):
+			suite.addTest(defaultTestLoader.loadTestsFromModule(importlib.import_module("csbuild._utils.{}".format(testFile.split('.')[0]))))
+
+	return suite
