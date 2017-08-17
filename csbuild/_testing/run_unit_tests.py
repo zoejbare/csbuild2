@@ -76,6 +76,7 @@ def RunTests(include, exclude):
 					suiteTests = test3._tests # pylint: disable=protected-access
 				else:
 					suiteTests = [test3]
+				print(suiteTests)
 				for test4 in suiteTests:
 					# pylint: disable=protected-access
 					baseId = test4.id().rsplit('.', 2)[1]
