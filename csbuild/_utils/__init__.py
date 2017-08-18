@@ -117,13 +117,10 @@ class MultiBreak(Exception):
 	"""
 	pass
 
-def load_tests(_loader, _tests, _pattern): #pylint: disable=invalid-name
+def load_tests(loader, tests, _pattern): #pylint: disable=invalid-name
 	"""Load tests"""
 	import os
 	import importlib
-
-	from unittest import TestSuite, defaultTestLoader
-	suite = TestSuite()
 
 	for testFile in os.listdir("csbuild/_utils"):
 		if not testFile.endswith(".py"):
@@ -141,6 +138,6 @@ def load_tests(_loader, _tests, _pattern): #pylint: disable=invalid-name
 		modulepath = os.path.join("csbuild/_utils", testFile)
 
 		if os.access(modulepath, os.F_OK):
-			suite.addTest(defaultTestLoader.loadTestsFromModule(importlib.import_module("csbuild._utils.{}".format(testFile.split('.')[0]))))
+			tests.addTests(loader.loadTestsFromModule(importlib.import_module("csbuild._utils.{}".format(testFile.split('.')[0]))))
 
-	return suite
+	return tests

@@ -72,40 +72,34 @@ def RunTests(include, exclude):
 			delIndexes = []
 			# pylint: disable=protected-access
 			for idx, test3 in enumerate(test2._tests):
-				if isinstance(test3, unittest.TestSuite):
-					suiteTests = test3._tests # pylint: disable=protected-access
-				else:
-					suiteTests = [test3]
-				print(suiteTests)
-				for test4 in suiteTests:
-					# pylint: disable=protected-access
-					baseId = test4.id().rsplit('.', 2)[1]
-					simpleTestId = "{}.{}".format(baseId, test4._testMethodName)
-					match = True
-					if include:
-						match = False
-						for inc in include:
-							if fnmatch.fnmatch(simpleTestId, inc):
-								match = True
-						if not match:
-							log.Test("Excluding test {} due to no include match", simpleTestId)
-							delIndexes.append(idx)
-							continue
-					for exc in exclude:
-						match = True
-						if fnmatch.fnmatch(simpleTestId, exc):
-							log.Test("Excluding test {} due to exclude match", simpleTestId)
-							delIndexes.append(idx)
-							match = False
-							break
-
+				# pylint: disable=protected-access
+				baseId = test3.id().rsplit('.', 2)[1]
+				simpleTestId = "{}.{}".format(baseId, test3._testMethodName)
+				match = True
+				if include:
+					match = False
+					for inc in include:
+						if fnmatch.fnmatch(simpleTestId, inc):
+							match = True
 					if not match:
-						continue
-
-					if baseId == "TestPylint":
-						assert pylinttest is None
-						pylinttest = test4
+						log.Test("Excluding test {} due to no include match", simpleTestId)
 						delIndexes.append(idx)
+						continue
+				for exc in exclude:
+					match = True
+					if fnmatch.fnmatch(simpleTestId, exc):
+						log.Test("Excluding test {} due to exclude match", simpleTestId)
+						delIndexes.append(idx)
+						match = False
+						break
+
+				if not match:
+					continue
+
+				if baseId == "TestPylint":
+					assert pylinttest is None
+					pylinttest = test3
+					delIndexes.append(idx)
 
 			for idx in reversed(delIndexes):
 				# pylint: disable=protected-access

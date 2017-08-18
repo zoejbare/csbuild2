@@ -29,16 +29,14 @@
 from __future__ import unicode_literals, division, print_function
 import os
 import imp
-from unittest import TestSuite, defaultTestLoader
 
-def load_tests(_loader, _tests, _pattern): #pylint: disable=invalid-name
+def load_tests(loader, tests, _pattern): #pylint: disable=invalid-name
 	"""Load tests"""
-	suite = TestSuite()
 
 	for testdir in os.listdir("functional_tests"):
 		if os.path.isdir(os.path.join("functional_tests", testdir)):
 			modulepath = os.path.join("functional_tests", testdir, "tests.py")
 			if os.access(modulepath, os.F_OK):
-				suite.addTest(defaultTestLoader.loadTestsFromModule(imp.load_source("functional_tests.{}.tests".format(testdir), modulepath)))
+				tests.addTests(loader.loadTestsFromModule(imp.load_source("functional_tests.{}.tests".format(testdir), modulepath)))
 
-	return suite
+	return tests
