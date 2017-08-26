@@ -28,19 +28,23 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
+import platform
 
 from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
 
+from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
 
 from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
+from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
 
 from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
+from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
 
 def InitTools():
@@ -49,9 +53,14 @@ def InitTools():
 	"""
 	systemArchitecture = csbuild.GetSystemArchitecture()
 
+	# Get either the platform-specific clang tools or the default clang tools.
+	clangCompiler, clangLinker = {
+		"Darwin": (MacOsClangCppCompiler, MacOsClangLinker),
+	}.get(platform.system(), (ClangCppCompiler, ClangLinker))
+
 	for name, compiler, linker, assembler in [
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
-		( "clang", ClangCppCompiler, ClangLinker, GccAssembler ),
+		( "clang", clangCompiler, clangLinker, ClangAssembler ),
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler )
 	]:
 		checkers = {}

@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: clang_cpp_compiler
-	:synopsis: Clang compiler tool for C++.
+.. module:: mac_os_clang_linker
+	:synopsis: Clang linker tool for the macOS platform.
 
 .. moduleauthor:: Brandon Bare
 """
@@ -29,35 +29,47 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 
-from .gcc_cpp_compiler import GccCppCompiler
+from .clang_linker import ClangLinker
 
-class ClangCppCompiler(GccCppCompiler):
+from ..common.apple_tool_base import MacOsToolBase
+
+class MacOsClangLinker(MacOsToolBase, ClangLinker):
 	"""
 	Clang compiler implementation
 	"""
+
+	outputFiles = {"", ".a", ".dylib"}
+	crossProjectDependencies = {".a", ".dylib"}
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
-		return "clang++" if isCpp else "clang"
+	def __init__(self, projectSettings):
+		MacOsToolBase.__init__(self, projectSettings)
+		ClangLinker.__init__(self, projectSettings)
+
+	def SetupForProject(self, project):
+		MacOsToolBase.SetupForProject(self, project)
+		ClangLinker.SetupForProject(self, project)
 
 	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("-fPIC")
-		return args
+		baseArgs = ClangLinker._getDefaultArgs(self, project)
 
-	def _getArchitectureArgs(self, project):
-		baseArgs = GccCppCompiler._getArchitectureArgs(self, project)
-
-		# When necessary fill in the architecture name with something clang expects.
-		architecture = {
-			"x86": "i386",
-			"x64": "x86_64",
-		}.get(project.architectureName, project.architectureName)
+		# Get the special library build flag.
+		libraryBuildArg = {
+			csbuild.ProjectType.SharedLibrary: "-dynamiclib",
+		}.get(project.projectType, "")
 
 		return baseArgs + [
-			"-arch", architecture,
+			libraryBuildArg
 		]
+
+	def _getLibraryArgs(self):
+		return [lib for lib in self._actualLibraryLocations.values()]
+
+	def _getStartGroupArgs(self):
+		return []
+
+	def _getEndGroupArgs(self):
+		return []

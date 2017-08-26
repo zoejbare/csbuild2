@@ -19,45 +19,37 @@
 # SOFTWARE.
 
 """
-.. module:: clang_cpp_compiler
-	:synopsis: Clang compiler tool for C++.
+.. module:: mac_os_clang_cpp_compiler
+	:synopsis: Clang compiler tool for C++ specifically targeting macOS.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
+from .clang_cpp_compiler import ClangCppCompiler
 
-from .gcc_cpp_compiler import GccCppCompiler
+from ..common.apple_tool_base import MacOsToolBase
 
-class ClangCppCompiler(GccCppCompiler):
+class MacOsClangCppCompiler(MacOsToolBase, ClangCppCompiler):
 	"""
-	Clang compiler implementation
+	Clang compiler for macOS implementation
 	"""
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
-		return "clang++" if isCpp else "clang"
+	def __init__(self, projectSettings):
+		MacOsToolBase.__init__(self, projectSettings)
+		ClangCppCompiler.__init__(self, projectSettings)
+
+	def SetupForProject(self, project):
+		MacOsToolBase.SetupForProject(self, project)
+		ClangCppCompiler.SetupForProject(self, project)
 
 	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("-fPIC")
-		return args
-
-	def _getArchitectureArgs(self, project):
-		baseArgs = GccCppCompiler._getArchitectureArgs(self, project)
-
-		# When necessary fill in the architecture name with something clang expects.
-		architecture = {
-			"x86": "i386",
-			"x64": "x86_64",
-		}.get(project.architectureName, project.architectureName)
-
+		baseArgs = ClangCppCompiler._getDefaultArgs(self, project)
 		return baseArgs + [
-			"-arch", architecture,
+			"-mmacosx-version-min={}".format(self.macOsVersionMin)
 		]

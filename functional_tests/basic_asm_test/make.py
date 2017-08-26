@@ -35,7 +35,7 @@ with csbuild.Project("hello_world", "hello_world", autoDiscoverSourceFiles=False
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 
 	csbuild.AddSourceFiles("hello_world/main.cpp")
-	csbuild.Toolchain("gcc").AddSourceFiles("hello_world/getnum.gcc.S")
+	csbuild.Toolchain("gcc", "clang").AddSourceFiles("hello_world/getnum.gcc.S")
 
 	with csbuild.Platform("Darwin"):
 		csbuild.AddDefines("IS_PLATFORM_MACOS")
