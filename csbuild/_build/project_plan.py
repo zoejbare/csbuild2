@@ -56,9 +56,13 @@ class _defaultType(object):
 useDefault = _defaultType()
 
 def _getDefaultToolchain():
-	if platform.system() == "Windows":
-		return "msvc"
-	return "gcc"
+	defaultToolchain = {
+		"Windows": "msvc",
+		"Darwin": "clang",
+	}
+	# Get the default toolchain or "gcc" as a default when the current
+	# platform does not have a specific toolchain in the map.
+	return defaultToolchain.get(platform.system(), "gcc")
 
 class ProjectPlan(object):
 	"""

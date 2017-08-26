@@ -20,7 +20,7 @@
 
 """
 .. module:: gcc_assembler
-	:synopsis: gcc assember tool for assembly
+	:synopsis: GCC assember tool
 
 .. moduleauthor:: Brandon Bare
 """
@@ -50,12 +50,13 @@ class GccAssembler(AssemblerBase):
 		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
 
 	def _getCommand(self, project, inputFile):
-		cmd = ["gcc"] \
+		cmd = [self._getComplierName()] \
 			+ self._getInputFileArgs(inputFile) \
 			+ self._getDefaultArgs(project) \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
+			+ self._getArchitectureArgs(project) \
 			+ self._asmFlags
 		return [arg for arg in cmd if arg]
 
@@ -63,6 +64,9 @@ class GccAssembler(AssemblerBase):
 	####################################################################################################################
 	### Internal methods
 	####################################################################################################################
+
+	def _getComplierName(self):
+		return "gcc"
 
 	def _getDefaultArgs(self, project):
 		args = ["--pass-exit-codes"]
@@ -81,3 +85,7 @@ class GccAssembler(AssemblerBase):
 
 	def _getIncludeDirectoryArgs(self):
 		return ["-I" + d for d in self._includeDirectories]
+
+	def _getArchitectureArgs(self, project):
+		arg = "-m64" if project.architectureName == "x64" else "-m32"
+		return [arg]
