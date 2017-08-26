@@ -27,11 +27,13 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import csbuild
 import os
 import subprocess
 
 from abc import ABCMeta
 
+from ..._utils import ordered_set
 from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 from ... import commands
@@ -86,9 +88,9 @@ class AppleToolInfo(object):
 
 
 @MetaClass(ABCMeta)
-class MacOsToolBase(Tool):
+class AppleToolBase(Tool):
 	"""
-	Parent class for all tools targetting the macOS platform.
+	Parent class for all tools targetting Apple platforms.
 
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
@@ -96,28 +98,14 @@ class MacOsToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
+		self._frameworkDirectories = projectSettings.get("frameworkDirectories", ordered_set.OrderedSet())
+		self._frameworks = projectSettings.get("frameworks", ordered_set.OrderedSet())
+
 		self._toolInfo = None
-		self._macOsVersionMin = None
 
-
-	@property
-	def macOsVersionMin(self):
-		"""
-		:return: Returns the minimum version of macOS to build for.
-		:rtype: str
-		"""
-		return self._macOsVersionMin if self._macOsVersionMin else self._toolInfo.defaultMacOsSdkVersion
-
-
-	def SetMacOsVersionMin(self, version):
-		"""
-		Set the minimum version of macOS to build for.
-
-		:param version: macOS version (e.g., "10.8", "10.9", "10.10", etc)
-		:type version: str
-		"""
-		self._macOsVersionMin = version
-
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
 
 	def SetupForProject(self, project):
 		Tool.SetupForProject(self, project)
@@ -127,3 +115,59 @@ class MacOsToolBase(Tool):
 			AppleToolInfo.Instance = AppleToolInfo()
 
 		self._toolInfo = AppleToolInfo.Instance
+
+
+	################################################################################
+	### Static makefile methods
+	################################################################################
+
+	@staticmethod
+	def AddFrameworkDirectories(*dirs):
+		"""
+		Add directories to search for frameworks.
+
+		:param dirs: List of directories
+		:type dirs: str
+		"""
+		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
+
+	@staticmethod
+	def AddFrameworks(*frameworks):
+		"""
+		Add frameworks to the current project.
+
+		:param frameworks: List of frameworks.
+		:type frameworks: str
+		"""
+		csbuild.currentPlan.UnionSet("frameworks", frameworks)
+
+
+@MetaClass(ABCMeta)
+class MacOsToolBase(AppleToolBase):
+	"""
+	Parent class for all tools targetting the macOS platform.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		AppleToolBase.__init__(self, projectSettings)
+
+		self._macOsVersionMin = None
+
+	@property
+	def macOsVersionMin(self):
+		"""
+		:return: Returns the minimum version of macOS to build for.
+		:rtype: str
+		"""
+		return self._macOsVersionMin if self._macOsVersionMin else self._toolInfo.defaultMacOsSdkVersion
+
+	def SetMacOsVersionMin(self, version):
+		"""
+		Set the minimum version of macOS to build for.
+
+		:param version: macOS version (e.g., "10.8", "10.9", "10.10", etc)
+		:type version: str
+		"""
+		self._macOsVersionMin = version
