@@ -19,21 +19,17 @@
 # SOFTWARE.
 
 """
-.. module:: reraise_py3
-	:synopsis: Python 3 reraise implementation
+.. module:: reraise
+	:synopsis: Reraise forwarder, executes the file with the correct code for the python version.
 
 .. moduleauthor:: Jaedyn K. Draper
 """
-
 from __future__ import unicode_literals, division, print_function
 
-def Reraise(exception, traceback):
-	"""
-	Reraise a python exception with a traceback using py3 syntax
+import sys
+import os
+import re
 
-	:param exception: Exception object
-	:type exception: Exception
-	:param traceback: Traceback object to attach to the exception
-	:type traceback: Traceback
-	"""
-	raise exception.with_traceback(traceback)
+with open(os.path.abspath(re.sub(r"\.pyc$", ".py", __file__)) + str(sys.version_info[0]), "r") as f:
+	#pylint: disable=exec-used
+	exec(f.read(), globals(), locals())

@@ -225,9 +225,6 @@ class TestResult(unittest.TextTestResult):
 
 		# Python 3.5 changed from ModuleImportFailure to _FailedTest...
 		from .. import log
-		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
-			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
-				return
 
 		super(TestResult, self).addError(test, err)
 		log.Error(self.errors[-1][1])
@@ -238,9 +235,6 @@ class TestResult(unittest.TextTestResult):
 
 		# See comment in addError above
 		from .. import log
-		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
-			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
-				return
 
 		super(TestResult, self).addFailure(test, err)
 		log.Error(self.failures[-1][1])

@@ -37,14 +37,13 @@ from .. import log, perf_timer
 from .._testing import testcase
 from . import queue
 from .decorators import TypeChecked
+from .reraise import Reraise
 
 if sys.version_info[0] >= 3:
 	from collections.abc import Callable
-	from .reraise_py3 import Reraise
 else:
 	from collections import Callable
 	# pylint: disable=import-error
-	from .reraise_py2 import Reraise
 
 class ThreadedTaskException(Exception):
 	"""
