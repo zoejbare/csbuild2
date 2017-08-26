@@ -28,7 +28,8 @@ from __future__ import unicode_literals, division, print_function
 
 import sys
 import os
+import re
 
-with open(os.path.abspath(__file__) + str(sys.version_info[0]), "r") as f:
+with open(os.path.abspath(re.sub(r"\.pyc$", ".py", __file__)) + str(sys.version_info[0]), "r") as f:
 	#pylint: disable=exec-used
 	exec(f.read(), globals(), locals())
