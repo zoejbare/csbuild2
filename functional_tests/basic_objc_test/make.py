@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,38 +19,19 @@
 # SOFTWARE.
 
 """
-.. module:: mac_os_clang_cpp_compiler
-	:synopsis: Clang compiler tool for C++ specifically targeting macOS.
+.. module:: make
+	:synopsis: Makefile for this test
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from .clang_cpp_compiler import ClangCppCompiler
+import csbuild
 
-from ..common.apple_tool_base import MacOsToolBase
+csbuild.SetOutputDirectory("out")
 
-class MacOsClangCppCompiler(MacOsToolBase, ClangCppCompiler):
-	"""
-	Clang compiler for macOS implementation
-	"""
-	inputFiles={".cpp", ".c", ".cc", ".cxx", ".m", ".mm"}
+with csbuild.Project("hello_world", "hello_world"):
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
-
-	def __init__(self, projectSettings):
-		MacOsToolBase.__init__(self, projectSettings)
-		ClangCppCompiler.__init__(self, projectSettings)
-
-	def SetupForProject(self, project):
-		MacOsToolBase.SetupForProject(self, project)
-		ClangCppCompiler.SetupForProject(self, project)
-
-	def _getDefaultArgs(self, project):
-		baseArgs = ClangCppCompiler._getDefaultArgs(self, project)
-		return baseArgs + [
-			"-mmacosx-version-min={}".format(self.macOsVersionMin)
-		]
+	csbuild.Platform("Darwin").AddFrameworks("Foundation")
