@@ -184,11 +184,6 @@ class TestPylint(testcase.TestCase):
 		for root, _, files in os.walk("."):
 			for filename in files:
 				if filename.endswith(".py"):
-					if filename.endswith("_py3.py") and sys.version_info[0] != 3:
-						continue
-
-					if filename.endswith("_py2.py") and sys.version_info[0] != 2:
-						continue
 
 					finalfile = os.path.join(root, filename)
 					if finalfile.startswith("."):

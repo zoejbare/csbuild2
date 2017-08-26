@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: reraise_py2
-	:synopsis: Python 2 reraise implementation
+.. module:: reraise
+	:synopsis: Python 3 reraise implementation
 
 .. moduleauthor:: Jaedyn K. Draper
 """
@@ -29,12 +29,11 @@ from __future__ import unicode_literals, division, print_function
 
 def Reraise(exception, traceback):
 	"""
-	Reraise a python exception with a traceback using py2 syntax
+	Reraise a python exception with a traceback using py3 syntax
 
 	:param exception: Exception object
 	:type exception: Exception
 	:param traceback: Traceback object to attach to the exception
 	:type traceback: Traceback
-	:raises exception: always
 	"""
-	raise exception, None, traceback
+	raise exception.with_traceback(traceback)
