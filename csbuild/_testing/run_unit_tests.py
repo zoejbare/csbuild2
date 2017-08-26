@@ -101,7 +101,7 @@ def RunTests(include, exclude):
 						assert pylinttest is None
 						pylinttest = test3
 						delIndexes.append(idx)
-			except AttributeError as e:
+			except AttributeError:
 				continue
 
 			for idx in reversed(delIndexes):
