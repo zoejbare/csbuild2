@@ -477,6 +477,32 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		currentPlan.SetValue("intermediateDir", intermediateDirectory)
 
+	def AddExcludeFiles(*files):
+		"""
+		Manually exclude source files from the build.
+
+		:param files: Files to exclude
+		:type files: str
+		"""
+		fixedUpFiles = set()
+		for f in files:
+			for match in glob.glob(os.path.abspath(f)):
+				fixedUpFiles.add(match)
+		currentPlan.UnionSet("excludeFiles", fixedUpFiles)
+
+	def AddExcludeDirectories(*dirs):
+		"""
+		Manually exclude source directories from the build.
+
+		:param dirs: Directories to exclude
+		:type dirs: str
+		"""
+		fixedUpDirs = set()
+		for f in dirs:
+			for match in glob.glob(os.path.abspath(f)):
+				fixedUpDirs.add(match)
+		currentPlan.UnionSet("excludeDirs", fixedUpDirs)
+
 	def AddSourceFiles(*files):
 		"""
 		Manually add source files to the build.
@@ -489,6 +515,19 @@ with perf_timer.PerfTimer("csbuild module init"):
 			for match in glob.glob(os.path.abspath(f)):
 				fixedUpFiles.add(match)
 		currentPlan.UnionSet("sourceFiles", fixedUpFiles)
+
+	def AddSourceDirectories(*dirs):
+		"""
+		Manually add source directories to the build.
+
+		:param dirs: Directories to add
+		:type dirs: str
+		"""
+		fixedUpDirs = set()
+		for f in dirs:
+			for match in glob.glob(os.path.abspath(f)):
+				fixedUpDirs.add(match)
+		currentPlan.UnionSet("sourceDirs", fixedUpDirs)
 
 	class Scope(ContextManager):
 		"""
