@@ -1,5 +1,6 @@
 # File and directory patterns
 *.pyc
+*.py~
 *.artifacts
 **/.idea
 
