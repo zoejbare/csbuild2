@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: android_tool_base
-	:synopsis: Abstract base class for Android tools.
+.. module:: java_tool_base
+	:synopsis: Abstract base class for Java tools.
 
 .. moduleauthor:: Brandon Bare
 """
@@ -37,9 +37,9 @@ from ...toolchain import Tool
 
 
 @MetaClass(ABCMeta)
-class AndroidToolBase(Tool):
+class JavaToolBase(Tool):
 	"""
-	Parent class for all tools targetting Android platforms.
+	Parent class for all tools targetting Java applications.
 
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
@@ -47,18 +47,14 @@ class AndroidToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-		self._ndkHomePath = projectSettings.get("androidNdkHomePath", "")
-		self._sdkHomePath = projectSettings.get("androidSdkHomePath", "")
-		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
+		self._javaHomePath = projectSettings.get("javaHomePath", "")
 
-		assert self._ndkHomePath, "Android NDK home path not provided"
-		assert os.access(self._ndkHomePath, os.F_OK), "Android NDK home path does not exist: {}".format(self._ndkHomePath)
+		# When no Java home path is explicitly provided, attempt to get it from the environment.
+		if not self._javaHomePath:
+			self._javaHomePath = os.getenv("JAVA_HOME", "")
 
-		assert self._sdkHomePath, "Android SDK home path not provided"
-		assert os.access(self._sdkHomePath, os.F_OK), "Android SDK home path does not exist: {}".format(self._sdkHomePath)
-
-		assert self._androidManifestFilePath, "Android manifest file path not provided"
-		assert os.access(self._androidManifestFilePath, os.F_OK), "Android manifest file path does not exist: {}".format(self._androidManifestFilePath)
+		assert self._javaHomePath, "Java home path not provided or set through the JAVA_HOME environment variable."
+		assert os.access(self._javaHomePath, os.F_OK), "Java home path does not exist: {}".format(self._javaHomePath)
 
 
 	####################################################################################################################
@@ -74,31 +70,11 @@ class AndroidToolBase(Tool):
 	################################################################################
 
 	@staticmethod
-	def SetAndroidNdkHomePath(path):
+	def SetJavaHomePath(path):
 		"""
-		Sets the path to the Android NDK home.
+		Sets the path to the Java home.
 
-		:param path: Android NDK home path.
+		:param path: Java home path.
 		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("androidNdkHomePath", os.path.abspath(path))
-
-	@staticmethod
-	def SetAndroidSdkHomePath(path):
-		"""
-		Sets the path to the Android SDK home.
-
-		:param path: Android SDK home path.
-		:type path: str
-		"""
-		csbuild.currentPlan.SetValue("androidSdkHomePath", os.path.abspath(path))
-
-	@staticmethod
-	def SetAndroidManifestFilePath(path):
-		"""
-		Sets the path to the Android manifest file.
-
-		:param path: Android manifest file path.
-		:type path: str
-		"""
-		csbuild.currentPlan.SetValue("androidManifestFilePath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("javaHomePath", os.path.abspath(path))

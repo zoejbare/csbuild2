@@ -32,6 +32,7 @@ import platform
 
 from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
+from .java_compilers import JavaCompileChecker
 
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
@@ -41,6 +42,10 @@ from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
+
+from .java_archivers.oracle_java_archiver import OracleJavaArchiver
+
+from .java_compilers.oracle_java_compiler import OracleJavaCompiler
 
 from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
@@ -58,10 +63,11 @@ def InitTools():
 		"Darwin": (MacOsClangCppCompiler, MacOsClangLinker),
 	}.get(platform.system(), (ClangCppCompiler, ClangLinker))
 
+	# Register C/C++ toolchains.
 	for name, compiler, linker, assembler in [
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
 		( "clang", clangCompiler, clangLinker, ClangAssembler ),
-		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler )
+		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler ),
 	]:
 		checkers = {}
 		cppChecker = CppCompileChecker(compiler)
@@ -75,4 +81,17 @@ def InitTools():
 
 		csbuild.RegisterToolchain(name, systemArchitecture, compiler, linker, assembler, checkers=checkers)
 
+	# Register Java toolchains.
+	for name, compiler, archiver in [
+		( "oracle-java", OracleJavaCompiler, OracleJavaArchiver ),
+	]:
+		checkers = {}
+		javaChecker = JavaCompileChecker(compiler)
+
+		for inputExtension in compiler.inputFiles:
+			checkers[inputExtension] = javaChecker
+
+		csbuild.RegisterToolchain(name, systemArchitecture, compiler, archiver, checkers=checkers)
+
+	# Register toolchain groups.
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")

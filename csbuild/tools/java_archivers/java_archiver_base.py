@@ -19,20 +19,20 @@
 # SOFTWARE.
 
 """
-.. module:: linker_base
-	:synopsis: A base class for binary linkers, as used by c++, d, assembly, etc
+.. module:: java_archiver_base
+	:synopsis: Base class for Java archivers.
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
 import os
-
 import csbuild
+
 from abc import ABCMeta, abstractmethod
 
-from ..common.tool_traits import HasDebugLevel, HasDebugRuntime, HasStaticRuntime
+from ..common.java_tool_base import JavaToolBase
 
 from ... import commands, log
 from ..._utils import ordered_set
@@ -41,68 +41,25 @@ from ..._utils.decorators import MetaClass
 def _ignore(_):
 	pass
 
-class LibraryError(Exception):
-	"""
-	Represents an error indicating a missing library in a project.
-	"""
-	def __init__(self, proj):
-		self.proj = proj
-		Exception.__init__(self)
-
-	def __str__(self):
-		return "One or more libraries for project {} could not be found or were invalid.".format(self.proj)
-
-	__repr__ = __str__
-
 @MetaClass(ABCMeta)
-class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
+class JavaArchiverBase(JavaToolBase):
 	"""
-	Base class for a linker
+	Base class for Java archivers.
 
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
 	"""
+	inputGroups = { ".class" }
+	outputFiles = { ".jar" }
+
 	################################################################################
 	### Initialization
 	################################################################################
 
 	def __init__(self, projectSettings):
-		self._libraries = projectSettings.get("libraries", ordered_set.OrderedSet())
-		self._libraryDirectories = projectSettings.get("libraryDirectories", ordered_set.OrderedSet())
-		self._linkerFlags = projectSettings.get("linkerFlags", [])
-		self._actualLibraryLocations = {
-			library : library
-			for library in self._libraries
-		}
+		self._entryPointClass = projectSettings.get("javaEntryPointClass", "")
 
-		HasDebugLevel.__init__(self, projectSettings)
-		HasDebugRuntime.__init__(self, projectSettings)
-		HasStaticRuntime.__init__(self, projectSettings)
-
-	def SetupForProject(self, project):
-		"""
-		Project setup - in this case, verify libraries before running the build.
-
-		:param project: Project to set up for
-		:type project: project.Project
-		:raises LibraryError: If a library is not found
-		"""
-		log.Linker("Verifying libraries for {}...", project)
-		if self._libraries:
-			self._actualLibraryLocations = self._findLibraries(self._libraries)
-
-			if self._actualLibraryLocations is None:
-				raise LibraryError(project)
-
-		self._actualLibraryLocations.update(
-			{
-				dependProject.outputName : os.path.join(
-					dependProject.outputDir,
-					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
-				)
-				for dependProject in project.dependencies if project.projectType != csbuild.ProjectType.Application
-			}
-		)
+		JavaToolBase.__init__(self, projectSettings)
 
 
 	################################################################################
@@ -110,34 +67,29 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 	################################################################################
 
 	@staticmethod
-	def AddLibraries(*libs):
+	def SetJavaEntryPointClass(cls):
 		"""
-		Add libraries to be linked against. These can be provided as either 'foo' or 'libfoo.a'/'libfoo.lib' as is appropriate for the platform.
+		Set the entry point class for a Java application.
 
-		:param libs: List of libraries
-		:type libs: str
+		:param cls: Entry point class in the form: <package>.<class_name>
+		:type cls: str
 		"""
-		csbuild.currentPlan.UnionSet("libraries", libs)
+		csbuild.currentPlan.SetValue("javaEntryPointClass", cls)
 
-	@staticmethod
-	def AddLibraryDirectories(*dirs):
-		"""
-		Add directories to look for libraries in
 
-		:param dirs: Directories to scan
-		:type dirs: str
-		"""
-		csbuild.currentPlan.UnionSet("libraryDirectories", [os.path.abspath(directory) for directory in dirs])
+	################################################################################
+	### Public API
+	################################################################################
 
-	@staticmethod
-	def AddLinkerFlags(*flags):
+	def GetJavaEntryPointClass(self):
 		"""
-		Add linker flags.
+		Get the entry point class for the Java application.
 
-		:param flags: List of linker flags.
-		:type flags: str
+		:return: Java application entry point class.
+		:rtype: str
 		"""
-		csbuild.currentPlan.ExtendList("linkerFlags", flags)
+		return self._entryPointClass
+
 
 
 	################################################################################
@@ -156,7 +108,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 	@abstractmethod
 	def _getOutputFiles(self, project):
 		"""
-		Get the set of output files that will be created from linking a project
+		Get the set of output files that will be created from archiving a projects
 
 		:param project: project being linked
 		:type project: project.Project
@@ -179,30 +131,6 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		"""
 		return []
 
-	@abstractmethod
-	def _findLibraries(self, libs):
-		"""
-		Search for the provided set of libraries, verify they exist, and map them to their actual file locations
-
-		:param libs: libraries to search for
-		:type libs: str
-		:return: map of input string to actual absolute path to the library
-		:rtype: dict[str, str]
-		"""
-		return {}
-
-	@abstractmethod
-	def _getOutputExtension(self, projectType):
-		"""
-		Get the output extension for a given project type
-
-		:param projectType: the project type
-		:type projectType: csbuild.ProjectType
-		:return: the extension, including the dot
-		:rtype: str
-		"""
-		return ""
-
 
 	################################################################################
 	### Base class methods containing logic shared by all subclasses
@@ -221,7 +149,8 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		"""
-		log.Linker("Linking {}{}...", inputProject.outputName, self._getOutputExtension(inputProject.projectType))
+		log.Linker("Archiving {}.jar...", inputProject.outputName)
+
 		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFiles)

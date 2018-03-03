@@ -84,7 +84,7 @@ class Tool(object):
 
 	#: Set of supported architectures. If this toolchain supports all possible --architecture arguments,
 	#  set this value to None. An empty set implies it supports no architectures and can never be run.
-	supportedArchitectures = set()
+	supportedArchitectures = None
 
 	#: Set of supported platforms. If this toolchain supports all possible platforms,
 	#  set this value to None. An empty set implies it supports no platforms and can never be run.
