@@ -249,6 +249,8 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 
 		if not isinstance(outputFiles, tuple):
 			outputFiles = (outputFiles, )
+
+		extensionsToCheck = set()
 		for outputFile in outputFiles:
 			log.Info(
 				"Checking for new tasks created by {}",
@@ -259,6 +261,7 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 				buildProject.AddArtifact(inputFiles, outputFile)
 
 				outputExtension = os.path.splitext(outputFile)[1]
+				extensionsToCheck.add(outputExtension)
 
 				if inputExtension == outputExtension:
 					newInput = input_file.InputFile(outputFile, inputFiles, upToDate=upToDate)
@@ -284,6 +287,7 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 
 					_enqueueBuild(buildProject, tool, newInput, pool, projectList, projectsWithCrossProjectDeps, outputExtension)
 
+		for outputExtension in extensionsToCheck:
 			isActive = buildProject.toolchain.IsOutputActive(outputExtension)
 			log.Info("Checking if {} is still active... {}", outputExtension, "yes" if isActive else "no")
 
