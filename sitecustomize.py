@@ -80,7 +80,6 @@ def PathHook(_):
 					log.Error("Received terminate signal. Aborting test run.")
 				os._exit(sig)  # pylint: disable=protected-access
 
-
 			signal.signal(signal.SIGINT, _exitsig)
 			signal.signal(signal.SIGTERM, _exitsig)
 
