@@ -153,17 +153,21 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 					callback(shared, line.rstrip("\n\r"))
 				outlist.append(line)
 
-		with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs) as proc:
-			outputThread = threading.Thread(target=_streamOutput, args=(proc.stdout, output, stdout))
-			errorThread = threading.Thread(target=_streamOutput, args=(proc.stderr, errors, stderr))
+		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
 
-			outputThread.start()
-			errorThread.start()
+		outputThread = threading.Thread(target=_streamOutput, args=(proc.stdout, output, stdout))
+		errorThread = threading.Thread(target=_streamOutput, args=(proc.stderr, errors, stderr))
 
-			outputThread.join()
-			errorThread.join()
+		outputThread.start()
+		errorThread.start()
 
-			# proc.wait() - happens implicitly in Popen.__exit__ here
+		outputThread.join()
+		errorThread.join()
+
+		proc.wait()
+
+		proc.stdout.close()
+		proc.stderr.close()
 
 		if shared.queue is not None:
 			shared.queue.Put(stopEvent)
