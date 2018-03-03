@@ -39,4 +39,3 @@ class MultiOutputGroupInputTest(FunctionalTest):
 			self.assertFileContents("./intermediate/{}.second".format(i), str(i*2))
 			self.assertFileContents("./intermediate/{}2.second".format(i), str(i*4))
 		self.assertFileContents("{}/Foo.third".format(self.outDir), "330")
-

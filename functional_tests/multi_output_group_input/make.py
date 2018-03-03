@@ -27,8 +27,6 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import platform
-
 import csbuild
 from csbuild.toolchain import Tool
 import os
