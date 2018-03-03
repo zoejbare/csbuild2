@@ -1,2 +1,9 @@
+# File and directory patterns
 *.pyc
+*.py~
 *.artifacts
+**/.idea
+
+# Specific files
+failedLints.txt
+result.xml

@@ -70,13 +70,15 @@ class GccLinker(LinkerBase):
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs() \
+				+ self._getArchitectureArgs(project) \
 				+ self._linkerFlags
 		return [arg for arg in cmd if arg]
 
 	def _findLibraries(self, libs):
+		ret = {}
+
 		shortLibs = ordered_set.OrderedSet(libs)
 		longLibs = []
-		ret = {}
 
 		for lib in libs:
 			if os.access(lib, os.F_OK):
@@ -84,65 +86,66 @@ class GccLinker(LinkerBase):
 				ret[lib] = abspath
 				shortLibs.remove(lib)
 
-		# In most cases this should be finished in exactly two attempts.
-		# However, in some rare cases, ld will get to a successful lib after hitting a failure and just give up.
-		# -lpthread is one such case, and in that case we have to do this more than twice.
-		# However, the vast majority of cases should require only two calls (and only one if everything is -lfoo format)
-		# and the vast majority of the cases that require a third pass will not require a fourth... but, everything
-		# is possible! Still better than doing a pass per file like we used to.
-		while True:
-			cmd = [self._getLdName(), "-M", "-o", "/dev/null"] + \
-				  ["-l"+lib for lib in shortLibs] + \
-				  ["-l:"+lib for lib in longLibs] + \
-				  ["-L"+path for path in self._libraryDirectories]
-			returncode, out, err = commands.Run(cmd, None, None)
-			if returncode != 0:
-				lines = err.splitlines()
-				moved = False
-				for line in lines:
-					match = GccLinker._failRegex.match(line)
-					if match:
-						lib = match.group(1)
-						if lib not in shortLibs:
-							for errorLine in lines:
-								log.Error(errorLine)
-							return None
-						shortLibs.remove(lib)
-						longLibs.append(lib)
-						moved = True
-
-				if not moved:
+		if shortLibs:
+			# In most cases this should be finished in exactly two attempts.
+			# However, in some rare cases, ld will get to a successful lib after hitting a failure and just give up.
+			# -lpthread is one such case, and in that case we have to do this more than twice.
+			# However, the vast majority of cases should require only two calls (and only one if everything is -lfoo format)
+			# and the vast majority of the cases that require a third pass will not require a fourth... but, everything
+			# is possible! Still better than doing a pass per file like we used to.
+			while True:
+				cmd = [self._getLdName(), "-M", "-o", "/dev/null"] + \
+					  ["-l"+lib for lib in shortLibs] + \
+					  ["-l:"+lib for lib in longLibs] + \
+					  ["-L"+path for path in self._libraryDirectories]
+				returncode, out, err = commands.Run(cmd, None, None)
+				if returncode != 0:
+					lines = err.splitlines()
+					moved = False
 					for line in lines:
-						log.Error(line)
-					return None
+						match = GccLinker._failRegex.match(line)
+						if match:
+							lib = match.group(1)
+							if lib not in shortLibs:
+								for errorLine in lines:
+									log.Error(errorLine)
+								return None
+							shortLibs.remove(lib)
+							longLibs.append(lib)
+							moved = True
 
-				continue
-			break
+					if not moved:
+						for line in lines:
+							log.Error(line)
+						return None
 
-		matches = []
-		loading = False
-		inGroup = False
-		for line in out.splitlines():
-			if line.startswith("LOAD"):
-				if inGroup:
 					continue
-				loading = True
-				matches.append(line[5:])
-			elif line == "START GROUP":
-				inGroup = True
-			elif line == "END GROUP":
-				inGroup = False
-			elif loading:
 				break
 
-		assert len(matches) == len(shortLibs) + len(longLibs)
-		assert len(matches) + len(ret) == len(libs)
-		for i, lib in enumerate(shortLibs):
-			ret[lib] = matches[i]
-		for i, lib in enumerate(longLibs):
-			ret[lib] = matches[i+len(shortLibs)]
-		for lib in libs:
-			log.Info("Found library '{}' at {}", lib, ret[lib])
+			matches = []
+			loading = False
+			inGroup = False
+			for line in out.splitlines():
+				if line.startswith("LOAD"):
+					if inGroup:
+						continue
+					loading = True
+					matches.append(line[5:])
+				elif line == "START GROUP":
+					inGroup = True
+				elif line == "END GROUP":
+					inGroup = False
+				elif loading:
+					break
+
+			assert len(matches) == len(shortLibs) + len(longLibs)
+			assert len(matches) + len(ret) == len(libs)
+			for i, lib in enumerate(shortLibs):
+				ret[lib] = matches[i]
+			for i, lib in enumerate(longLibs):
+				ret[lib] = matches[i+len(shortLibs)]
+			for lib in libs:
+				log.Info("Found library '{}' at {}", lib, ret[lib])
 
 		return ret
 
@@ -184,8 +187,12 @@ class GccLinker(LinkerBase):
 	def _getLibraryArgs(self):
 		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]
 
-	def _getStartGroupArgs( self ):
+	def _getStartGroupArgs(self):
 		return ["-Wl,--no-as-needed", "-Wl,--start-group"]
 
-	def _getEndGroupArgs( self ):
+	def _getEndGroupArgs(self):
 		return ["-Wl,--end-group"]
+
+	def _getArchitectureArgs(self, project):
+		arg = "-m64" if project.architectureName == "x64" else "-m32"
+		return [arg]

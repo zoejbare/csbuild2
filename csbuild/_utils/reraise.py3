@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. module:: reraise_py3
+.. module:: reraise
 	:synopsis: Python 3 reraise implementation
 
 .. moduleauthor:: Jaedyn K. Draper

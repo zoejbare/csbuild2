@@ -63,6 +63,7 @@ class GccCppCompiler(CppCompilerBase):
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getDebugArgs() \
 			+ self._getOptimizationArgs() \
+			+ self._getArchitectureArgs(project) \
 			+ extraFlags
 		return [arg for arg in cmd if arg]
 
@@ -104,3 +105,7 @@ class GccCppCompiler(CppCompilerBase):
 			OptimizationLevel.Max: "3",
 		}
 		return ["-O{}".format(arg.get(self._optLevel, "0"))]
+
+	def _getArchitectureArgs(self, project):
+		arg = "-m64" if project.architectureName == "x64" else "-m32"
+		return [arg]

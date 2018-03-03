@@ -19,31 +19,38 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. module:: tests
+	:synopsis: Basic test of assembler tools
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
+from csbuild._testing.functional_test import FunctionalTest
+from csbuild._utils import PlatformBytes
 
-csbuild.SetOutputDirectory("out")
+import os
+import subprocess
+import platform
+import unittest
 
-with csbuild.Project("hello_world", "hello_world", autoDiscoverSourceFiles=False):
-	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
+@unittest.skipUnless(platform.system() == "Darwin", "Objective-C tests may only run on macOS platforms")
+class BasicObjCTest(FunctionalTest):
+	"""Basic objective-c test"""
 
-	csbuild.AddSourceFiles("hello_world/main.cpp")
-	csbuild.Toolchain("gcc", "clang").AddSourceFiles("hello_world/getnum.gcc.S")
+	# pylint: disable=invalid-name
+	def setUp(self): # pylint: disable=arguments-differ
+		self.outputFile = "out/hello_world"
+		outDir = "out"
+		FunctionalTest.setUp(self, outDir=outDir)
 
-	with csbuild.Platform("Darwin"):
-		csbuild.AddDefines("IS_PLATFORM_MACOS")
+	def testCompileSucceeds(self):
+		"""Test that the project succesfully compiles"""
+		self.cleanArgs = ["--project=hello_world"]
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
 
-	with csbuild.Architecture("x86"):
-		csbuild.AddDefines("IS_ARCH_X86")
-		csbuild.Toolchain("msvc").AddSourceFiles("hello_world/getnum.msvc-x86.asm")
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
+		out = subprocess.check_output([self.outputFile])
 
-	with csbuild.Architecture("x64"):
-		csbuild.AddDefines("IS_ARCH_X64")
-		csbuild.Toolchain("msvc").AddSourceFiles("hello_world/getnum.msvc-x64.asm")
+		self.assertEqual(out, PlatformBytes("Hello, World!"))

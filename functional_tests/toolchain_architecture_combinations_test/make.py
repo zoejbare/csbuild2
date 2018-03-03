@@ -94,12 +94,21 @@ class WriteLinux(WriteOutput):
 	def __init__(self, projectSettings):
 		WriteOutput.__init__(self, projectSettings, "Linux")
 
+class WriteMacOs(WriteOutput):
+	"""Dummy class"""
+	supportedArchitectures = {"A", "B", "C", "D"}
+	supportedPlatforms = {"Darwin"}
+	outputFiles = {".Darwin"}
+	def __init__(self, projectSettings):
+		WriteOutput.__init__(self, projectSettings, "Darwin")
+
 csbuild.RegisterToolchain("A", "A", WriteA)
 csbuild.RegisterToolchain("B", "B", WriteB)
 csbuild.RegisterToolchain("C", "C", WriteC)
 csbuild.RegisterToolchain("D", "D", WriteD)
 csbuild.RegisterToolchain("Windows", "A", WriteWindows)
 csbuild.RegisterToolchain("Linux", "A", WriteLinux)
+csbuild.RegisterToolchain("Darwin", "A", WriteMacOs)
 
 csbuild.SetDefaultToolchain("A")
 csbuild.SetDefaultTarget("A")
@@ -154,6 +163,10 @@ with csbuild.Project("LinuxProject", ".", autoDiscoverSourceFiles=False):
 	csbuild.SetSupportedPlatforms("Linux")
 	csbuild.SetOutput("Linux", csbuild.ProjectType.Application)
 
+with csbuild.Project("MacProject", ".", autoDiscoverSourceFiles=False):
+	csbuild.SetSupportedPlatforms("Darwin")
+	csbuild.SetOutput("Darwin", csbuild.ProjectType.Application)
+
 with csbuild.Platform("Windows"):
 	with csbuild.Project("WindowsProject2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("Windows2", csbuild.ProjectType.Application)
@@ -161,3 +174,7 @@ with csbuild.Platform("Windows"):
 with csbuild.Platform("Linux"):
 	with csbuild.Project("LinuxProject2", ".", autoDiscoverSourceFiles=False):
 		csbuild.SetOutput("Linux2", csbuild.ProjectType.Application)
+
+with csbuild.Platform("Darwin"):
+	with csbuild.Project("DarwinProject2", ".", autoDiscoverSourceFiles=False):
+		csbuild.SetOutput("Darwin2", csbuild.ProjectType.Application)

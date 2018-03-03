@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: clang_cpp_compiler
-	:synopsis: Clang compiler tool for C++.
+.. module:: make
+	:synopsis: Makefile for this test
 
 .. moduleauthor:: Brandon Bare
 """
@@ -29,35 +29,9 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 
-from .gcc_cpp_compiler import GccCppCompiler
+csbuild.SetOutputDirectory("out")
 
-class ClangCppCompiler(GccCppCompiler):
-	"""
-	Clang compiler implementation
-	"""
+with csbuild.Project("hello_world", "hello_world"):
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
-
-	def _getComplierName(self, isCpp):
-		return "clang++" if isCpp else "clang"
-
-	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("-fPIC")
-		return args
-
-	def _getArchitectureArgs(self, project):
-		baseArgs = GccCppCompiler._getArchitectureArgs(self, project)
-
-		# When necessary fill in the architecture name with something clang expects.
-		architecture = {
-			"x86": "i386",
-			"x64": "x86_64",
-		}.get(project.architectureName, project.architectureName)
-
-		return baseArgs + [
-			"-arch", architecture,
-		]
+	csbuild.Platform("Darwin").AddFrameworks("Foundation")

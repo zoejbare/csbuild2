@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: clang_cpp_compiler
-	:synopsis: Clang compiler tool for C++.
+.. module:: clang_assembler
+	:synopsis: Clang assembler tool
 
 .. moduleauthor:: Brandon Bare
 """
@@ -29,19 +29,19 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 
-from .gcc_cpp_compiler import GccCppCompiler
+from .gcc_assembler import GccAssembler
 
-class ClangCppCompiler(GccCppCompiler):
+class ClangAssembler(GccAssembler):
 	"""
-	Clang compiler implementation
+	Clang assembler implementation
 	"""
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
-		return "clang++" if isCpp else "clang"
+	def _getComplierName(self):
+		return "gcc"
 
 	def _getDefaultArgs(self, project):
 		args = []
@@ -50,7 +50,7 @@ class ClangCppCompiler(GccCppCompiler):
 		return args
 
 	def _getArchitectureArgs(self, project):
-		baseArgs = GccCppCompiler._getArchitectureArgs(self, project)
+		baseArgs = GccAssembler._getArchitectureArgs(self, project)
 
 		# When necessary fill in the architecture name with something clang expects.
 		architecture = {

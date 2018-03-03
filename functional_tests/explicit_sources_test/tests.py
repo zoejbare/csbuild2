@@ -19,22 +19,38 @@
 # SOFTWARE.
 
 """
-.. module:: reraise_py2
-	:synopsis: Python 2 reraise implementation
+.. module:: tests
+	:synopsis: Tests for explicitly adding and excluding source files from a project.
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-def Reraise(exception, traceback):
-	"""
-	Reraise a python exception with a traceback using py2 syntax
+from csbuild._testing.functional_test import FunctionalTest
+from csbuild._utils import PlatformBytes
 
-	:param exception: Exception object
-	:type exception: Exception
-	:param traceback: Traceback object to attach to the exception
-	:type traceback: Traceback
-	:raises exception: always
-	"""
-	raise exception, None, traceback
+import os
+import platform
+import subprocess
+
+class ExplicitSourcesTest(FunctionalTest):
+	"""Basic c++ test"""
+
+	# pylint: disable=invalid-name
+	def setUp(self): # pylint: disable=arguments-differ
+		outDir = "out"
+		if platform.system() == "Windows":
+			self.outputFile = os.path.join(outDir, "explicit_sources.exe")
+		else:
+			self.outputFile = os.path.join(outDir, "explicit_sources")
+		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=explicit_sources", "--at"])
+
+	def testCompileSucceeds(self):
+		"""Test the explicit sources project builds successfully"""
+		self.assertMakeSucceeds("-v", "--project=explicit_sources", "--show-commands")
+
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
+		out = subprocess.check_output([self.outputFile])
+
+		self.assertEqual(out, PlatformBytes("data = 4, 123"))
