@@ -108,25 +108,31 @@ class JavaArchiverBase(JavaToolBase):
 	@abstractmethod
 	def _getOutputFiles(self, project):
 		"""
-		Get the set of output files that will be created from archiving a projects
+		Get the set of output files that will be created from archiving a project.
 
-		:param project: project being linked
+		:param project: Project being linked.
 		:type project: project.Project
-		:return: tuple of files that will be produced from linking
+
+		:return: Tuple of files that will be produced from linking.
 		:rtype: tuple[str]
 		"""
 		return tuple([""])
 
 	@abstractmethod
-	def _getCommand(self, project, inputFiles):
+	def _getCommand(self, project, inputFiles, classRootPath):
 		"""
-		Get the command to link the provided set of files for the provided project
+		Get the command to link the provided set of files for the provided project.
 
-		:param project: Project to link
+		:param project: Project to link.
 		:type project: project.Project
-		:param inputFiles: files being linked
+
+		:param inputFiles: Files being linked.
 		:type inputFiles: input_file.InputFile
-		:return: Command to execute, broken into a list, as would be provided to subrpocess functions
+
+		:param classRootPath: Root path for the compiled class files.
+		:type classRootPath: str
+
+		:return: Command to execute, broken into a list, as would be provided to subprocess functions.
 		:rtype: list
 		"""
 		return []
@@ -142,16 +148,21 @@ class JavaArchiverBase(JavaToolBase):
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param inputProject:
+		:param inputProject: Project being built.
 		:type inputProject: csbuild._build.project.Project
-		:param inputFiles: List of files to build
+
+		:param inputFiles: List of files to build.
 		:type inputFiles: list[input_file.InputFile]
-		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
+
+		:return: Tuple of files created by the tool - all files must have an extension in the outputFiles list.
 		:rtype: tuple[str]
 		"""
 		log.Linker("Archiving {}.jar...", inputProject.outputName)
 
-		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject))
+		classRootPath = os.path.join(inputProject.intermediateDir, self._classRootDirName)
+
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles, classRootPath), env=self._getEnv(inputProject))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFiles)
+
 		return self._getOutputFiles(inputProject)

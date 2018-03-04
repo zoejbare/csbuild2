@@ -72,6 +72,6 @@ class BasicJavaTest(FunctionalTest):
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--toolchain=oracle-java")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
-		out = subprocess.check_output([self.outputFile])
+		#out = subprocess.check_output([self.outputFile])
 
 		#self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))

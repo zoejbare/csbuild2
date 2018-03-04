@@ -51,20 +51,12 @@ class OracleJavaArchiver(JavaArchiverBase):
 	def _getOutputFiles(self, project):
 		return tuple({ self._getOutputFilePath(project) })
 
-	def _getCommand(self, project, inputFiles):
-		if project.projectType == csbuild.ProjectType.Application:
-			assert self._entryPointClass, "No entry point class defined"
-			manifestFilePath = os.path.join(project.csbuildDir, "app_manifest.txt")
-			with open(manifestFilePath, "w") as f:
-				f.write("Main-Class: {}\n".format(self._entryPointClass))
-		else:
-			manifestFilePath = None
-
+	def _getCommand(self, project, inputFiles, classRootPath):
 		cmd = [self._javaArchiverPath] \
-			+ ["cf" + "m" if manifestFilePath else ""] \
-			+ [self._getOutputFilePath(project)] \
-			+ [manifestFilePath] if manifestFilePath else [] \
-			+ [f.filename for f in inputFiles]
+			+ self._getSwitchArgs() \
+			+ self._getOutputArgs(project) \
+			+ self._getEntryPointClassArgs() \
+			+ self._getInputArgs(classRootPath)
 		return [arg for arg in cmd if arg]
 
 
@@ -74,3 +66,28 @@ class OracleJavaArchiver(JavaArchiverBase):
 
 	def _getOutputFilePath(self, project):
 		return os.path.join(project.outputDir, "{}.jar".format(project.outputName))
+
+	def _getOutputArgs(self, project):
+		return [self._getOutputFilePath(project)]
+
+	def _getSwitchArgs(self):
+		return ["cf" + "e" if self._entryPointClass else ""]
+
+	def _getEntryPointClassArgs(self):
+		return [self._entryPointClass] if self._entryPointClass else []
+
+	def _getInputArgs(self, classRootPath):
+		rootItems = os.listdir(classRootPath)
+		args = []
+
+		# Pass in only the items in the class root directory since the Java archiver
+		# will recursively find class files in directories.  This is important so the
+		# layout of the files in the final archive have the correct directory structure.
+		for item in rootItems:
+			args.extend([
+				"-C",
+				classRootPath,
+				item
+			])
+
+		return args

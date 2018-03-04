@@ -32,10 +32,14 @@ import os
 
 from .java_compiler_base import JavaCompilerBase
 
+def _ignore(_):
+	pass
+
 class OracleJavaCompiler(JavaCompilerBase):
 	"""
 	Oracle Java compiler implementation.
 	"""
+
 	def __init__(self, projectSettings):
 		JavaCompilerBase.__init__(self, projectSettings)
 
@@ -47,23 +51,25 @@ class OracleJavaCompiler(JavaCompilerBase):
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getOutputFiles(self, project, inputFile):
-		intermediateRootPath = project.GetIntermediateDirectory(inputFile)
+	def _getOutputFiles(self, project, inputFiles, classRootPath):
+		_ignore(project)
+		_ignore(inputFiles)
+
 		outputFiles = set()
 
-		# Find each .class file in the input file's intermediate directory.
-		for root, _, files in os.walk(intermediateRootPath):
+		# Find each .class file in the intermediate directory.
+		for root, _, files in os.walk(classRootPath):
 			for filePath in files:
 				outputFiles.add(os.path.join(root, filePath))
 
 		return tuple(sorted(outputFiles))
 
-	def _getCommand(self, project, inputFile):
+	def _getCommand(self, project, inputFiles, classRootPath):
 		cmd = [self._javaCompilerPath] \
 			+ self._getClassPathArgs() \
 			+ self._getSourcePathArgs() \
-			+ self._getOutputPathArgs(project, inputFile) \
-			+ [inputFile.filename]
+			+ self._getOutputPathArgs(classRootPath) \
+			+ self._getInputFileArgs(inputFiles)
 		return [arg for arg in cmd if arg]
 
 
@@ -91,8 +97,11 @@ class OracleJavaCompiler(JavaCompilerBase):
 		else:
 			return []
 
-	def _getOutputPathArgs(self, project, inputFile):
+	def _getOutputPathArgs(self, classRootPath):
 		return [
 			"-d",
-			project.GetIntermediateDirectory(inputFile),
+			classRootPath,
 		]
+
+	def _getInputFileArgs(self, inputFiles):
+		return [f.filename for f in inputFiles]

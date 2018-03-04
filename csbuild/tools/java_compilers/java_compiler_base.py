@@ -27,8 +27,10 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import os
 import csbuild
+import os
+import subprocess
+import threading
 
 from abc import ABCMeta, abstractmethod
 
@@ -49,8 +51,10 @@ class JavaCompilerBase(JavaToolBase):
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
 	"""
-	inputFiles = { ".java" }
+	inputGroups = { ".java" }
 	outputFiles = { ".class" }
+
+	_lock = threading.Lock()
 
 	################################################################################
 	### Initialization
@@ -125,11 +129,38 @@ class JavaCompilerBase(JavaToolBase):
 	################################################################################
 
 	@abstractmethod
-	def _getOutputFiles(self, project, inputFile):
-		return ""
+	def _getOutputFiles(self, project, inputFiles, classRootPath):
+		"""
+		Get the set of output files that will be created from compiling a project.
+
+		:param project: Project being compiled.
+		:type project: project.Project
+
+		:param inputFiles: Files being compiled.
+		:type inputFiles: input_file.InputFile
+
+		:return: Tuple of files that will be produced from compiling.
+		:rtype: tuple[str]
+		"""
+		return tuple([""])
 
 	@abstractmethod
-	def _getCommand(self, project, inputFile):
+	def _getCommand(self, project, inputFiles, classRootPath):
+		"""
+		Get the command to compile the provided set of files for the provided project
+
+		:param project: Project being compiled.
+		:type project: project.Project
+
+		:param inputFiles: Files being compiled.
+		:type inputFiles: input_file.InputFile
+
+		:param classRootPath: Root path for the compiled class files.
+		:type classRootPath: str
+
+		:return: Command to execute, broken into a list, as would be provided to subprocess functions.
+		:rtype: list
+		"""
 		return []
 
 
@@ -137,22 +168,45 @@ class JavaCompilerBase(JavaToolBase):
 	### Base class methods containing logic shared by all subclasses
 	################################################################################
 
-	def Run(self, inputProject, inputFile):
+	def RunGroup(self, inputProject, inputFiles):
 		"""
-		Execute a single build step. Note that this method is run massively in parallel with other build steps.
+		Execute a group build step. Note that this method is run massively in parallel with other build steps.
 		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
 		mutex.
 
-		:param inputProject: project being built
+		:param inputProject: Project being built.
 		:type inputProject: csbuild._build.project.Project
-		:param inputFile: File to build
-		:type inputFile: input_file.InputFile
-		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
+
+		:param inputFiles: List of files to build.
+		:type inputFiles: list[input_file.InputFile]
+
+		:return: Tuple of files created by the tool - all files must have an extension in the outputFiles list.
 		:rtype: tuple[str]
 		"""
-		log.Build("Compiling {}...", os.path.basename(inputFile.filename))
+		log.Build(
+			"Compiling Java files for {}: [{}]",
+			inputProject.outputName,
+			", ".join(
+				sorted([f.filename for f in inputFiles])
+			)
+		)
 
-		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile), env=self._getEnv(inputProject))
+		# Create the class root intermediate directory.
+		classRootPath = os.path.join(inputProject.intermediateDir, self._classRootDirName)
+		if not os.access(classRootPath, os.F_OK):
+			# Put a lock on the directory just in case something else happens to be trying to create it at the same time.
+			with JavaCompilerBase._lock:
+				if not os.access(classRootPath, os.F_OK):
+					os.makedirs(classRootPath)
+
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles, classRootPath), env=self._getEnv(inputProject))
 		if returncode != 0:
-			raise csbuild.BuildFailureException(inputProject, inputFile)
-		return self._getOutputFiles(inputProject, inputFile)
+			raise csbuild.BuildFailureException(inputProject, inputFiles)
+
+		outputFiles = self._getOutputFiles(inputProject, inputFiles, classRootPath)
+
+		# If the project generated no class files, flag that as an error.
+		if not outputFiles:
+			log.Error("Project {} generated no class files".format(inputProject.outputName))
+
+		return outputFiles

@@ -49,6 +49,11 @@ class JavaToolBase(Tool):
 
 		self._javaHomePath = projectSettings.get("javaHomePath", "")
 
+		# The intermediate directory apparently doesn't exist on the project by this point,
+		# so we'll keep the root directory name underneath it, then form the full path to
+		# it when we build.
+		self._classRootDirName = "java_class_root"
+
 		# When no Java home path is explicitly provided, attempt to get it from the environment.
 		if not self._javaHomePath:
 			self._javaHomePath = os.getenv("JAVA_HOME", "")
