@@ -29,6 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 import platform
 import os
+import subprocess
 
 from .java_archiver_base import JavaArchiverBase
 
@@ -39,8 +40,12 @@ class OracleJavaArchiver(JavaArchiverBase):
 	def __init__(self, projectSettings):
 		JavaArchiverBase.__init__(self, projectSettings)
 
-		self._javaArchiverPath = os.path.join(self._javaHomePath, "bin", "jar{}".format(".exe" if platform.system() == "Windows" else ""))
-		assert os.access(self._javaArchiverPath, os.F_OK), "Oracle Java archiver not found at path: {}".format(self._javaArchiverPath)
+		self._javaArchiverPath = os.path.join(self._javaBinPath, "jar{}".format(".exe" if platform.system() == "Windows" else ""))
+
+		try:
+			subprocess.call([self._javaArchiverPath], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+		except:
+			raise IOError("Oracle Java archiver not found at path: {}".format(self._javaArchiverPath))
 
 
 	####################################################################################################################

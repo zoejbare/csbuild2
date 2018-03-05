@@ -29,6 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 import os
+import subprocess
 
 from abc import ABCMeta
 
@@ -47,19 +48,19 @@ class JavaToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-		self._javaHomePath = projectSettings.get("javaHomePath", "")
+		self._javaBinPath = projectSettings.get("javaBinPath", "")
 
 		# The intermediate directory apparently doesn't exist on the project by this point,
 		# so we'll keep the root directory name underneath it, then form the full path to
 		# it when we build.
 		self._classRootDirName = "java_class_root"
 
-		# When no Java home path is explicitly provided, attempt to get it from the environment.
-		if not self._javaHomePath:
-			self._javaHomePath = os.getenv("JAVA_HOME", "")
+		# When no Java binary path is explicitly provided, attempt to get it from the environment.
+		if not self._javaBinPath and "JAVA_HOME" in os.environ:
+			self._javaBinPath = os.path.join("JAVA_HOME", "bin")
 
-		assert self._javaHomePath, "Java home path not provided or set through the JAVA_HOME environment variable."
-		assert os.access(self._javaHomePath, os.F_OK), "Java home path does not exist: {}".format(self._javaHomePath)
+		if self._javaBinPath:
+			assert os.access(self._javaBinPath, os.F_OK), "Java binary path does not exist: {}".format(self._javaHomePath)
 
 
 	####################################################################################################################
@@ -75,11 +76,11 @@ class JavaToolBase(Tool):
 	################################################################################
 
 	@staticmethod
-	def SetJavaHomePath(path):
+	def SetJavaBinaryPath(path):
 		"""
-		Sets the path to the Java home.
+		Sets the path to the Java binaries.
 
-		:param path: Java home path.
+		:param path: Java binary path.
 		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("javaHomePath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("javaBinPath", os.path.abspath(path))

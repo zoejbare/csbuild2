@@ -68,11 +68,19 @@ class BasicJavaTest(FunctionalTest):
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		self.assertIn("JAVA_HOME", os.environ, "JAVA_HOME must be defined in the system environment for this test to run")
+		javaExe = "java{}".format(".exe" if platform.system() == "Windows" else "")
+
+		# Verify the Java executable can be found since it's required for running the JAR output for this test.
+		try:
+			subprocess.call([javaExe], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		except:
+			self.assertIn("JAVA_HOME", os.environ, "JAVA_HOME must be defined in the environment if the Java binaries are not available from the system path")
+			javaExe = os.path.join(os.environ["JAVA_HOME"], "bin", javaExe)
+			self.assertFileExists(javaExe)
 
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--toolchain=oracle-java")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
-		out = subprocess.check_output([os.path.join(os.environ["JAVA_HOME"], "bin", "java{}".format(".exe" if platform.system() == "Windows" else "")), "-jar", self.outputFile])
+		out = subprocess.check_output([javaExe, "-jar", self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, world!"))
