@@ -20,7 +20,7 @@
 
 """
 .. module:: oracle_java_compiler
-	:synopsis: Oracle Java compiler tool.
+	:synopsis: Oracle-compatible Java compiler tool.
 
 .. moduleauthor:: Brandon Bare
 """
@@ -37,7 +37,7 @@ def _ignore(_):
 
 class OracleJavaCompiler(JavaCompilerBase):
 	"""
-	Oracle Java compiler implementation.
+	Oracle-compatible Java compiler implementation.
 	"""
 
 	def __init__(self, projectSettings):
@@ -84,8 +84,7 @@ class OracleJavaCompiler(JavaCompilerBase):
 				"-classpath",
 				arg,
 			]
-		else:
-			return []
+		return []
 
 	def _getSourcePathArgs(self):
 		if self._srcPaths:
@@ -94,8 +93,7 @@ class OracleJavaCompiler(JavaCompilerBase):
 				"-sourcepath",
 				arg,
 			]
-		else:
-			return []
+		return []
 
 	def _getOutputPathArgs(self, classRootPath):
 		return [

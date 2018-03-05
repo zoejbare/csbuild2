@@ -20,7 +20,7 @@
 
 """
 .. module:: java_compiler_base
-	:synopsis: Basic class for Java compilers.
+	:synopsis: Base class for Java compilers.
 
 .. moduleauthor:: Brandon Bare
 """
@@ -29,7 +29,6 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 import os
-import subprocess
 import threading
 
 from abc import ABCMeta, abstractmethod
@@ -138,6 +137,9 @@ class JavaCompilerBase(JavaToolBase):
 
 		:param inputFiles: Files being compiled.
 		:type inputFiles: input_file.InputFile
+
+		:param classRootPath: Root path for the compiled class files.
+		:type classRootPath: str
 
 		:return: Tuple of files that will be produced from compiling.
 		:rtype: tuple[str]

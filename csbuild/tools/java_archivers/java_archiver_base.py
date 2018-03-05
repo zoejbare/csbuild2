@@ -35,7 +35,6 @@ from abc import ABCMeta, abstractmethod
 from ..common.java_tool_base import JavaToolBase
 
 from ... import commands, log
-from ..._utils import ordered_set
 from ..._utils.decorators import MetaClass
 
 def _ignore(_):
@@ -67,14 +66,14 @@ class JavaArchiverBase(JavaToolBase):
 	################################################################################
 
 	@staticmethod
-	def SetJavaEntryPointClass(cls):
+	def SetJavaEntryPointClass(fullClassName):
 		"""
 		Set the entry point class for a Java application.
 
-		:param cls: Entry point class in the form: <package>.<class_name>
-		:type cls: str
+		:param fullClassName: Entry point class in the form: <package>.<class_name>
+		:type fullClassName: str
 		"""
-		csbuild.currentPlan.SetValue("javaEntryPointClass", cls)
+		csbuild.currentPlan.SetValue("javaEntryPointClass", fullClassName)
 
 
 	################################################################################

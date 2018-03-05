@@ -28,7 +28,6 @@
 from __future__ import unicode_literals, division, print_function
 
 from csbuild._testing.functional_test import FunctionalTest
-from csbuild.tools.linkers.linker_base import LibraryError
 from csbuild._utils import PlatformBytes
 
 import os
@@ -59,19 +58,21 @@ def Touch(fname):
 			os.chmod(fname, oldPermissions)
 
 class BasicJavaTest(FunctionalTest):
-	"""Basic c++ test"""
+	"""Basic Java test"""
 
 	# pylint: disable=invalid-name
 	def setUp(self): # pylint: disable=arguments-differ
 		self.outputFile = "out/hello_world.jar"
 		outDir = "out"
-		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--at"])
+		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--at", "--toolchain=oracle-java"])
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
+		self.assertIn("JAVA_HOME", os.environ, "JAVA_HOME must be defined in the system environment for this test to run")
+
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--toolchain=oracle-java")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
-		#out = subprocess.check_output([self.outputFile])
+		out = subprocess.check_output([os.path.join(os.environ["JAVA_HOME"], "bin", "java{}".format(".exe" if platform.system() == "Windows" else "")), "-jar", self.outputFile])
 
-		#self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, world!"))

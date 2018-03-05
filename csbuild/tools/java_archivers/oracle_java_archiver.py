@@ -20,14 +20,13 @@
 
 """
 .. module:: oracle_java_archiver
-	:synopsis: Oracle Java archiver tool.
+	:synopsis: Oracle-compatible Java archiver tool.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
 import platform
 import os
 
@@ -35,7 +34,7 @@ from .java_archiver_base import JavaArchiverBase
 
 class OracleJavaArchiver(JavaArchiverBase):
 	"""
-	Oracle Java archiver implementation.
+	Oracle-compatible Java archiver implementation.
 	"""
 	def __init__(self, projectSettings):
 		JavaArchiverBase.__init__(self, projectSettings)
