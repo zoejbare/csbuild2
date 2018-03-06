@@ -70,8 +70,12 @@ class TestPylint(testcase.TestCase):
 				if match:
 					out.append('  File "{}", line {}, in pylint\n    {}'.format(module, match.group(1), match.group(2)))
 				else:
-					out.append(line)
-			return "\n".join(out) + "\n"
+					# Recent versions of pylint annoyingly print these lines about the config file to stderr and while
+					# there is an option internally to silence these messages, there is no switch available externally
+					# for configuring it.  This means we need to check for those messages manually and discard them.
+					if not line.startswith("Using config file ") and line != "No config file found, using default configuration":
+						out.append(line)
+			return "\n".join(out) + "\n" if out else ""
 
 		def _runPylint(module):
 			log.Info("Linting module {}", module)
@@ -80,10 +84,12 @@ class TestPylint(testcase.TestCase):
 			out, err = fd.communicate()
 			if err:
 				err = _parseAndRejigger(moduleFullPath, err)
-				log.Error("LINTING {}:\n\n{}", module, PlatformString(err))
+				if err:
+					log.Error("LINTING {}:\n\n{}", module, PlatformString(err))
 			if out:
 				out = _parseAndRejigger(moduleFullPath, out)
-				log.Error("LINTING {}:\n\n{}", module, PlatformString(out))
+				if out:
+					log.Error("LINTING {}:\n\n{}", module, PlatformString(out))
 			if fd.returncode != 0:
 				#pylint: disable=not-context-manager
 				with lock:
