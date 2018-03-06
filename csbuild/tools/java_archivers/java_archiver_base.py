@@ -158,7 +158,7 @@ class JavaArchiverBase(JavaToolBase):
 		"""
 		log.Linker("Archiving {}.jar...", inputProject.outputName)
 
-		classRootPath = os.path.join(inputProject.intermediateDir, self._classRootDirName)
+		classRootPath = os.path.join(inputProject.intermediateDir, self._javaClassRootDirName)
 
 		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles, classRootPath), env=self._getEnv(inputProject))
 		if returncode != 0:

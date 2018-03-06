@@ -35,7 +35,6 @@ from abc import ABCMeta
 from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 
-
 @MetaClass(ABCMeta)
 class AndroidToolBase(Tool):
 	"""
@@ -47,18 +46,29 @@ class AndroidToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-		self._ndkHomePath = projectSettings.get("androidNdkHomePath", "")
-		self._sdkHomePath = projectSettings.get("androidSdkHomePath", "")
+		self._androidNdkRootPath = projectSettings.get("androidNdkRootPath", "")
+		self._androidSdkRootPath = projectSettings.get("androidSdkRootPath", "")
 		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
+		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", None)
 
-		assert self._ndkHomePath, "Android NDK home path not provided"
-		assert os.access(self._ndkHomePath, os.F_OK), "Android NDK home path does not exist: {}".format(self._ndkHomePath)
+		# If no NDK root path is specified, try to get it from the environment.
+		if not self._androidNdkRootPath and "ANDROID_NDK_ROOT" in os.environ:
+			self._androidNdkRootPath = os.environ["ANDROID_NDK_ROOT"]
 
-		assert self._sdkHomePath, "Android SDK home path not provided"
-		assert os.access(self._sdkHomePath, os.F_OK), "Android SDK home path does not exist: {}".format(self._sdkHomePath)
+		# If no SDK root path is specified, try to get it from the environment.
+		if not self._androidSdkRootPath and "ANDROID_HOME" in os.environ:
+			self._androidSdkRootPath = os.environ["ANDROID_HOME"]
+
+		assert os.access(self._androidNdkRootPath, os.F_OK), "Android NDK root path does not exist: {}".format(self._androidNdkRootPath)
+		assert os.access(self._androidSdkRootPath, os.F_OK), "Android SDK root path does not exist: {}".format(self._androidSdkRootPath)
 
 		assert self._androidManifestFilePath, "Android manifest file path not provided"
 		assert os.access(self._androidManifestFilePath, os.F_OK), "Android manifest file path does not exist: {}".format(self._androidManifestFilePath)
+
+		assert self._androidTargetSdkVersion, "Android target SDK version not provided"
+
+		self._androidSdkPlatformPath = os.path.join(self._androidSdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion))
+		assert os.access(self._androidSdkPlatformPath, os.F_OK), "Android SDK platform path does not exist: {}".format(self._androidSdkPlatformPath)
 
 
 	####################################################################################################################
@@ -74,24 +84,24 @@ class AndroidToolBase(Tool):
 	################################################################################
 
 	@staticmethod
-	def SetAndroidNdkHomePath(path):
+	def SetAndroidNdkRootPath(path):
 		"""
 		Sets the path to the Android NDK home.
 
 		:param path: Android NDK home path.
 		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("androidNdkHomePath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("androidNdkRootPath", os.path.abspath(path))
 
 	@staticmethod
-	def SetAndroidSdkHomePath(path):
+	def SetAndroidSdkRootPath(path):
 		"""
-		Sets the path to the Android SDK home.
+		Sets the path to the Android SDK root.
 
-		:param path: Android SDK home path.
+		:param path: Android SDK root path.
 		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("androidSdkHomePath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("androidSdkRootPath", os.path.abspath(path))
 
 	@staticmethod
 	def SetAndroidManifestFilePath(path):
@@ -102,3 +112,13 @@ class AndroidToolBase(Tool):
 		:type path: str
 		"""
 		csbuild.currentPlan.SetValue("androidManifestFilePath", os.path.abspath(path))
+
+	@staticmethod
+	def SetAndroidTargetSdkVersion(version):
+		"""
+		Sets the Android target SDK version.
+
+		:param version: Android target SDK version.
+		:type version: int
+		"""
+		csbuild.currentPlan.SetValue("androidTargetSdkVersion", version)

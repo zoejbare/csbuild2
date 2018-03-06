@@ -52,7 +52,7 @@ class JavaToolBase(Tool):
 		# The intermediate directory apparently doesn't exist on the project by this point,
 		# so we'll keep the root directory name underneath it, then form the full path to
 		# it when we build.
-		self._classRootDirName = "java_class_root"
+		self._javaClassRootDirName = "java_class_root"
 
 		# When no Java binary path is explicitly provided, attempt to get it from the environment.
 		if not self._javaBinPath and "JAVA_HOME" in os.environ:
