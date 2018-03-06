@@ -29,7 +29,6 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 import os
-import subprocess
 
 from abc import ABCMeta
 
@@ -60,7 +59,7 @@ class JavaToolBase(Tool):
 			self._javaBinPath = os.path.join("JAVA_HOME", "bin")
 
 		if self._javaBinPath:
-			assert os.access(self._javaBinPath, os.F_OK), "Java binary path does not exist: {}".format(self._javaHomePath)
+			assert os.access(self._javaBinPath, os.F_OK), "Java binary path does not exist: {}".format(self._javaBinPath)
 
 
 	####################################################################################################################
