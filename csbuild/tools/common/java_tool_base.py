@@ -56,7 +56,7 @@ class JavaToolBase(Tool):
 
 		# When no Java binary path is explicitly provided, attempt to get it from the environment.
 		if not self._javaBinPath and "JAVA_HOME" in os.environ:
-			self._javaBinPath = os.path.join("JAVA_HOME", "bin")
+			self._javaBinPath = os.path.join(os.environ["JAVA_HOME"], "bin")
 
 		if self._javaBinPath:
 			assert os.access(self._javaBinPath, os.F_OK), "Java binary path does not exist: {}".format(self._javaBinPath)
