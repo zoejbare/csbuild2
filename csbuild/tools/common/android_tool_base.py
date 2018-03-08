@@ -117,7 +117,7 @@ class AndroidToolBase(Tool):
 	####################################################################################################################
 
 	def _getInfo(self, arch):
-		key = (self._androidNdkRootPath, arch)
+		key = (self._androidNdkRootPath, self._androidSdkRootPath, arch)
 
 		if key not in AndroidInfo.Instances:
 			def _getToolchainPrefix(arch):
