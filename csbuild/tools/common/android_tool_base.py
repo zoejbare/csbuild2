@@ -35,6 +35,14 @@ from abc import ABCMeta
 from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 
+
+class AndroidToolchainInfo(object):
+	Instances = {}
+
+	def __init__(self, path, isClang):
+		pass
+
+
 @MetaClass(ABCMeta)
 class AndroidToolBase(Tool):
 	"""
@@ -43,6 +51,8 @@ class AndroidToolBase(Tool):
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
 	"""
+	supportedArchitectures = { "x86", "x64", "arm", "arm64", "mips", "mips64" }
+
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
@@ -67,8 +77,43 @@ class AndroidToolBase(Tool):
 
 		assert self._androidTargetSdkVersion, "Android target SDK version not provided"
 
-		self._androidSdkPlatformPath = os.path.join(self._androidSdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion))
-		assert os.access(self._androidSdkPlatformPath, os.F_OK), "Android SDK platform path does not exist: {}".format(self._androidSdkPlatformPath)
+		self._androidTargetSdkName = "android-{}".format(self._androidTargetSdkVersion)
+		self._androidTargetArchName = "arch-{}".format("plop")
+
+	def _getToolchainInfo(self, arch):
+		key = (self._androidNdkRootPath, arch)
+
+		if key not in AndroidToolchainInfo.Instances:
+			if arch != "llvm":
+				toolchainArchPrefix = {
+					"x86": "x86",
+					"x64": "x86_64",
+					"arm": "arm",
+					"arm64": "aarch64",
+					"mips": "mipsel",
+					"mips64": "mips64el",
+				}.get(arch, "")
+
+				assert toolchainArchPrefix, "Architecture not supported: {}".format(arch)
+
+			else:
+				pass
+
+		return AndroidToolchainInfo.Instances[key]
+
+	def _getPlatformArchName(self, arch):
+		platformArchName = {
+			"x86": "arch-x86",
+			"x64": "arch-x86_64",
+			"arm": "arch-arm",
+			"arm64": "arch-arm64",
+			"mips": "arch-mips",
+			"mips64": "arch-mips64",
+		}.get(arch, "")
+
+		assert platformArchName, "Architecture not supported: {}".format(arch)
+
+		return platformArchName
 
 
 	####################################################################################################################
@@ -122,3 +167,14 @@ class AndroidToolBase(Tool):
 		:type version: int
 		"""
 		csbuild.currentPlan.SetValue("androidTargetSdkVersion", version)
+
+@MetaClass(ABCMeta)
+class AndroidBaseCompiler(AndroidToolBase):
+	"""
+	Parent class for all Android compiler tools.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		AndroidToolBase.__init__(self, projectSettings)
