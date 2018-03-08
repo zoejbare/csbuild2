@@ -28,7 +28,9 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
+import glob
 import os
+import platform
 
 from abc import ABCMeta
 
@@ -36,10 +38,10 @@ from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 
 
-class AndroidToolchainInfo(object):
+class AndroidInfo(object):
 	Instances = {}
 
-	def __init__(self, path, isClang):
+	def __init__(self, gccPath, gppPath, ldPath, clangPath, clangppPath, sysRootPath):
 		pass
 
 
@@ -77,14 +79,19 @@ class AndroidToolBase(Tool):
 
 		assert self._androidTargetSdkVersion, "Android target SDK version not provided"
 
-		self._androidTargetSdkName = "android-{}".format(self._androidTargetSdkVersion)
-		self._androidTargetArchName = "arch-{}".format("plop")
+		self._androidInfo = None
 
-	def _getToolchainInfo(self, arch):
+
+	####################################################################################################################
+	### Private methods
+	####################################################################################################################
+
+	def _getInfo(self, arch):
 		key = (self._androidNdkRootPath, arch)
 
-		if key not in AndroidToolchainInfo.Instances:
-			if arch != "llvm":
+		if key not in AndroidInfo.Instances:
+			def _getToolchainPrefix(arch):
+				# Search for a toolchain by architecture.
 				toolchainArchPrefix = {
 					"x86": "x86",
 					"x64": "x86_64",
@@ -93,13 +100,43 @@ class AndroidToolBase(Tool):
 					"mips": "mipsel",
 					"mips64": "mips64el",
 				}.get(arch, "")
+				assert toolchainArchPrefix, "Android architecture not supported: {}".format(arch)
 
-				assert toolchainArchPrefix, "Architecture not supported: {}".format(arch)
+				return toolchainArchPrefix
 
-			else:
-				pass
+			platformName = platform.system().lower()
+			exeExtension = ".exe" if platform.system() == "Windows" else ""
+			toolchainPrefix = _getToolchainPrefix(arch)
+			rootToolchainPath = os.path.join(self._androidNdkRootPath, "toolchains")
+			archToolchainPath = glob.glob(os.path.join(rootToolchainPath, "{}-*".format(toolchainPrefix)))
+			llvmToolchainPath = glob.glob(os.path.join(rootToolchainPath, "llvm", "prebuilt", "{}-*".format(platformName)))
+			sysRootPath = os.path.join(self._androidNdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion), self._getPlatformArchName(arch))
 
-		return AndroidToolchainInfo.Instances[key]
+			assert archToolchainPath, "No Android toolchain installed for architecture: {}".format(arch)
+			assert llvmToolchainPath, "No Android LLVM toolchain installed for platform: {}".format(platformName)
+			assert os.access(sysRootPath, os.F_OK), "No Android sysroot found at path: {}".format(sysRootPath)
+
+			archToolchainPath = glob.glob(os.path.join(archToolchainPath[0], "prebuilt", "{}-*".format(platformName)))
+			llvmToolchainPath = llvmToolchainPath[0]
+
+			assert archToolchainPath, "No Android \"{}\" toolchain installed for platform: {}".format(toolchainPrefix, platformName)
+
+			archToolchainPath = os.path.join(archToolchainPath, "bin")
+			llvmToolchainPath = os.path.join(llvmToolchainPath, "bin")
+
+			gccPath = glob.glob(os.path.join(archToolchainPath, "*-gcc{}".format(exeExtension)))
+			gppPath = glob.glob(os.path.join(archToolchainPath, "*-g++{}".format(exeExtension)))
+			ldPath = glob.glob(os.path.join(archToolchainPath, "*-ld{}".format(exeExtension)))
+			clangPath = os.path.join(llvmToolchainPath, "clang{}".format(exeExtension))
+			clangppPath = os.path.join(llvmToolchainPath, "clang++{}".format(exeExtension))
+
+			assert gccPath, "No Android gcc executable found for architecture: {}".format(arch)
+			assert gppPath, "No Android g++ executable found for architecture: {}".format(arch)
+			assert ldPath, "No Android ld executable found for architecture: {}".format(arch)
+			assert clangPath, "No Android clang executable found for architecture: {}".format(arch)
+			assert clangppPath, "No Android clang++ executable found for architecture: {}".format(arch)
+
+		return AndroidInfo.Instances[key]
 
 	def _getPlatformArchName(self, arch):
 		platformArchName = {
@@ -121,7 +158,16 @@ class AndroidToolBase(Tool):
 	####################################################################################################################
 
 	def SetupForProject(self, project):
+		"""
+		Run project setup, if any, before building the project, but after all dependencies have been resolved.
+
+		:param project: project being set up
+		:type project: csbuild._build.project.Project
+		"""
 		Tool.SetupForProject(self, project)
+
+		if not self._androidInfo:
+			self._androidInfo = self._getInfo(project.architectureName)
 
 
 	################################################################################
