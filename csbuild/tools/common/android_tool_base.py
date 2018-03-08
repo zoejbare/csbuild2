@@ -39,10 +39,40 @@ from ...toolchain import Tool
 
 
 class AndroidInfo(object):
+	"""
+	Collection of paths for a specific version of Android and architecture.
+
+	:param gccPath: Full path to the gcc executable.
+	:type gccPath: str
+
+	:param gppPath: Full path to the g++ executable.
+	:type gppPath: str
+
+	:param ldPath: Full path to the ld executable.
+	:type ldPath: str
+
+	:param clangPath: Full path to the clang executable.
+	:type clangPath: str
+
+	:param clangppPath: Full path to the clang++ executable.
+	:type clangppPath: str
+
+	:param zipAlignPath: Full path to the zipAlign executable.
+	:type zipAlignPath: str
+
+	:param sysRootPath: Full path the Android sysroot.
+	:type sysRootPath: str
+	"""
 	Instances = {}
 
-	def __init__(self, gccPath, gppPath, ldPath, clangPath, clangppPath, sysRootPath):
-		pass
+	def __init__(self, gccPath, gppPath, ldPath, clangPath, clangppPath, zipAlignPath, sysRootPath):
+		self.gccPath = gccPath
+		self.gppPath = gppPath
+		self.ldPath = ldPath
+		self.clangPath = clangPath
+		self.clangppPath = clangppPath
+		self.zipAlignPath = zipAlignPath
+		self.sysRootPath = sysRootPath
 
 
 @MetaClass(ABCMeta)
@@ -124,6 +154,7 @@ class AndroidToolBase(Tool):
 			archToolchainPath = os.path.join(archToolchainPath, "bin")
 			llvmToolchainPath = os.path.join(llvmToolchainPath, "bin")
 
+			# Get the compiler and linker paths.
 			gccPath = glob.glob(os.path.join(archToolchainPath, "*-gcc{}".format(exeExtension)))
 			gppPath = glob.glob(os.path.join(archToolchainPath, "*-g++{}".format(exeExtension)))
 			ldPath = glob.glob(os.path.join(archToolchainPath, "*-ld{}".format(exeExtension)))
@@ -133,8 +164,21 @@ class AndroidToolBase(Tool):
 			assert gccPath, "No Android gcc executable found for architecture: {}".format(arch)
 			assert gppPath, "No Android g++ executable found for architecture: {}".format(arch)
 			assert ldPath, "No Android ld executable found for architecture: {}".format(arch)
-			assert clangPath, "No Android clang executable found for architecture: {}".format(arch)
-			assert clangppPath, "No Android clang++ executable found for architecture: {}".format(arch)
+			assert os.access(clangPath, os.F_OK), "No Android clang executable found for architecture: {}".format(arch)
+			assert os.access(clangppPath, os.F_OK), "No Android clang++ executable found for architecture: {}".format(arch)
+
+			buildToolsPath = glob.glob(os.path.join(self._androidSdkRootPath, "build-tools", "*"))
+			assert buildToolsPath, "No Android build tools are installed"
+
+			# For now, it doesn't seem like we need a specific version, so just pick the first one.
+			buildToolsPath = buildToolsPath[0]
+
+			# Get the miscellaneous build tool paths.
+			zipAlignPath = os.path.join(buildToolsPath, "zipAlign{}".format(exeExtension))
+
+			assert os.access(zipAlignPath, os.F_OK), "ZipAlign not found in Android build tools path: {}".format(buildToolsPath)
+
+			AndroidInfo.Instances[key] = AndroidInfo(gccPath, gppPath, ldPath, clangPath, clangppPath, zipAlignPath, sysRootPath)
 
 		return AndroidInfo.Instances[key]
 
