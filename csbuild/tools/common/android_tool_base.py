@@ -228,7 +228,7 @@ class AndroidToolBase(Tool):
 					"x86": "i686-linux-android",
 					"x64": "x86_64-linux-android",
 					"arm": "arm-linux-androideabi",
-					"arm64": "arm-linux-androideabi",
+					"arm64": "aarch64-linux-android",
 					"mips": "mipsel-linux-android",
 					"mips64": "mips64el-linux-android",
 				}.get(arch, "")
