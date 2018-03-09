@@ -39,10 +39,7 @@ class AndroidTest(FunctionalTest):
 
 	# pylint: disable=invalid-name
 	def setUp(self): # pylint: disable=arguments-differ
-		if platform.system() == "Windows":
-			self.outputFile = "out/hello_world.exe"
-		else:
-			self.outputFile = "out/hello_world"
+		self.outputFile = "out/hello_world.so"
 		outDir = "out"
 		FunctionalTest.setUp(self, outDir=outDir)
 
@@ -52,7 +49,4 @@ class AndroidTest(FunctionalTest):
 		self.cleanArgs = testArgs
 		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
 
-		#self.assertTrue(os.access(self.outputFile, os.F_OK))
-		#out = subprocess.check_output([self.outputFile])
-
-		#self.assertEqual(out, PlatformBytes("getnum() = 4"))
+		self.assertTrue(os.access(self.outputFile, os.F_OK))

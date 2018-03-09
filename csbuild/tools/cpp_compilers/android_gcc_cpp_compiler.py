@@ -66,10 +66,12 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 		GccCppCompiler.SetupForProject(self, project)
 		AndroidToolBase.SetupForProject(self, project)
 
-		if project.projectType == csbuild.ProjectType.Application and self._androidUseDefaultNativeAppGlue:
+		# Applications should automatically add the default native app glue source file, but only when told to do so.
+		if project.projectType == csbuild.ProjectType.Application and self._androidNativeAppGlue:
 			nativeAppGlueSourcePath = os.path.join(self._androidInfo.nativeAppGluPath, "android_native_app_glue.c")
 			assert os.access(nativeAppGlueSourcePath, os.F_OK), "Android native app glue source file not found at path: {}".format(nativeAppGlueSourcePath)
 
+			# Add it directly to the project's list of input files.
 			project.inputFiles[".c"].add(InputFile(nativeAppGlueSourcePath))
 
 	def _getComplierName(self, isCpp):
@@ -125,7 +127,7 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 					path,
 				])
 
-		if self._androidUseDefaultNativeAppGlue:
+		if self._androidNativeAppGlue:
 			args.extend([
 				"-isystem",
 				self._androidInfo.nativeAppGluPath,

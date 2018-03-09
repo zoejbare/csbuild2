@@ -65,12 +65,13 @@ class GccLinker(LinkerBase):
 		else:
 			cmd = [self._getBinaryLinkerName(), "-L/"] \
 				+ self._getDefaultArgs(project) \
-				+ self._getOutputFileArgs(project) \
-				+ self._getInputFileArgs(inputFiles) \
+				+ self._getArchitectureArgs(project) \
+				+ self._getSystemArgs(project) \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs() \
-				+ self._getArchitectureArgs(project) \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles) \
 				+ self._linkerFlags
 		return [arg for arg in cmd if arg]
 
@@ -197,6 +198,9 @@ class GccLinker(LinkerBase):
 	def _getArchitectureArgs(self, project):
 		arg = "-m64" if project.architectureName == "x64" else "-m32"
 		return [arg]
+
+	def _getSystemArgs(self, project):
+		return []
 
 	def _getLibrarySearchDirectories(self):
 		return self._libraryDirectories

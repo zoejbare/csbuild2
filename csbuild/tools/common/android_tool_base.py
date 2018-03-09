@@ -75,6 +75,9 @@ class AndroidInfo(object):
 	:param zipAlignPath: Full path to the zipAlign executable.
 	:type zipAlignPath: str
 
+	:param sysRootPath: Full path to the Android system root.
+	:type sysRootPath: str
+
 	:param systemLibPath: Full path to the Android system libraries.
 	:type systemLibPath: str
 
@@ -114,6 +117,7 @@ class AndroidInfo(object):
 			clangPath,
 			clangppPath,
 			zipAlignPath,
+			sysRootPath,
 			systemLibPath,
 			systemIncludePaths,
 			nativeAppGluPath,
@@ -132,6 +136,7 @@ class AndroidInfo(object):
 		self.clangPath = clangPath
 		self.clangppPath = clangppPath
 		self.zipAlignPath = zipAlignPath
+		self.sysRootPath = sysRootPath
 		self.systemLibPath = systemLibPath
 		self.systemIncludePaths = [path for path in systemIncludePaths if path]
 		self.nativeAppGluPath = nativeAppGluPath
@@ -164,7 +169,7 @@ class AndroidToolBase(Tool):
 		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
 		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", None)
 		self._androidStlLibType = projectSettings.get("androidStlLibType", AndroidStlLibType.Gnu)
-		self._androidUseDefaultNativeAppGlue = projectSettings.get("androidUseDefaultNativeAppGlue", False)
+		self._androidNativeAppGlue = projectSettings.get("androidNativeAppGlue", False)
 
 		# If no NDK root path is specified, try to get it from the environment.
 		if not self._androidNdkRootPath and "ANDROID_NDK_ROOT" in os.environ:
@@ -344,6 +349,7 @@ class AndroidToolBase(Tool):
 					clangPath,
 					clangppPath,
 					zipAlignPath,
+					sysRootPath,
 					sysRootLibPath,
 					[
 						sysRootBaseIncludePath,
@@ -460,11 +466,11 @@ class AndroidToolBase(Tool):
 		csbuild.currentPlan.SetValue("androidStlLibType", lib)
 
 	@staticmethod
-	def UseDefaultAndroidNativeAppGlue(useDefaultAppGlue):
+	def SetAndroidNativeAppGlue(useDefaultAppGlue):
 		"""
 		Sets a boolean to use the default Android native app glue.
 
 		:param useDefaultAppGlue: Use default Android native app glue?
 		:type useDefaultAppGlue: bool
 		"""
-		csbuild.currentPlan.SetValue("androidUseDefaultNativeAppGlue", useDefaultAppGlue)
+		csbuild.currentPlan.SetValue("androidNativeAppGlue", useDefaultAppGlue)

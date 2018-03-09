@@ -76,13 +76,35 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 		return self._androidInfo.arPath
 
 	def _getDefaultArgs(self, project):
-		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			return []
-		return ["-shared", "-fPIC"]
+		return [] if project.projectType == csbuild.ProjectType.StaticLibrary else ["-shared", "-fPIC"]
+
+	def _getLibraryArgs(self):
+		stlLibInfo = {
+			AndroidStlLibType.Gnu: (self._androidInfo.libStdCppLibPath, "libgnustl"),
+			AndroidStlLibType.LibCpp: (self._androidInfo.libCppLibPath, "libc++"),
+			AndroidStlLibType.StlPort: (self._androidInfo.stlPortLibPath, "libstlport"),
+		}.get(self._androidStlLibType, None)
+
+		args = ["-lc", "-lm", "-lgcc", "-llog", "-landroid"]
+
+		if stlLibInfo:
+			stlLibPath = stlLibInfo[0]
+			stlLibName = stlLibInfo[1]
+			ext = "_static.a" if self._staticRuntime else "_shared.so"
+			fullPath = os.path.join(stlLibPath, "{}{}".format(stlLibName, ext))
+			args.append("-l:{}".format(fullPath))
+
+		return args + GccLinker._getLibraryArgs(self)
 
 	def _getArchitectureArgs(self, project):
-		# The architecture is implied from the executable being run.
-		return []
+		return self._getBuildArchArgs(project.architectureName)
+
+	def _getSystemArgs(self, project):
+		return [
+			"--sysroot",
+			self._androidInfo.sysRootPath,
+			"-Wl,--rpath-link={}".format(self._androidInfo.systemLibPath)
+		]
 
 	def _getLibrarySearchDirectories(self):
 		return [self._androidInfo.systemLibPath] + self._libraryDirectories
