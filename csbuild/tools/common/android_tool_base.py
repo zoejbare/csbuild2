@@ -38,6 +38,15 @@ from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 
 
+@MetaClass(ABCMeta)
+class AndroidStlLibType(object):
+	Gnu = 0
+	LibCpp = 1
+	StlPort = 2
+
+	MinValue = Gnu
+	MaxValue = StlPort
+
 class AndroidInfo(object):
 	"""
 	Collection of paths for a specific version of Android and architecture.
@@ -48,8 +57,14 @@ class AndroidInfo(object):
 	:param gppPath: Full path to the g++ executable.
 	:type gppPath: str
 
+	:param asPath: Full path to the as executable.
+	:type asPath: str
+
 	:param ldPath: Full path to the ld executable.
 	:type ldPath: str
+
+	:param arPath: Full path to the ar executable.
+	:type arPath: str
 
 	:param clangPath: Full path to the clang executable.
 	:type clangPath: str
@@ -60,19 +75,73 @@ class AndroidInfo(object):
 	:param zipAlignPath: Full path to the zipAlign executable.
 	:type zipAlignPath: str
 
-	:param sysRootPath: Full path the Android sysroot.
-	:type sysRootPath: str
+	:param systemLibPath: Full path to the Android system libraries.
+	:type systemLibPath: str
+
+	:param systemIncludePaths: List of full paths to the Android system headers.
+	:type systemIncludePaths: list[str]
+
+	:param nativeAppGluPath: Full path to the Android native glue source and header files.
+	:type nativeAppGluPath: str
+
+	:param libStdCppLibPath: Full path to the libstdc++ libraries.
+	:type libStdCppLibPath: str
+
+	:param libStdCppIncludePaths: List of full paths to the libstdc++ headers.
+	:type libStdCppIncludePaths: list[str]
+
+	:param libCppLibPath: Full path to the libc++ libraries.
+	:type libCppLibPath: str
+
+	:param libCppIncludePaths: List of full paths to the libc++ headers.
+	:type libCppIncludePaths: list[str]
+
+	:param stlPortLibPath: Full path to the stlport libraries.
+	:type stlPortLibPath: str
+
+	:param stlPortIncludePaths: List of full paths to the stlport headers.
+	:type stlPortIncludePaths: list[str]
 	"""
 	Instances = {}
 
-	def __init__(self, gccPath, gppPath, ldPath, clangPath, clangppPath, zipAlignPath, sysRootPath):
+	def __init__(
+			self,
+			gccPath,
+			gppPath,
+			asPath,
+			ldPath,
+			arPath,
+			clangPath,
+			clangppPath,
+			zipAlignPath,
+			systemLibPath,
+			systemIncludePaths,
+			nativeAppGluPath,
+			libStdCppLibPath,
+			libStdCppIncludePaths,
+			libCppLibPath,
+			libCppIncludePaths,
+			stlPortLibPath,
+			stlPortIncludePaths,
+	):
 		self.gccPath = gccPath
 		self.gppPath = gppPath
+		self.asPath = asPath
 		self.ldPath = ldPath
+		self.arPath = arPath
 		self.clangPath = clangPath
 		self.clangppPath = clangppPath
 		self.zipAlignPath = zipAlignPath
-		self.sysRootPath = sysRootPath
+		self.systemLibPath = systemLibPath
+		self.systemIncludePaths = systemIncludePaths
+		self.nativeAppGluPath = nativeAppGluPath
+		self.libStdCppLibPath = libStdCppLibPath
+		self.libStdCppIncludePaths = libStdCppIncludePaths
+		self.libCppLibPath = libCppLibPath
+		self.libCppIncludePaths = libCppIncludePaths
+		self.stlPortLibPath = stlPortLibPath
+		self.stlPortIncludePaths = stlPortIncludePaths
+
 
 
 @MetaClass(ABCMeta)
@@ -82,6 +151,9 @@ class AndroidToolBase(Tool):
 
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
+
+	:ivar: _androidInfo: Collection of information about the selected Android toolchain and system.
+	:type _androidInfo: :class:`AndroidInfo`
 	"""
 	supportedArchitectures = { "x86", "x64", "arm", "arm64", "mips", "mips64" }
 
@@ -92,6 +164,7 @@ class AndroidToolBase(Tool):
 		self._androidSdkRootPath = projectSettings.get("androidSdkRootPath", "")
 		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
 		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", None)
+		self._androidStlLibType = projectSettings.get("androidStlLibType", AndroidStlLibType.Gnu)
 
 		# If no NDK root path is specified, try to get it from the environment.
 		if not self._androidNdkRootPath and "ANDROID_NDK_ROOT" in os.environ:
@@ -101,13 +174,15 @@ class AndroidToolBase(Tool):
 		if not self._androidSdkRootPath and "ANDROID_HOME" in os.environ:
 			self._androidSdkRootPath = os.environ["ANDROID_HOME"]
 
+		assert self._androidNdkRootPath, "No Android NDK root path provided"
+		assert self._androidSdkRootPath, "No Android SDK root path provided"
+		assert self._androidManifestFilePath, "No Android manifest file path provided"
+		assert self._androidTargetSdkVersion, "No Android target SDK version provided"
+		assert AndroidStlLibType.MinValue <= self._androidStlLibType <= AndroidStlLibType.MaxValue, "Invalid value for Android STL lib type: {}".format(self._androidStlLibType)
+
 		assert os.access(self._androidNdkRootPath, os.F_OK), "Android NDK root path does not exist: {}".format(self._androidNdkRootPath)
 		assert os.access(self._androidSdkRootPath, os.F_OK), "Android SDK root path does not exist: {}".format(self._androidSdkRootPath)
-
-		assert self._androidManifestFilePath, "Android manifest file path not provided"
 		assert os.access(self._androidManifestFilePath, os.F_OK), "Android manifest file path does not exist: {}".format(self._androidManifestFilePath)
-
-		assert self._androidTargetSdkVersion, "Android target SDK version not provided"
 
 		self._androidInfo = None
 
@@ -134,38 +209,87 @@ class AndroidToolBase(Tool):
 
 				return toolchainArchPrefix
 
+			def _getStlArchName(arch):
+				stlArchName = {
+					"x86": "x86",
+					"x64": "x86_64",
+					"arm": "armeabi-v7a",
+					"arm64": "arm64-v8a",
+					"mips": "mips",
+					"mips64": "mips64",
+				}.get(arch, "")
+				assert stlArchName, "Android architecture not supported: {}".format(arch)
+
+				return stlArchName
+
+			def _getIncludeArchName(arch):
+				# Search for a toolchain by architecture.
+				includeArchName = {
+					"x86": "i686-linux-android",
+					"x64": "x86_64-linux-android",
+					"arm": "arm-linux-androideabi",
+					"arm64": "arm-linux-androideabi",
+					"mips": "mipsel-linux-android",
+					"mips64": "mips64el-linux-android",
+				}.get(arch, "")
+				assert includeArchName, "Android architecture not supported: {}".format(arch)
+
+				return includeArchName
+
 			platformName = platform.system().lower()
 			exeExtension = ".exe" if platform.system() == "Windows" else ""
 			toolchainPrefix = _getToolchainPrefix(arch)
 			rootToolchainPath = os.path.join(self._androidNdkRootPath, "toolchains")
 			archToolchainPath = glob.glob(os.path.join(rootToolchainPath, "{}-*".format(toolchainPrefix)))
 			llvmToolchainPath = glob.glob(os.path.join(rootToolchainPath, "llvm", "prebuilt", "{}-*".format(platformName)))
+			stlArchName = _getStlArchName(arch)
+			stlRootPath = os.path.join(self._androidNdkRootPath, "sources", "cxx-stl")
 			sysRootPath = os.path.join(self._androidNdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion), self._getPlatformArchName(arch))
+			sysRootLibPath = os.path.join(sysRootPath, "usr", "lib")
+			sysRootBaseIncludePath = os.path.join(self._androidNdkRootPath, "sysroot", "usr", "include")
+			sysRootArchIncludePath = os.path.join(sysRootBaseIncludePath, _getIncludeArchName(arch))
+			nativeAppGluPath = os.path.join(self._androidNdkRootPath, "sources", "android", "native_app_glue")
 
 			assert archToolchainPath, "No Android toolchain installed for architecture: {}".format(arch)
 			assert llvmToolchainPath, "No Android LLVM toolchain installed for platform: {}".format(platformName)
 			assert os.access(sysRootPath, os.F_OK), "No Android sysroot found at path: {}".format(sysRootPath)
 
-			archToolchainPath = glob.glob(os.path.join(archToolchainPath[0], "prebuilt", "{}-*".format(platformName)))
-			llvmToolchainPath = llvmToolchainPath[0]
+			archToolchainPath = archToolchainPath[0]
 
+			gccVersionStartIndex = archToolchainPath.rfind("-")
+			assert gccVersionStartIndex > 0, "Android GCC version not parsable from path: {}".format(archToolchainPath)
+
+			# Save the gcc version since we'll need it for getting the libstdc++ paths.
+			gccVersion = archToolchainPath[gccVersionStartIndex + 1:]
+
+			archToolchainPath = glob.glob(os.path.join(archToolchainPath, "prebuilt", "{}-*".format(platformName)))
 			assert archToolchainPath, "No Android \"{}\" toolchain installed for platform: {}".format(toolchainPrefix, platformName)
 
-			archToolchainPath = os.path.join(archToolchainPath, "bin")
-			llvmToolchainPath = os.path.join(llvmToolchainPath, "bin")
+			archToolchainPath = os.path.join(archToolchainPath[0], "bin")
+			llvmToolchainPath = os.path.join(llvmToolchainPath[0], "bin")
 
 			# Get the compiler and linker paths.
-			gccPath = glob.glob(os.path.join(archToolchainPath, "*-gcc{}".format(exeExtension)))
-			gppPath = glob.glob(os.path.join(archToolchainPath, "*-g++{}".format(exeExtension)))
-			ldPath = glob.glob(os.path.join(archToolchainPath, "*-ld{}".format(exeExtension)))
+			gccPath = glob.glob(os.path.join(archToolchainPath, "*-android-gcc{}".format(exeExtension)))
+			gppPath = glob.glob(os.path.join(archToolchainPath, "*-android-g++{}".format(exeExtension)))
+			asPath = glob.glob(os.path.join(archToolchainPath, "*-android-as{}".format(exeExtension)))
+			ldPath = glob.glob(os.path.join(archToolchainPath, "*-android-ld{}".format(exeExtension)))
+			arPath = glob.glob(os.path.join(archToolchainPath, "*-android-ar{}".format(exeExtension)))
 			clangPath = os.path.join(llvmToolchainPath, "clang{}".format(exeExtension))
 			clangppPath = os.path.join(llvmToolchainPath, "clang++{}".format(exeExtension))
 
 			assert gccPath, "No Android gcc executable found for architecture: {}".format(arch)
 			assert gppPath, "No Android g++ executable found for architecture: {}".format(arch)
+			assert asPath, "No Android as executable found for architecture: {}".format(arch)
 			assert ldPath, "No Android ld executable found for architecture: {}".format(arch)
+			assert arPath, "No Android ar executable found for architecture: {}".format(arch)
 			assert os.access(clangPath, os.F_OK), "No Android clang executable found for architecture: {}".format(arch)
 			assert os.access(clangppPath, os.F_OK), "No Android clang++ executable found for architecture: {}".format(arch)
+
+			gccPath = gccPath[0]
+			gppPath = gppPath[0]
+			asPath = asPath[0]
+			ldPath = ldPath[0]
+			arPath = arPath[0]
 
 			buildToolsPath = glob.glob(os.path.join(self._androidSdkRootPath, "build-tools", "*"))
 			assert buildToolsPath, "No Android build tools are installed"
@@ -174,11 +298,57 @@ class AndroidToolBase(Tool):
 			buildToolsPath = buildToolsPath[0]
 
 			# Get the miscellaneous build tool paths.
-			zipAlignPath = os.path.join(buildToolsPath, "zipAlign{}".format(exeExtension))
+			zipAlignPath = os.path.join(buildToolsPath, "zipalign{}".format(exeExtension))
 
 			assert os.access(zipAlignPath, os.F_OK), "ZipAlign not found in Android build tools path: {}".format(buildToolsPath)
 
-			AndroidInfo.Instances[key] = AndroidInfo(gccPath, gppPath, ldPath, clangPath, clangppPath, zipAlignPath, sysRootPath)
+			# Get the root paths to each STL flavor.
+			libStdCppRootPath = os.path.join(stlRootPath, "gnu-libstdc++", gccVersion)
+			libCppRootPath = os.path.join(stlRootPath, "llvm-libc++")
+			stlPortRootPath = os.path.join(stlRootPath, "stlport")
+
+			assert os.access(libStdCppRootPath, os.F_OK), "Android libstdc++ not found at path: {}".format(libStdCppRootPath)
+			assert os.access(libCppRootPath, os.F_OK), "Android libc++ not found at path: {}".format(libCppRootPath)
+			assert os.access(stlPortRootPath, os.F_OK), "Android stlport not found at path: {}".format(stlPortRootPath)
+
+			libStdCppLibPath = os.path.join(libStdCppRootPath, "libs", stlArchName)
+			libCppLibPath = os.path.join(libCppRootPath, "libs", stlArchName)
+			stlPortLibPath = os.path.join(stlPortRootPath, "libs", stlArchName)
+
+			libStdCppIncludePaths = [
+				os.path.join(libStdCppRootPath, "include"),
+				os.path.join(libStdCppLibPath, "include"),
+			]
+			libCppIncludePaths = [
+				os.path.join(libCppRootPath, "include"),
+			]
+			stlPortIncludePaths = [
+				os.path.join(stlPortRootPath, "stlport"),
+			]
+
+			AndroidInfo.Instances[key] = \
+				AndroidInfo(
+					gccPath,
+					gppPath,
+					asPath,
+					ldPath,
+					arPath,
+					clangPath,
+					clangppPath,
+					zipAlignPath,
+					sysRootLibPath,
+					[
+						sysRootBaseIncludePath,
+						sysRootArchIncludePath,
+					],
+					nativeAppGluPath,
+					libStdCppLibPath,
+					libStdCppIncludePaths,
+					libCppLibPath,
+					libCppIncludePaths,
+					stlPortLibPath,
+					stlPortIncludePaths,
+				)
 
 		return AndroidInfo.Instances[key]
 
@@ -258,13 +428,12 @@ class AndroidToolBase(Tool):
 		"""
 		csbuild.currentPlan.SetValue("androidTargetSdkVersion", version)
 
-@MetaClass(ABCMeta)
-class AndroidBaseCompiler(AndroidToolBase):
-	"""
-	Parent class for all Android compiler tools.
+	@staticmethod
+	def SetAndroidStlLib(lib):
+		"""
+		Sets the Android STL lib type.
 
-	:param projectSettings: A read-only scoped view into the project settings dictionary
-	:type projectSettings: toolchain.ReadOnlySettingsView
-	"""
-	def __init__(self, projectSettings):
-		AndroidToolBase.__init__(self, projectSettings)
+		:param lib: Android STL lib type.
+		:type lib: int
+		"""
+		csbuild.currentPlan.SetValue("androidStlLibType", lib)

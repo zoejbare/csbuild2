@@ -97,7 +97,7 @@ class GccLinker(LinkerBase):
 				cmd = [self._getLdName(), "-M", "-o", "/dev/null"] + \
 					  ["-l"+lib for lib in shortLibs] + \
 					  ["-l:"+lib for lib in longLibs] + \
-					  ["-L"+path for path in self._libraryDirectories]
+					  ["-L"+path for path in self._getLibrarySearchDirectories()]
 				returncode, out, err = commands.Run(cmd, None, None)
 				if returncode != 0:
 					lines = err.splitlines()
@@ -150,11 +150,12 @@ class GccLinker(LinkerBase):
 		return ret
 
 	def _getOutputExtension(self, projectType):
-		if projectType == csbuild.ProjectType.SharedLibrary:
-			return ".so"
-		elif projectType == csbuild.ProjectType.StaticLibrary:
-			return ".a"
-		return ""
+		outputExt = {
+			csbuild.ProjectType.SharedLibrary: ".so",
+			csbuild.ProjectType.StaticLibrary: ".a",
+		}.get(projectType, "")
+
+		return outputExt
 
 
 	####################################################################################################################
@@ -196,3 +197,6 @@ class GccLinker(LinkerBase):
 	def _getArchitectureArgs(self, project):
 		arg = "-m64" if project.architectureName == "x64" else "-m32"
 		return [arg]
+
+	def _getLibrarySearchDirectories(self):
+		return self._libraryDirectories

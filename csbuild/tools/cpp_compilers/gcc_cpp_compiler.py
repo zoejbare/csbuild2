@@ -64,6 +64,7 @@ class GccCppCompiler(CppCompilerBase):
 			+ self._getDebugArgs() \
 			+ self._getOptimizationArgs() \
 			+ self._getArchitectureArgs(project) \
+			+ self._getSystemArgs(project, isCpp) \
 			+ extraFlags
 		return [arg for arg in cmd if arg]
 
@@ -109,3 +110,6 @@ class GccCppCompiler(CppCompilerBase):
 	def _getArchitectureArgs(self, project):
 		arg = "-m64" if project.architectureName == "x64" else "-m32"
 		return [arg]
+
+	def _getSystemArgs(self, project, isCpp):
+		return []

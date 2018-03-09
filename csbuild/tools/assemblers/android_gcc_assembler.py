@@ -19,24 +19,42 @@
 # SOFTWARE.
 
 """
-.. module:: clang_linker
-	:synopsis: Clang linker tool.
+.. module:: android_gcc_assembler
+	:synopsis: Android GCC assember tool
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from .gcc_linker import GccLinker
+from ..common.android_tool_base import AndroidToolBase
 
-class ClangLinker(GccLinker):
+from .gcc_assembler import GccAssembler
+
+class AndroidGccAssembler(GccAssembler, AndroidToolBase):
 	"""
-	Clang linker implementation
+	Android GCC assembler implementation
 	"""
+	supportedArchitectures = AndroidToolBase.supportedArchitectures
+
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getBinaryLinkerName(self):
-		return "clang"
+	def SetupForProject(self, project):
+		"""
+		Run project setup, if any, before building the project, but after all dependencies have been resolved.
+
+		:param project: project being set up
+		:type project: csbuild._build.project.Project
+		"""
+		GccAssembler.SetupForProject(self, project)
+		AndroidToolBase.SetupForProject(self, project)
+
+	def _getComplierName(self):
+		return self._androidInfo.gccPath
+
+	def _getArchitectureArgs(self, project):
+		# The architecture is implied from the executable being run.
+		return []

@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,24 +19,39 @@
 # SOFTWARE.
 
 """
-.. module:: clang_linker
-	:synopsis: Clang linker tool.
+.. module:: tests
+	:synopsis: Basic test of assembler tools
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from .gcc_linker import GccLinker
+from csbuild._testing.functional_test import FunctionalTest
+from csbuild._utils import PlatformBytes
 
-class ClangLinker(GccLinker):
-	"""
-	Clang linker implementation
-	"""
+import os
+import subprocess
+import platform
 
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
+class AndroidTest(FunctionalTest):
+	"""Android test"""
 
-	def _getBinaryLinkerName(self):
-		return "clang"
+	# pylint: disable=invalid-name
+	def setUp(self): # pylint: disable=arguments-differ
+		if platform.system() == "Windows":
+			self.outputFile = "out/hello_world.exe"
+		else:
+			self.outputFile = "out/hello_world"
+		outDir = "out"
+		FunctionalTest.setUp(self, outDir=outDir)
+
+	def testCompileSucceeds(self):
+		"""Test that the project succesfully compiles"""
+		self.cleanArgs = ["--project=hello_world", "--arch=arm64", "--toolchain=android-gcc"]
+		self.assertMakeSucceeds("-v", "--arch=arm64", "--toolchain=android-gcc", "--project=hello_world", "--show-commands")
+
+		#self.assertTrue(os.access(self.outputFile, os.F_OK))
+		#out = subprocess.check_output([self.outputFile])
+
+		#self.assertEqual(out, PlatformBytes("getnum() = 4"))

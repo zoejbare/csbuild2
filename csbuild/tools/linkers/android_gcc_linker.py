@@ -19,24 +19,70 @@
 # SOFTWARE.
 
 """
-.. module:: clang_linker
-	:synopsis: Clang linker tool.
+.. module:: android_gcc_linker
+	:synopsis: Android gcc linker tool.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
+import csbuild
+import os
+
+from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
+
 from .gcc_linker import GccLinker
 
-class ClangLinker(GccLinker):
+class AndroidGccLinker(GccLinker, AndroidToolBase):
 	"""
-	Clang linker implementation
+	Android gcc linker implementation
 	"""
+	supportedArchitectures = AndroidToolBase.supportedArchitectures
+
+	outputFiles = {".a", ".so"}
+
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
+	def SetupForProject(self, project):
+		"""
+		Run project setup, if any, before building the project, but after all dependencies have been resolved.
+
+		:param project: project being set up
+		:type project: csbuild._build.project.Project
+		"""
+		GccLinker.SetupForProject(self, project)
+		AndroidToolBase.SetupForProject(self, project)
+
+	def _getOutputExtension(self, projectType):
+		# Android doesn't have a native application type.  Applications are linked as shared libraries.
+		outputExt = {
+			csbuild.ProjectType.SharedLibrary: ".so",
+			csbuild.ProjectType.StaticLibrary: ".a",
+		}.get(projectType, ".so")
+
+		return outputExt
+
+	def _getLdName(self):
+		return self._androidInfo.ldPath
+
 	def _getBinaryLinkerName(self):
-		return "clang"
+		return self._androidInfo.gccPath
+
+	def _getArchiverName(self):
+		return self._androidInfo.arPath
+
+	def _getDefaultArgs(self, project):
+		if project.projectType == csbuild.ProjectType.StaticLibrary:
+			return []
+		return ["-shared", "-fPIC"]
+
+	def _getArchitectureArgs(self, project):
+		# The architecture is implied from the executable being run.
+		return []
+
+	def _getLibrarySearchDirectories(self):
+		return [self._androidInfo.systemLibPath] + self._libraryDirectories
