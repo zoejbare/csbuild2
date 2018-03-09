@@ -75,6 +75,19 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 	def _getComplierName(self, isCpp):
 		return self._androidInfo.gppPath if isCpp else self._androidInfo.gccPath
 
+	def _getDefaultArgs(self, project):
+		baseArgs = GccCppCompiler._getDefaultArgs(self, project)
+		return baseArgs + [
+			"-funwind-tables",
+			"-fstack-protector",
+			"-fno-omit-frame-pointer",
+			"-fno-strict-aliasing",
+			"-funswitch-loops",
+			"-finline-limit=100",
+			"-fno-short-enums",
+			"-Wa,--noexecstack",
+		]
+
 	def _getPreprocessorArgs(self):
 		args = [
 			"-D__ANDROID_API__={}".format(self._androidTargetSdkVersion),
@@ -85,8 +98,7 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 		return args + GccCppCompiler._getPreprocessorArgs(self)
 
 	def _getArchitectureArgs(self, project):
-		# The architecture is implied from the executable being run.
-		return []
+		return self._getBuildArchArgs(project.architectureName)
 
 	def _getSystemArgs(self, project, isCpp):
 		stlIncPaths = {

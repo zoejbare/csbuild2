@@ -133,14 +133,14 @@ class AndroidInfo(object):
 		self.clangppPath = clangppPath
 		self.zipAlignPath = zipAlignPath
 		self.systemLibPath = systemLibPath
-		self.systemIncludePaths = systemIncludePaths
+		self.systemIncludePaths = [path for path in systemIncludePaths if path]
 		self.nativeAppGluPath = nativeAppGluPath
 		self.libStdCppLibPath = libStdCppLibPath
-		self.libStdCppIncludePaths = libStdCppIncludePaths
+		self.libStdCppIncludePaths = [path for path in libStdCppIncludePaths if path]
 		self.libCppLibPath = libCppLibPath
-		self.libCppIncludePaths = libCppIncludePaths
+		self.libCppIncludePaths = [path for path in libCppIncludePaths if path]
 		self.stlPortLibPath = stlPortLibPath
-		self.stlPortIncludePaths = stlPortIncludePaths
+		self.stlPortIncludePaths = [path for path in stlPortIncludePaths if path]
 
 
 @MetaClass(ABCMeta)
@@ -248,7 +248,9 @@ class AndroidToolBase(Tool):
 			sysRootLibPath = os.path.join(sysRootPath, "usr", "lib")
 			sysRootBaseIncludePath = os.path.join(self._androidNdkRootPath, "sysroot", "usr", "include")
 			sysRootArchIncludePath = os.path.join(sysRootBaseIncludePath, _getIncludeArchName())
-			nativeAppGluePath = os.path.join(self._androidNdkRootPath, "sources", "android", "native_app_glue")
+			androidSourcesRootPath = os.path.join(self._androidNdkRootPath, "sources", "android")
+			androidSupportIncludePath = os.path.join(androidSourcesRootPath, "support", "include")
+			nativeAppGluePath = os.path.join(androidSourcesRootPath, "native_app_glue")
 
 			assert archToolchainPath, "No Android toolchain installed for architecture: {}".format(arch)
 			assert llvmToolchainPath, "No Android LLVM toolchain installed for platform: {}".format(platformName)
@@ -265,15 +267,21 @@ class AndroidToolBase(Tool):
 			archToolchainPath = glob.glob(os.path.join(archToolchainPath, "prebuilt", "{}-*".format(platformName)))
 			assert archToolchainPath, "No Android \"{}\" toolchain installed for platform: {}".format(toolchainPrefix, platformName)
 
-			archToolchainPath = os.path.join(archToolchainPath[0], "bin")
-			llvmToolchainPath = os.path.join(llvmToolchainPath[0], "bin")
+			archToolchainPath = archToolchainPath[0]
+			llvmToolchainPath = llvmToolchainPath[0]
+
+			archToolchainIncludePath = glob.glob(os.path.join(archToolchainPath, "lib", "gcc", "*", "*", "include"))
+			archToolchainIncludePath = archToolchainIncludePath[0] if archToolchainIncludePath else ""
+
+			archToolchainPath = os.path.join(archToolchainPath, "bin")
+			llvmToolchainPath = os.path.join(llvmToolchainPath, "bin")
 
 			# Get the compiler and linker paths.
-			gccPath = glob.glob(os.path.join(archToolchainPath, "*-android-gcc{}".format(exeExtension)))
-			gppPath = glob.glob(os.path.join(archToolchainPath, "*-android-g++{}".format(exeExtension)))
-			asPath = glob.glob(os.path.join(archToolchainPath, "*-android-as{}".format(exeExtension)))
-			ldPath = glob.glob(os.path.join(archToolchainPath, "*-android-ld{}".format(exeExtension)))
-			arPath = glob.glob(os.path.join(archToolchainPath, "*-android-ar{}".format(exeExtension)))
+			gccPath = glob.glob(os.path.join(archToolchainPath, "*-gcc{}".format(exeExtension)))
+			gppPath = glob.glob(os.path.join(archToolchainPath, "*-g++{}".format(exeExtension)))
+			asPath = glob.glob(os.path.join(archToolchainPath, "*-as{}".format(exeExtension)))
+			ldPath = glob.glob(os.path.join(archToolchainPath, "*-ld{}".format(exeExtension)))
+			arPath = glob.glob(os.path.join(archToolchainPath, "*-ar{}".format(exeExtension)))
 			clangPath = os.path.join(llvmToolchainPath, "clang{}".format(exeExtension))
 			clangppPath = os.path.join(llvmToolchainPath, "clang++{}".format(exeExtension))
 
@@ -340,6 +348,8 @@ class AndroidToolBase(Tool):
 					[
 						sysRootBaseIncludePath,
 						sysRootArchIncludePath,
+						archToolchainIncludePath,
+						androidSupportIncludePath,
 					],
 					nativeAppGluePath,
 					libStdCppLibPath,
@@ -361,10 +371,21 @@ class AndroidToolBase(Tool):
 			"mips": "arch-mips",
 			"mips64": "arch-mips64",
 		}.get(arch, "")
-
 		assert platformArchName, "Architecture not supported: {}".format(arch)
 
 		return platformArchName
+
+	def _getBuildArchArgs(self, arch):
+		arg = {
+			"x86": "",
+			"x64": "",
+			"arm": "-march=armv7-a",
+			"arm64": "-march=armv8-a",
+			"mips": "",
+			"mips64": "",
+		}.get(arch, "")
+
+		return [arg] if arg else []
 
 
 	####################################################################################################################

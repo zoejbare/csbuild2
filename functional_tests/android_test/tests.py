@@ -48,8 +48,9 @@ class AndroidTest(FunctionalTest):
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		self.cleanArgs = ["--project=hello_world", "--arch=arm64", "--toolchain=android-gcc"]
-		self.assertMakeSucceeds("-v", "--arch=arm64", "--toolchain=android-gcc", "--project=hello_world", "--show-commands")
+		testArgs = ["--project=hello_world", "--arch=arm64", "--toolchain=android-gcc"]
+		self.cleanArgs = testArgs
+		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
 
 		#self.assertTrue(os.access(self.outputFile, os.F_OK))
 		#out = subprocess.check_output([self.outputFile])

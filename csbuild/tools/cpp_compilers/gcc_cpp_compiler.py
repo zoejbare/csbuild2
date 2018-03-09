@@ -56,15 +56,15 @@ class GccCppCompiler(CppCompilerBase):
 		cmdExe = self._getComplierName(isCpp)
 		extraFlags = self._cxxFlags if isCpp else self._cFlags
 		cmd = [cmdExe] \
-			+ self._getInputFileArgs(inputFile) \
 			+ self._getDefaultArgs(project) \
-			+ self._getOutputFileArgs(project, inputFile) \
+			+ self._getArchitectureArgs(project) \
+			+ self._getOptimizationArgs() \
+			+ self._getDebugArgs() \
+			+ self._getSystemArgs(project, isCpp) \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ self._getDebugArgs() \
-			+ self._getOptimizationArgs() \
-			+ self._getArchitectureArgs(project) \
-			+ self._getSystemArgs(project, isCpp) \
+			+ self._getOutputFileArgs(project, inputFile) \
+			+ self._getInputFileArgs(inputFile) \
 			+ extraFlags
 		return [arg for arg in cmd if arg]
 
