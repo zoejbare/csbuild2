@@ -27,12 +27,19 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import csbuild
 import os
 
 from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
 
 from .gcc_cpp_compiler import GccCppCompiler
 
+from ..._build.input_file import  InputFile
+
+# BEGIN TEMP
+# Commandline args from a test in the Tegra VS plugin that compiles correctly:
+# -fpic -funwind-tables -fstack-protector -march=armv8-a -fno-exceptions -fno-rtti -O0 -g3 -gdwarf-4 -ggdb3 -D__ANDROID_API__=26 -DANDROID_NDK -DANDROID -D__ANDROID__ -fno-omit-frame-pointer -fno-strict-aliasing -funswitch-loops -finline-limit=100 -I"C:/NVPACK/android-ndk-r15c/sources/cxx-stl/llvm-libc++/include" -I"C:/NVPACK/android-ndk-r15c/sources/android/support/include" -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include" -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include/aarch64-linux-android" -I"C:/NVPACK/android-ndk-r15c/sources/cxx-stl/llvm-libc++/include" -I"C:/NVPACK/android-ndk-r15c/sources/android/support/include" -I"C:/NVPACK/android-ndk-r15c/toolchains/aarch64-linux-android-4.9/prebuilt/windows-x86_64/lib/gcc/aarch64-linux-android/4.9.x/include" -Wa,--noexecstack -fno-short-enums -std=gnu++11 -x c++ -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include" -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include/aarch64-linux-android" -o Tegra-Android/Debug/Android1.o  -c -MD jni/Android1.cpp C:/USERS/BRANDON/DESKTOP/ANDROID1/JNI/ANDROID1.CPP
+# END TEMP
 
 class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 	"""
@@ -59,8 +66,23 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 		GccCppCompiler.SetupForProject(self, project)
 		AndroidToolBase.SetupForProject(self, project)
 
+		if project.projectType == csbuild.ProjectType.Application and self._androidUseDefaultNativeAppGlue:
+			nativeAppGlueSourcePath = os.path.join(self._androidInfo.nativeAppGluPath, "android_native_app_glue.c")
+			assert os.access(nativeAppGlueSourcePath, os.F_OK), "Android native app glue source file not found at path: {}".format(nativeAppGlueSourcePath)
+
+			project.inputFiles[".c"].add(InputFile(nativeAppGlueSourcePath))
+
 	def _getComplierName(self, isCpp):
 		return self._androidInfo.gppPath if isCpp else self._androidInfo.gccPath
+
+	def _getPreprocessorArgs(self):
+		args = [
+			"-D__ANDROID_API__={}".format(self._androidTargetSdkVersion),
+			"-DANDROID_NDK",
+			"-DANDROID",
+			"-D__ANDROID__",
+		]
+		return args + GccCppCompiler._getPreprocessorArgs(self)
 
 	def _getArchitectureArgs(self, project):
 		# The architecture is implied from the executable being run.
@@ -90,5 +112,11 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 					"-isystem",
 					path,
 				])
+
+		if self._androidUseDefaultNativeAppGlue:
+			args.extend([
+				"-isystem",
+				self._androidInfo.nativeAppGluPath,
+			])
 
 		return args

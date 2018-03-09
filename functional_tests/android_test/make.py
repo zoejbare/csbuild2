@@ -30,13 +30,14 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 import os
 
-csbuild.SetAndroidNdkRootPath("/opt/google/android-ndk-r16b")
-csbuild.SetAndroidSdkRootPath("/home/bbare/dev/support/android-sdk")
+# csbuild.SetAndroidNdkRootPath("/opt/google/android-ndk-r16b")
+# csbuild.SetAndroidSdkRootPath("/home/bbare/dev/support/android-sdk")
 
 csbuild.SetOutputDirectory("out")
 
 with csbuild.Project("hello_world", "hello_world"):
-	csbuild.SetAndroidTargetSdkVersion(27)
+	csbuild.SetAndroidTargetSdkVersion(26)
 	csbuild.SetAndroidManifestFilePath(os.path.join("hello_world", "AndroidManifest.xml"))
+	csbuild.UseDefaultAndroidNativeAppGlue(True)
 	csbuild.SetSupportedToolchains("android-gcc")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)

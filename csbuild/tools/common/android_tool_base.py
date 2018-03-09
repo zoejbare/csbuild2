@@ -143,7 +143,6 @@ class AndroidInfo(object):
 		self.stlPortIncludePaths = stlPortIncludePaths
 
 
-
 @MetaClass(ABCMeta)
 class AndroidToolBase(Tool):
 	"""
@@ -165,6 +164,7 @@ class AndroidToolBase(Tool):
 		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
 		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", None)
 		self._androidStlLibType = projectSettings.get("androidStlLibType", AndroidStlLibType.Gnu)
+		self._androidUseDefaultNativeAppGlue = projectSettings.get("androidUseDefaultNativeAppGlue", False)
 
 		# If no NDK root path is specified, try to get it from the environment.
 		if not self._androidNdkRootPath and "ANDROID_NDK_ROOT" in os.environ:
@@ -195,7 +195,7 @@ class AndroidToolBase(Tool):
 		key = (self._androidNdkRootPath, self._androidSdkRootPath, arch)
 
 		if key not in AndroidInfo.Instances:
-			def _getToolchainPrefix(arch):
+			def _getToolchainPrefix():
 				# Search for a toolchain by architecture.
 				toolchainArchPrefix = {
 					"x86": "x86",
@@ -209,7 +209,7 @@ class AndroidToolBase(Tool):
 
 				return toolchainArchPrefix
 
-			def _getStlArchName(arch):
+			def _getStlArchName():
 				stlArchName = {
 					"x86": "x86",
 					"x64": "x86_64",
@@ -222,7 +222,7 @@ class AndroidToolBase(Tool):
 
 				return stlArchName
 
-			def _getIncludeArchName(arch):
+			def _getIncludeArchName():
 				# Search for a toolchain by architecture.
 				includeArchName = {
 					"x86": "i686-linux-android",
@@ -238,17 +238,17 @@ class AndroidToolBase(Tool):
 
 			platformName = platform.system().lower()
 			exeExtension = ".exe" if platform.system() == "Windows" else ""
-			toolchainPrefix = _getToolchainPrefix(arch)
+			toolchainPrefix = _getToolchainPrefix()
 			rootToolchainPath = os.path.join(self._androidNdkRootPath, "toolchains")
 			archToolchainPath = glob.glob(os.path.join(rootToolchainPath, "{}-*".format(toolchainPrefix)))
 			llvmToolchainPath = glob.glob(os.path.join(rootToolchainPath, "llvm", "prebuilt", "{}-*".format(platformName)))
-			stlArchName = _getStlArchName(arch)
+			stlArchName = _getStlArchName()
 			stlRootPath = os.path.join(self._androidNdkRootPath, "sources", "cxx-stl")
 			sysRootPath = os.path.join(self._androidNdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion), self._getPlatformArchName(arch))
 			sysRootLibPath = os.path.join(sysRootPath, "usr", "lib")
 			sysRootBaseIncludePath = os.path.join(self._androidNdkRootPath, "sysroot", "usr", "include")
-			sysRootArchIncludePath = os.path.join(sysRootBaseIncludePath, _getIncludeArchName(arch))
-			nativeAppGluPath = os.path.join(self._androidNdkRootPath, "sources", "android", "native_app_glue")
+			sysRootArchIncludePath = os.path.join(sysRootBaseIncludePath, _getIncludeArchName())
+			nativeAppGluePath = os.path.join(self._androidNdkRootPath, "sources", "android", "native_app_glue")
 
 			assert archToolchainPath, "No Android toolchain installed for architecture: {}".format(arch)
 			assert llvmToolchainPath, "No Android LLVM toolchain installed for platform: {}".format(platformName)
@@ -341,7 +341,7 @@ class AndroidToolBase(Tool):
 						sysRootBaseIncludePath,
 						sysRootArchIncludePath,
 					],
-					nativeAppGluPath,
+					nativeAppGluePath,
 					libStdCppLibPath,
 					libStdCppIncludePaths,
 					libCppLibPath,
@@ -437,3 +437,13 @@ class AndroidToolBase(Tool):
 		:type lib: int
 		"""
 		csbuild.currentPlan.SetValue("androidStlLibType", lib)
+
+	@staticmethod
+	def UseDefaultAndroidNativeAppGlue(useDefaultAppGlue):
+		"""
+		Sets a boolean to use the default Android native app glue.
+
+		:param useDefaultAppGlue: Use default Android native app glue?
+		:type useDefaultAppGlue: bool
+		"""
+		csbuild.currentPlan.SetValue("androidUseDefaultNativeAppGlue", useDefaultAppGlue)
