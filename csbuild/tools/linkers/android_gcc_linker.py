@@ -27,12 +27,12 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
 import os
 
-from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
+import csbuild
 
 from .gcc_linker import GccLinker
+from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
 
 class AndroidGccLinker(GccLinker, AndroidToolBase):
 	"""
@@ -78,23 +78,43 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 	def _getDefaultArgs(self, project):
 		return [] if project.projectType == csbuild.ProjectType.StaticLibrary else ["-shared", "-fPIC"]
 
+	def _getLibraryPathArgs(self, project):
+		stlLibPath = {
+			AndroidStlLibType.Gnu: self._androidInfo.libStdCppLibPath,
+			AndroidStlLibType.LibCpp: self._androidInfo.libCppLibPath,
+			AndroidStlLibType.StlPort: self._androidInfo.stlPortLibPath,
+		}.get(self._androidStlLibType, None)
+
+		args = ["-L{}".format(stlLibPath)]
+		paths = set()
+
+		# Extract all of the library paths.
+		for lib in self._actualLibraryLocations.values():
+			paths.add(os.path.dirname(lib))
+
+		for libPath in sorted(paths):
+			args.append("-L{}".format(libPath))
+
+		return args
+
 	def _getLibraryArgs(self):
-		stlLibInfo = {
-			AndroidStlLibType.Gnu: (self._androidInfo.libStdCppLibPath, "libgnustl"),
-			AndroidStlLibType.LibCpp: (self._androidInfo.libCppLibPath, "libc++"),
-			AndroidStlLibType.StlPort: (self._androidInfo.stlPortLibPath, "libstlport"),
+		stlLibName = {
+			AndroidStlLibType.Gnu: "libgnustl",
+			AndroidStlLibType.LibCpp: "libc++",
+			AndroidStlLibType.StlPort: "libstlport",
 		}.get(self._androidStlLibType, None)
 
 		args = ["-lc", "-lm", "-lgcc", "-llog", "-landroid"]
 
-		if stlLibInfo:
-			stlLibPath = stlLibInfo[0]
-			stlLibName = stlLibInfo[1]
+		if stlLibName:
 			ext = "_static.a" if self._staticRuntime else "_shared.so"
-			fullPath = os.path.join(stlLibPath, "{}{}".format(stlLibName, ext))
-			args.append("-l:{}".format(fullPath))
+			args.append("-l:{}".format("{}{}".format(stlLibName, ext)))
 
-		return args + GccLinker._getLibraryArgs(self)
+		# Add only the basename for each library.
+		for lib in self._actualLibraryLocations.values():
+			args.append("-l:{}".format(os.path.basename(lib)))
+
+		return args
 
 	def _getArchitectureArgs(self, project):
 		return self._getBuildArchArgs(project.architectureName)

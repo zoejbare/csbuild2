@@ -34,7 +34,10 @@ import csbuild
 
 from .linker_base import LinkerBase
 from ... import commands, log
-from ..._utils import ordered_set
+from ..._utils import ordered_set, response_file, shared_globals
+
+def _ignore(_):
+	pass
 
 class GccLinker(LinkerBase):
 	"""
@@ -58,22 +61,31 @@ class GccLinker(LinkerBase):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			cmd = [self._getArchiverName(), "rcs"] \
+			cmdExe = self._getArchiverName()
+			cmd = ["rcs"] \
 				+ self._linkerFlags \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
 		else:
-			cmd = [self._getBinaryLinkerName(), "-L/"] \
+			cmdExe = self._getBinaryLinkerName()
+			cmd = ["-L/"] \
 				+ self._getDefaultArgs(project) \
 				+ self._getArchitectureArgs(project) \
 				+ self._getSystemArgs(project) \
+				+ self._getLibraryPathArgs(project) \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs() \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._linkerFlags
-		return [arg for arg in cmd if arg]
+
+		responseFile = response_file.ResponseFile(project, project.outputName, cmd)
+
+		if shared_globals.showCommands:
+			log.Command("ResponseFile ({}): {}".format(project.outputName, " ".join(responseFile.asString)))
+
+		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def _findLibraries(self, libs):
 		ret = {}
@@ -186,6 +198,10 @@ class GccLinker(LinkerBase):
 	def _getInputFileArgs(self, inputFiles):
 		return [f.filename for f in inputFiles]
 
+	def _getLibraryPathArgs(self, project):
+		_ignore(project)
+		return []
+
 	def _getLibraryArgs(self):
 		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]
 
@@ -200,6 +216,7 @@ class GccLinker(LinkerBase):
 		return [arg]
 
 	def _getSystemArgs(self, project):
+		_ignore(project)
 		return []
 
 	def _getLibrarySearchDirectories(self):

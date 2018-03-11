@@ -28,13 +28,19 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
+
 import csbuild
 
 from .cpp_compiler_base import CppCompilerBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
+from ... import log
+from ..._utils import response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
+
+def _ignore(_):
+	pass
 
 class GccCppCompiler(CppCompilerBase):
 	"""
@@ -55,8 +61,7 @@ class GccCppCompiler(CppCompilerBase):
 	def _getCommand(self, project, inputFile, isCpp):
 		cmdExe = self._getComplierName(isCpp)
 		extraFlags = self._cxxFlags if isCpp else self._cFlags
-		cmd = [cmdExe] \
-			+ self._getDefaultArgs(project) \
+		cmd = self._getDefaultArgs(project) \
 			+ self._getArchitectureArgs(project) \
 			+ self._getOptimizationArgs() \
 			+ self._getDebugArgs() \
@@ -66,7 +71,14 @@ class GccCppCompiler(CppCompilerBase):
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getInputFileArgs(inputFile) \
 			+ extraFlags
-		return [arg for arg in cmd if arg]
+
+		inputFileBasename = os.path.basename(inputFile.filename)
+		responseFile = response_file.ResponseFile(project, inputFileBasename, cmd)
+
+		if shared_globals.showCommands:
+			log.Command("ResponseFile ({}): {}".format(inputFileBasename, " ".join(responseFile.asString)))
+
+		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 
 	####################################################################################################################
@@ -112,4 +124,6 @@ class GccCppCompiler(CppCompilerBase):
 		return [arg]
 
 	def _getSystemArgs(self, project, isCpp):
+		_ignore(project)
+		_ignore(isCpp)
 		return []

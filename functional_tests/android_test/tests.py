@@ -28,11 +28,8 @@
 from __future__ import unicode_literals, division, print_function
 
 from csbuild._testing.functional_test import FunctionalTest
-from csbuild._utils import PlatformBytes
 
 import os
-import subprocess
-import platform
 
 class AndroidTest(FunctionalTest):
 	"""Android test"""

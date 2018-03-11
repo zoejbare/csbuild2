@@ -40,6 +40,9 @@ from ...toolchain import Tool
 
 @MetaClass(ABCMeta)
 class AndroidStlLibType(object):
+	"""
+	Enum values for selecting the type of STL library linked into Android projects.
+	"""
 	Gnu = 0
 	LibCpp = 1
 	StlPort = 2
@@ -157,7 +160,7 @@ class AndroidToolBase(Tool):
 	:type projectSettings: toolchain.ReadOnlySettingsView
 
 	:ivar: _androidInfo: Collection of information about the selected Android toolchain and system.
-	:type _androidInfo: :class:`AndroidInfo`
+	:type _androidInfo: :class:`csbuild.tools.common.android_tool_base.AndroidInfo`
 	"""
 	supportedArchitectures = { "x86", "x64", "arm", "arm64", "mips", "mips64" }
 

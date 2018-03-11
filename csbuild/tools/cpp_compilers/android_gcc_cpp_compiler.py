@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. module:: android_base_cpp_compiler
+.. module:: android_gcc_cpp_compiler
 	:synopsis: Android GCC compiler tool for C++.
 
 .. moduleauthor:: Brandon Bare
@@ -27,19 +27,13 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
 import os
 
-from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
+import csbuild
 
 from .gcc_cpp_compiler import GccCppCompiler
-
+from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
 from ..._build.input_file import  InputFile
-
-# BEGIN TEMP
-# Commandline args from a test in the Tegra VS plugin that compiles correctly:
-# -fpic -funwind-tables -fstack-protector -march=armv8-a -fno-exceptions -fno-rtti -O0 -g3 -gdwarf-4 -ggdb3 -D__ANDROID_API__=26 -DANDROID_NDK -DANDROID -D__ANDROID__ -fno-omit-frame-pointer -fno-strict-aliasing -funswitch-loops -finline-limit=100 -I"C:/NVPACK/android-ndk-r15c/sources/cxx-stl/llvm-libc++/include" -I"C:/NVPACK/android-ndk-r15c/sources/android/support/include" -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include" -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include/aarch64-linux-android" -I"C:/NVPACK/android-ndk-r15c/sources/cxx-stl/llvm-libc++/include" -I"C:/NVPACK/android-ndk-r15c/sources/android/support/include" -I"C:/NVPACK/android-ndk-r15c/toolchains/aarch64-linux-android-4.9/prebuilt/windows-x86_64/lib/gcc/aarch64-linux-android/4.9.x/include" -Wa,--noexecstack -fno-short-enums -std=gnu++11 -x c++ -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include" -I"C:/NVPACK/android-ndk-r15c/sysroot/usr/include/aarch64-linux-android" -o Tegra-Android/Debug/Android1.o  -c -MD jni/Android1.cpp C:/USERS/BRANDON/DESKTOP/ANDROID1/JNI/ANDROID1.CPP
-# END TEMP
 
 class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 	"""
