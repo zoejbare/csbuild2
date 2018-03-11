@@ -37,7 +37,6 @@ from abc import ABCMeta
 from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 
-
 @MetaClass(ABCMeta)
 class AndroidStlLibType(object):
 	"""
@@ -158,9 +157,6 @@ class AndroidToolBase(Tool):
 
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
-
-	:ivar: _androidInfo: Collection of information about the selected Android toolchain and system.
-	:type _androidInfo: :class:`csbuild.tools.common.android_tool_base.AndroidInfo`
 	"""
 	supportedArchitectures = { "x86", "x64", "arm", "arm64", "mips", "mips64" }
 
@@ -380,21 +376,30 @@ class AndroidToolBase(Tool):
 			"mips": "arch-mips",
 			"mips64": "arch-mips64",
 		}.get(arch, "")
-		assert platformArchName, "Architecture not supported: {}".format(arch)
+		assert platformArchName, "Architecture platform name not found for: {}".format(arch)
 
 		return platformArchName
 
-	def _getBuildArchArgs(self, arch):
-		arg = {
-			"x86": "",
-			"x64": "",
-			"arm": "-march=armv7-a",
-			"arm64": "-march=armv8-a",
-			"mips": "",
-			"mips64": "",
+	def _getBuildArchName(self, arch):
+		# Only ARM needs a build architecture name.
+		name = {
+			"arm": "armv7-a",
+			"arm64": "armv8-a",
 		}.get(arch, "")
+		return name
 
-		return [arg] if arg else []
+	def _getTargetTripleName(self, arch):
+		targetTriple = {
+			"x86": "i686-none-linux-android",
+			"x64": "x86_64-none-linux-android",
+			"arm": "armv7-none-linux-androideabi",
+			"arm64": "aarch64-none-linux-android",
+			"mips": "mipsel-unknown-linux-android",
+			"mips64": "mips64el-unknown-linux-android",
+		}.get(arch, "")
+		assert targetTriple, "Architecture target triple not defined for: {}".format(arch)
+
+		return targetTriple
 
 
 	####################################################################################################################

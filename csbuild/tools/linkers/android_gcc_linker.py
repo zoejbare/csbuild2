@@ -117,7 +117,8 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 		return args
 
 	def _getArchitectureArgs(self, project):
-		return self._getBuildArchArgs(project.architectureName)
+		buildArchName = self._getBuildArchName(project.architectureName)
+		return ["-march={}".format(buildArchName)] if buildArchName else []
 
 	def _getSystemArgs(self, project):
 		return [

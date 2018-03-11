@@ -94,7 +94,8 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 		return args + GccCppCompiler._getPreprocessorArgs(self)
 
 	def _getArchitectureArgs(self, project):
-		return self._getBuildArchArgs(project.architectureName)
+		buildArchName = self._getBuildArchName(project.architectureName)
+		return ["-march={}".format(buildArchName)] if buildArchName else []
 
 	def _getSystemArgs(self, project, isCpp):
 		stlIncPaths = {
