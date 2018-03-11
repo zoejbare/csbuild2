@@ -53,6 +53,9 @@ class AndroidInfo(object):
 	"""
 	Collection of paths for a specific version of Android and architecture.
 
+	:param gccToolchainRootPath: Full path the root directory containing the gcc toolchain.
+	:type gccToolchainRootPath: str
+
 	:param gccPath: Full path to the gcc executable.
 	:type gccPath: str
 
@@ -111,6 +114,7 @@ class AndroidInfo(object):
 
 	def __init__(
 			self,
+			gccToolchainRootPath,
 			gccPath,
 			gppPath,
 			asPath,
@@ -130,6 +134,7 @@ class AndroidInfo(object):
 			stlPortLibPath,
 			stlPortIncludePaths,
 	):
+		self.gccToolchainRootPath = gccToolchainRootPath
 		self.gccPath = gccPath
 		self.gppPath = gppPath
 		self.asPath = asPath
@@ -244,8 +249,8 @@ class AndroidToolBase(Tool):
 			exeExtension = ".exe" if platform.system() == "Windows" else ""
 			toolchainPrefix = _getToolchainPrefix()
 			rootToolchainPath = os.path.join(self._androidNdkRootPath, "toolchains")
-			archToolchainPath = glob.glob(os.path.join(rootToolchainPath, "{}-*".format(toolchainPrefix)))
-			llvmToolchainPath = glob.glob(os.path.join(rootToolchainPath, "llvm", "prebuilt", "{}-*".format(platformName)))
+			archToolchainRootPath = glob.glob(os.path.join(rootToolchainPath, "{}-*".format(toolchainPrefix)))
+			llvmToolchainRootPath = glob.glob(os.path.join(rootToolchainPath, "llvm", "prebuilt", "{}-*".format(platformName)))
 			stlArchName = _getStlArchName()
 			stlRootPath = os.path.join(self._androidNdkRootPath, "sources", "cxx-stl")
 			sysRootPath = os.path.join(self._androidNdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion), self._getPlatformArchName(arch))
@@ -256,38 +261,38 @@ class AndroidToolBase(Tool):
 			androidSupportIncludePath = os.path.join(androidSourcesRootPath, "support", "include")
 			nativeAppGluePath = os.path.join(androidSourcesRootPath, "native_app_glue")
 
-			assert archToolchainPath, "No Android toolchain installed for architecture: {}".format(arch)
-			assert llvmToolchainPath, "No Android LLVM toolchain installed for platform: {}".format(platformName)
+			assert archToolchainRootPath, "No Android toolchain installed for architecture: {}".format(arch)
+			assert llvmToolchainRootPath, "No Android LLVM toolchain installed for platform: {}".format(platformName)
 			assert os.access(sysRootPath, os.F_OK), "No Android sysroot found at path: {}".format(sysRootPath)
 
-			archToolchainPath = archToolchainPath[0]
+			archToolchainRootPath = archToolchainRootPath[0]
 
-			gccVersionStartIndex = archToolchainPath.rfind("-")
+			gccVersionStartIndex = archToolchainRootPath.rfind("-")
 			assert gccVersionStartIndex > 0, "Android GCC version not parsable from path: {}".format(archToolchainPath)
 
 			# Save the gcc version since we'll need it for getting the libstdc++ paths.
-			gccVersion = archToolchainPath[gccVersionStartIndex + 1:]
+			gccVersion = archToolchainRootPath[gccVersionStartIndex + 1:]
 
-			archToolchainPath = glob.glob(os.path.join(archToolchainPath, "prebuilt", "{}-*".format(platformName)))
-			assert archToolchainPath, "No Android \"{}\" toolchain installed for platform: {}".format(toolchainPrefix, platformName)
+			archToolchainRootPath = glob.glob(os.path.join(archToolchainRootPath, "prebuilt", "{}-*".format(platformName)))
+			assert archToolchainRootPath, "No Android \"{}\" toolchain installed for platform: {}".format(toolchainPrefix, platformName)
 
-			archToolchainPath = archToolchainPath[0]
-			llvmToolchainPath = llvmToolchainPath[0]
+			archToolchainRootPath = archToolchainRootPath[0]
+			llvmToolchainRootPath = llvmToolchainRootPath[0]
 
-			archToolchainIncludePath = glob.glob(os.path.join(archToolchainPath, "lib", "gcc", "*", "*", "include"))
+			archToolchainIncludePath = glob.glob(os.path.join(archToolchainRootPath, "lib", "gcc", "*", "*", "include"))
 			archToolchainIncludePath = archToolchainIncludePath[0] if archToolchainIncludePath else ""
 
-			archToolchainPath = os.path.join(archToolchainPath, "bin")
-			llvmToolchainPath = os.path.join(llvmToolchainPath, "bin")
+			archToolchainBinPath = os.path.join(archToolchainRootPath, "bin")
+			llvmToolchainBinPath = os.path.join(llvmToolchainRootPath, "bin")
 
 			# Get the compiler and linker paths.
-			gccPath = glob.glob(os.path.join(archToolchainPath, "*-gcc{}".format(exeExtension)))
-			gppPath = glob.glob(os.path.join(archToolchainPath, "*-g++{}".format(exeExtension)))
-			asPath = glob.glob(os.path.join(archToolchainPath, "*-as{}".format(exeExtension)))
-			ldPath = glob.glob(os.path.join(archToolchainPath, "*-ld{}".format(exeExtension)))
-			arPath = glob.glob(os.path.join(archToolchainPath, "*-ar{}".format(exeExtension)))
-			clangPath = os.path.join(llvmToolchainPath, "clang{}".format(exeExtension))
-			clangppPath = os.path.join(llvmToolchainPath, "clang++{}".format(exeExtension))
+			gccPath = glob.glob(os.path.join(archToolchainBinPath, "*-gcc{}".format(exeExtension)))
+			gppPath = glob.glob(os.path.join(archToolchainBinPath, "*-g++{}".format(exeExtension)))
+			asPath = glob.glob(os.path.join(archToolchainBinPath, "*-as{}".format(exeExtension)))
+			ldPath = glob.glob(os.path.join(archToolchainBinPath, "*-ld{}".format(exeExtension)))
+			arPath = glob.glob(os.path.join(archToolchainBinPath, "*-ar{}".format(exeExtension)))
+			clangPath = os.path.join(llvmToolchainBinPath, "clang{}".format(exeExtension))
+			clangppPath = os.path.join(llvmToolchainBinPath, "clang++{}".format(exeExtension))
 
 			assert gccPath, "No Android gcc executable found for architecture: {}".format(arch)
 			assert gppPath, "No Android g++ executable found for architecture: {}".format(arch)
@@ -340,6 +345,7 @@ class AndroidToolBase(Tool):
 
 			AndroidInfo.Instances[key] = \
 				AndroidInfo(
+					archToolchainRootPath,
 					gccPath,
 					gppPath,
 					asPath,
@@ -394,12 +400,32 @@ class AndroidToolBase(Tool):
 			"x64": "x86_64-none-linux-android",
 			"arm": "armv7-none-linux-androideabi",
 			"arm64": "aarch64-none-linux-android",
-			"mips": "mipsel-unknown-linux-android",
-			"mips64": "mips64el-unknown-linux-android",
+			"mips": "mipsel-none-linux-android",
+			"mips64": "mips64el-none-linux-android",
 		}.get(arch, "")
 		assert targetTriple, "Architecture target triple not defined for: {}".format(arch)
 
 		return targetTriple
+
+	def _getDefaultLinkerArgs(self):
+		return [
+			"-Wl,--no-undefined",
+			"-Wl,--no-allow-shlib-undefined",
+			"-Wl,--unresolved-symbols=report-all",
+			"-Wl,-z,noexecstack",
+			"-Wl,-z,relro",
+			"-Wl,-z,now",
+		]
+
+	def _getDefaultCompilerArgs(self):
+		return [
+			"-funwind-tables",
+			"-fstack-protector",
+			"-fno-omit-frame-pointer",
+			"-fno-strict-aliasing",
+			"-fno-short-enums",
+			"-Wa,--noexecstack",
+		]
 
 
 	####################################################################################################################

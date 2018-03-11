@@ -34,11 +34,13 @@ from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
 from .java_compilers import JavaCompileChecker
 
+from .assemblers.android_clang_assembler import AndroidClangAssembler
 from .assemblers.android_gcc_assembler import AndroidGccAssembler
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
 
+from .cpp_compilers.android_clang_cpp_compiler import AndroidClangCppCompiler
 from .cpp_compilers.android_gcc_cpp_compiler import AndroidGccCppCompiler
 from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
@@ -49,6 +51,7 @@ from .java_archivers.oracle_java_archiver import OracleJavaArchiver
 
 from .java_compilers.oracle_java_compiler import OracleJavaCompiler
 
+from .linkers.android_clang_linker import AndroidClangLinker
 from .linkers.android_gcc_linker import AndroidGccLinker
 from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
@@ -72,6 +75,7 @@ def InitTools():
 		( "clang", clangCompiler, clangLinker, ClangAssembler ),
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler ),
 		( "android-gcc", AndroidGccCppCompiler, AndroidGccLinker, AndroidGccAssembler ),
+		( "android-clang", AndroidClangCppCompiler, AndroidClangLinker, AndroidClangAssembler ),
 	]:
 		checkers = {}
 		cppChecker = CppCompileChecker(compiler)
@@ -99,4 +103,4 @@ def InitTools():
 
 	# Register toolchain groups.
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
-	csbuild.RegisterToolchainGroup("android", "android-gcc")
+	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")

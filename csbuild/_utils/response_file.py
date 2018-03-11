@@ -99,4 +99,4 @@ class ResponseFile(object):
 		Get the full string of the command arguments, quoted as necessary.
 		:rtype: str
 		"""
-		return [quote(arg) for arg in self._commandList]
+		return " ".join([quote(arg) for arg in self._commandList])

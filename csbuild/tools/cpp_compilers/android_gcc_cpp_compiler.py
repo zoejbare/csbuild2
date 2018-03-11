@@ -73,15 +73,10 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 
 	def _getDefaultArgs(self, project):
 		baseArgs = GccCppCompiler._getDefaultArgs(self, project)
-		return baseArgs + [
-			"-funwind-tables",
-			"-fstack-protector",
-			"-fno-omit-frame-pointer",
-			"-fno-strict-aliasing",
+		defaultAndroidArgs = self._getDefaultCompilerArgs()
+		return baseArgs + defaultAndroidArgs + [
 			"-funswitch-loops",
 			"-finline-limit=100",
-			"-fno-short-enums",
-			"-Wa,--noexecstack",
 		]
 
 	def _getPreprocessorArgs(self):

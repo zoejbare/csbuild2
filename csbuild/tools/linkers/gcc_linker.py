@@ -28,6 +28,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
+import platform
 import re
 
 import csbuild
@@ -83,11 +84,11 @@ class GccLinker(LinkerBase):
 		responseFile = response_file.ResponseFile(project, project.outputName, cmd)
 
 		if shared_globals.showCommands:
-			log.Command("ResponseFile ({}): {}".format(project.outputName, " ".join(responseFile.asString)))
+			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.asString))
 
 		return [cmdExe, "@{}".format(responseFile.filePath)]
 
-	def _findLibraries(self, libs):
+	def _findLibraries(self, project, libs):
 		ret = {}
 
 		shortLibs = ordered_set.OrderedSet(libs)
@@ -99,6 +100,11 @@ class GccLinker(LinkerBase):
 				ret[lib] = abspath
 				shortLibs.remove(lib)
 
+		if platform.system() == "Windows":
+			nullOut = '"{}"'.format(os.path.join(project.csbuildDir, "null"))
+		else:
+			nullOut = "/dev/null"
+
 		if shortLibs:
 			# In most cases this should be finished in exactly two attempts.
 			# However, in some rare cases, ld will get to a successful lib after hitting a failure and just give up.
@@ -107,7 +113,7 @@ class GccLinker(LinkerBase):
 			# and the vast majority of the cases that require a third pass will not require a fourth... but, everything
 			# is possible! Still better than doing a pass per file like we used to.
 			while True:
-				cmd = [self._getLdName(), "-M", "-o", "/dev/null"] + \
+				cmd = [self._getLdName(), "-o", nullOut, "--verbose"] + \
 					  ["-l"+lib for lib in shortLibs] + \
 					  ["-l:"+lib for lib in longLibs] + \
 					  ["-L"+path for path in self._getLibrarySearchDirectories()]

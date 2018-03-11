@@ -76,7 +76,9 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 		return self._androidInfo.arPath
 
 	def _getDefaultArgs(self, project):
-		return [] if project.projectType == csbuild.ProjectType.StaticLibrary else ["-shared", "-fPIC"]
+		baseArgs = [] if project.projectType == csbuild.ProjectType.StaticLibrary else ["-shared", "-fPIC"]
+		defaultAndroidArgs = self._getDefaultLinkerArgs()
+		return baseArgs + defaultAndroidArgs
 
 	def _getLibraryPathArgs(self, project):
 		stlLibPath = {
@@ -128,4 +130,4 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 		]
 
 	def _getLibrarySearchDirectories(self):
-		return [self._androidInfo.systemLibPath] + self._libraryDirectories
+		return [self._androidInfo.systemLibPath] + list(self._libraryDirectories)

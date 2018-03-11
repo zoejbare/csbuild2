@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Jaedyn K. Draper
+# Copyright (C) 2013 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. module:: android_clang_assembler
+	:synopsis: Android clang assembler tool
 
 .. moduleauthor:: Brandon Bare
 """
@@ -28,17 +28,27 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-import os
 
-# csbuild.SetAndroidNdkRootPath("/opt/google/android-ndk-r16b")
-# csbuild.SetAndroidSdkRootPath("/home/bbare/dev/support/android-sdk")
+from .android_gcc_assembler import AndroidGccAssembler
 
-csbuild.SetOutputDirectory("out")
+class AndroidClangAssembler(AndroidGccAssembler):
+	"""
+	Android clang assembler implementation
+	"""
 
-with csbuild.Project("hello_world", "hello_world"):
-	csbuild.SetAndroidTargetSdkVersion(26)
-	csbuild.SetAndroidManifestFilePath(os.path.join("hello_world", "AndroidManifest.xml"))
-	csbuild.SetAndroidNativeAppGlue(True)
-	csbuild.SetSupportedToolchains("android-gcc", "android-clang")
-	csbuild.AddLibraries("EGL", "GLESv2")
-	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
+	def _getComplierName(self):
+		return self._androidInfo.clangPath
+
+	def _getDefaultArgs(self, project):
+		args = []
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			args.append("-fPIC")
+		return args
+
+	def _getArchitectureArgs(self, project):
+		targetName = self._getTargetTripleName(project.architectureName)
+		return ["-target", targetName]

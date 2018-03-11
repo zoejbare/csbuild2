@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Jaedyn K. Draper
+# Copyright (C) 2013 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,26 +19,35 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. module:: android_clang_linker
+	:synopsis: Android clang linker tool.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
-import os
+from .android_gcc_linker import AndroidGccLinker
 
-# csbuild.SetAndroidNdkRootPath("/opt/google/android-ndk-r16b")
-# csbuild.SetAndroidSdkRootPath("/home/bbare/dev/support/android-sdk")
+class AndroidClangLinker(AndroidGccLinker):
+	"""
+	Clang linker implementation
+	"""
 
-csbuild.SetOutputDirectory("out")
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
 
-with csbuild.Project("hello_world", "hello_world"):
-	csbuild.SetAndroidTargetSdkVersion(26)
-	csbuild.SetAndroidManifestFilePath(os.path.join("hello_world", "AndroidManifest.xml"))
-	csbuild.SetAndroidNativeAppGlue(True)
-	csbuild.SetSupportedToolchains("android-gcc", "android-clang")
-	csbuild.AddLibraries("EGL", "GLESv2")
-	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
+	def _getBinaryLinkerName(self):
+		return self._androidInfo.clangPath
+
+	def _getDefaultArgs(self, project):
+		args = AndroidGccLinker._getDefaultArgs(self, project)
+		return args + [
+			"-gcc-toolchain",
+			self._androidInfo.gccToolchainRootPath,
+		]
+
+	def _getArchitectureArgs(self, project):
+		targetName = self._getTargetTripleName(project.architectureName)
+		return ["-target", targetName]

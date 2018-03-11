@@ -3,6 +3,7 @@
 *.py~
 *.artifacts
 **/.idea
+.csbuild
 
 # Specific files
 failedLints.txt
