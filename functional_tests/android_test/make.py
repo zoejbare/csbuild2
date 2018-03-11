@@ -38,6 +38,6 @@ csbuild.SetOutputDirectory("out")
 with csbuild.Project("hello_world", "hello_world"):
 	csbuild.SetAndroidTargetSdkVersion(26)
 	csbuild.SetAndroidManifestFilePath(os.path.join("hello_world", "AndroidManifest.xml"))
-	csbuild.UseDefaultAndroidNativeAppGlue(True)
+	csbuild.SetAndroidNativeAppGlue(True)
 	csbuild.SetSupportedToolchains("android-gcc")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
