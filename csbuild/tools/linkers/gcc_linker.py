@@ -113,7 +113,7 @@ class GccLinker(LinkerBase):
 			# and the vast majority of the cases that require a third pass will not require a fourth... but, everything
 			# is possible! Still better than doing a pass per file like we used to.
 			while True:
-				cmd = [self._getLdName(), "-o", nullOut, "--verbose"] + \
+				cmd = [self._getLdName(), "--verbose", "-M", "-o", nullOut] + \
 					  ["-l"+lib for lib in shortLibs] + \
 					  ["-l:"+lib for lib in longLibs] + \
 					  ["-L"+path for path in self._getLibrarySearchDirectories()]
@@ -157,6 +157,7 @@ class GccLinker(LinkerBase):
 				elif loading:
 					break
 
+			# TODO: This needs much better error handling for libs that can't be found.
 			assert len(matches) == len(shortLibs) + len(longLibs)
 			assert len(matches) + len(ret) == len(libs)
 			for i, lib in enumerate(shortLibs):
