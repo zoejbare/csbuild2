@@ -57,10 +57,11 @@ class ResponseFile(object):
 	def __init__(self, project, name, cmd):
 		dirPath = os.path.join(project.csbuildDir, "cmd", project.outputName, project.architectureName, project.targetName)
 		fileMode = 438 # Octal 0666
-		generalFlags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-		platformFlags = {
-			"Windows": os.O_NOINHERIT
-		}.get(platform.system(), 0)
+		flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+
+		# The O_NOINHERIT constant only exists on Windows, so we can't do this in the pythonic way.
+		if platform.system() == "Windows":
+			flags |= os.O_NOINHERIT
 
 		# Create the output directory.
 		if not os.access(dirPath, os.F_OK):
@@ -71,7 +72,7 @@ class ResponseFile(object):
 		self._filePath = os.path.join(dirPath, name)
 		self._commandList = [arg for arg in cmd if arg]
 
-		f = os.open(self._filePath, generalFlags | platformFlags, fileMode)
+		f = os.open(self._filePath, flags, fileMode)
 
 		os.write(f, PlatformBytes(" ".join([arg.replace("\\", r"\\") for arg in self._commandList])))
 		os.fsync(f)
