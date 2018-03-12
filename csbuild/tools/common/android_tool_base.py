@@ -245,6 +245,12 @@ class AndroidToolBase(Tool):
 
 				return includeArchName
 
+			# Certain architectures must use the "lib64" directory instead of "lib".
+			useLib64 = {
+				"x64": True,
+				"mips64": True,
+			}.get(arch, False)
+
 			platformName = platform.system().lower()
 			exeExtension = ".exe" if platform.system() == "Windows" else ""
 			toolchainPrefix = _getToolchainPrefix()
@@ -254,7 +260,7 @@ class AndroidToolBase(Tool):
 			stlArchName = _getStlArchName()
 			stlRootPath = os.path.join(self._androidNdkRootPath, "sources", "cxx-stl")
 			sysRootPath = os.path.join(self._androidNdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion), self._getPlatformArchName(arch))
-			sysRootLibPath = os.path.join(sysRootPath, "usr", "lib")
+			sysRootLibPath = os.path.join(sysRootPath, "usr", "lib64" if useLib64 else "lib")
 			sysRootBaseIncludePath = os.path.join(self._androidNdkRootPath, "sysroot", "usr", "include")
 			sysRootArchIncludePath = os.path.join(sysRootBaseIncludePath, _getIncludeArchName())
 			androidSourcesRootPath = os.path.join(self._androidNdkRootPath, "sources", "android")
