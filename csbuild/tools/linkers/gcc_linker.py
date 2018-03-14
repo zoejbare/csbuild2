@@ -73,12 +73,12 @@ class GccLinker(LinkerBase):
 				+ self._getDefaultArgs(project) \
 				+ self._getArchitectureArgs(project) \
 				+ self._getSystemArgs(project) \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles) \
 				+ self._getLibraryPathArgs(project) \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs() \
-				+ self._getOutputFileArgs(project) \
-				+ self._getInputFileArgs(inputFiles) \
 				+ self._linkerFlags
 
 		responseFile = response_file.ResponseFile(project, project.outputName, cmd)
