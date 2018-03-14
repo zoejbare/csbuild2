@@ -65,7 +65,7 @@ class ResponseFile(object):
 
 		# Create the output directory.
 		if not os.access(dirPath, os.F_OK):
-			with ResponseFile._lock:
+			with ResponseFile._lock: # pylint:disable=not-context-manager
 				if not os.access(dirPath, os.F_OK):
 					os.makedirs(dirPath)
 
@@ -82,6 +82,7 @@ class ResponseFile(object):
 	def filePath(self):
 		"""
 		Get the path to the response file.
+		:return: Response file path.
 		:rtype: str
 		"""
 		return self._filePath
@@ -90,6 +91,7 @@ class ResponseFile(object):
 	def commandList(self):
 		"""
 		Get the original list of list of commands.
+		:return: Original command list.
 		:rtype: list[str]
 		"""
 		return self._commandList
@@ -98,6 +100,7 @@ class ResponseFile(object):
 	def asString(self):
 		"""
 		Get the full string of the command arguments, quoted as necessary.
+		:return: Original command list as string.
 		:rtype: str
 		"""
 		return " ".join([quote(arg) for arg in self._commandList])

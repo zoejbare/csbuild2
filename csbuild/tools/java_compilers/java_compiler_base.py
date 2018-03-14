@@ -197,7 +197,7 @@ class JavaCompilerBase(JavaToolBase):
 		classRootPath = os.path.join(inputProject.intermediateDir, self._javaClassRootDirName)
 		if not os.access(classRootPath, os.F_OK):
 			# Put a lock on the directory just in case something else happens to be trying to create it at the same time.
-			with JavaCompilerBase._lock:
+			with JavaCompilerBase._lock: # pylint:disable=not-context-manager
 				if not os.access(classRootPath, os.F_OK):
 					os.makedirs(classRootPath)
 
