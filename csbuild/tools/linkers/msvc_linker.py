@@ -94,7 +94,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			+ self._getInputFileArgs(inputFiles)
 		return [arg for arg in cmd if arg]
 
-	def _findLibraries(self, libs):
+	def _findLibraries(self, project, libs):
 		notFound = set()
 		found = {}
 		allLibraryDirectories = [x for x in self._libraryDirectories] + self.vcvarsall.libPaths

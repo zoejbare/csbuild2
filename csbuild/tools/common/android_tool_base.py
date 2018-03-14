@@ -274,7 +274,7 @@ class AndroidToolBase(Tool):
 			archToolchainRootPath = archToolchainRootPath[0]
 
 			gccVersionStartIndex = archToolchainRootPath.rfind("-")
-			assert gccVersionStartIndex > 0, "Android GCC version not parsable from path: {}".format(archToolchainPath)
+			assert gccVersionStartIndex > 0, "Android GCC version not parsable from path: {}".format(archToolchainRootPath)
 
 			# Save the gcc version since we'll need it for getting the libstdc++ paths.
 			gccVersion = archToolchainRootPath[gccVersionStartIndex + 1:]

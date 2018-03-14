@@ -61,7 +61,7 @@ class ResponseFile(object):
 
 		# The O_NOINHERIT constant only exists on Windows, so we can't do this in the pythonic way.
 		if platform.system() == "Windows":
-			flags |= os.O_NOINHERIT
+			flags |= os.O_NOINHERIT # pylint:disable=no-member
 
 		# Create the output directory.
 		if not os.access(dirPath, os.F_OK):

@@ -142,24 +142,44 @@ class GccLinker(LinkerBase):
 				break
 
 			matches = []
-			loading = False
-			inGroup = False
-			for line in out.splitlines():
-				if line.startswith("LOAD"):
-					if inGroup:
-						continue
-					loading = True
-					matches.append(line[5:])
-				elif line == "START GROUP":
-					inGroup = True
-				elif line == "END GROUP":
-					inGroup = False
-				elif loading:
-					break
 
-			# TODO: This needs much better error handling for libs that can't be found.
-			assert len(matches) == len(shortLibs) + len(longLibs)
-			assert len(matches) + len(ret) == len(libs)
+			try:
+				# All bfd linkers should have the link maps showing where libraries load from.  Most linkers will be
+				# bfd-based, so first assume that is the output we have and try to parse it.
+				loading = False
+				inGroup = False
+				for line in out.splitlines():
+					if line.startswith("LOAD"):
+						if inGroup:
+							continue
+						loading = True
+						matches.append(line[5:])
+					elif line == "START GROUP":
+						inGroup = True
+					elif line == "END GROUP":
+						inGroup = False
+					elif loading:
+						break
+
+				assert len(matches) == len(shortLibs) + len(longLibs)
+				assert len(matches) + len(ret) == len(libs)
+
+			except AssertionError:
+				# Fallback to doing the traditional regex check when the link map check failes.
+				# All bfd- and gold-compatible linkers should have this.
+				succeedRegex = re.compile("(?:.*ld): Attempt to open (.*) succeeded")
+				for line in err.splitlines():
+					match = succeedRegex.match(line)
+					if match:
+						matches.append(match.group(1))
+
+				assert len(matches) == len(shortLibs) + len(longLibs)
+				assert len(matches) + len(ret) == len(libs)
+
+			except:
+				# Unexpected errors are re-raised.
+				raise
+
 			for i, lib in enumerate(shortLibs):
 				ret[lib] = matches[i]
 			for i, lib in enumerate(longLibs):
