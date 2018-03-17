@@ -30,7 +30,9 @@ from __future__ import unicode_literals, division, print_function
 from csbuild._testing.functional_test import FunctionalTest
 
 import os
+import unittest
 
+@unittest.skipUnless("ANDROID_NDK_ROOT" in os.environ and "ANDROID_SDK_HOME" in os.environ, "ANDROID_NDK_ROOT and/or ANDROID_SDK_HOME not defined")
 class AndroidTest(FunctionalTest):
 	"""Android test"""
 

@@ -30,9 +30,6 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 import os
 
-csbuild.SetAndroidNdkRootPath("/opt/google/android-ndk-r16b")
-csbuild.SetAndroidSdkRootPath("/home/bbare/dev/support/android-sdk")
-
 csbuild.SetOutputDirectory("out")
 
 with csbuild.Project("hello_world", "hello_world"):

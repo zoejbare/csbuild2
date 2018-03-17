@@ -34,6 +34,7 @@ import os
 import platform
 import subprocess
 import time
+import unittest
 
 def Touch(fname):
 	"""
@@ -57,6 +58,7 @@ def Touch(fname):
 		if isReadOnly:
 			os.chmod(fname, oldPermissions)
 
+@unittest.skipUnless("JAVA_HOME" in os.environ, "JAVA_HOME not defined")
 class BasicJavaTest(FunctionalTest):
 	"""Basic Java test"""
 
