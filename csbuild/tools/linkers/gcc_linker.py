@@ -67,6 +67,7 @@ class GccLinker(LinkerBase):
 				+ self._linkerFlags \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
+			useResponseFile = self._useResponseFileWithArchiver()
 		else:
 			cmdExe = self._getBinaryLinkerName()
 			cmd = ["-L/"] \
@@ -80,13 +81,20 @@ class GccLinker(LinkerBase):
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs() \
 				+ self._linkerFlags
+			useResponseFile = self._useResponseFileWithArchiver()
 
-		responseFile = response_file.ResponseFile(project, project.outputName, cmd)
+		if useResponseFile:
+			responseFile = response_file.ResponseFile(project, project.outputName, cmd)
 
-		if shared_globals.showCommands:
-			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.asString))
+			if shared_globals.showCommands:
+				log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.asString))
 
-		return [cmdExe, "@{}".format(responseFile.filePath)]
+			cmd = [cmdExe, "@{}".format(responseFile.filePath)]
+
+		else:
+			cmd = [cmdExe] + cmd
+
+		return cmd
 
 	def _findLibraries(self, project, libs):
 		ret = {}
@@ -210,6 +218,12 @@ class GccLinker(LinkerBase):
 
 	def _getArchiverName(self):
 		return "ar"
+
+	def _useResponseFileWithLinker(self):
+		return True
+
+	def _useResponseFileWithArchiver(self):
+		return True
 
 	def _getDefaultArgs(self, project):
 		args = []

@@ -79,3 +79,6 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 
 	def _getEndGroupArgs(self):
 		return []
+
+	def _useResponseFileWithArchiver(self):
+		return False
