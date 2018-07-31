@@ -316,6 +316,15 @@ class FunctionalTest(TestCase):
 
 		self.assertTrue(os.access(filename, os.F_OK), "No such file: "+filename)
 
+	def assertFileDoesNotExist(self, filename):
+		"""
+		Assert that an expected file doesn't exists
+		:param filename: file to check
+		:type filename: str
+		"""
+
+		self.assertFalse(os.access(filename, os.F_OK), "File exists: "+filename)
+
 	# pylint: disable=invalid-name
 	def assertFileContents(self, filename, expectedContents):
 		"""

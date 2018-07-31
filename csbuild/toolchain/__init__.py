@@ -56,12 +56,23 @@ class Tool(object):
 	#  An empty string indicates a file with no extension
 	inputFiles = set()
 
-	#: List of file extensions to be passed to Run as a group input.
-	#  Run() will be called only once all tools that output this type have finished running
+	#: List of file extensions to be passed to RunGroup as a group input.
+	#  RunGroup() will be called only once all tools that output this type have finished running
 	#  and will be called only once on the entire group.
 	#  Example: A C++ linker would take group inputs of types {".o"} or {".obj"} depending on the platform
 	#  An empty string indicates a file with no extension
+	# **Note: A tool may set EITHER inputGroups OR crossProjectInputGroups, but not both.
+	# If both are set, crossProjectInputGroups takes precedence**
 	inputGroups = set()
+
+	#: List of file extensions to be passed to Run as a group input, collected from all dependent projects.
+	#  RunGroup() will be called only once all tools in all dependent projects that output this type have finished running
+	#  and will be called only once on the entire group.
+	#  Example: In project generation, the result of all .proj files might be passed to a .sln file.
+	#  An empty string indicates a file with no extension
+	# **Note: A tool may set EITHER inputGroups OR crossProjectInputGroups, but not both.
+	# If both are set, crossProjectInputGroups takes precedence**
+	crossProjectInputGroups = set()
 
 	#: List of dependencies that will prevent Run() from being called if they're still being created,
 	#  even if they're not taken as inputs.
@@ -84,7 +95,7 @@ class Tool(object):
 
 	#: Set of supported architectures. If this toolchain supports all possible --architecture arguments,
 	#  set this value to None. An empty set implies it supports no architectures and can never be run.
-	supportedArchitectures = set()
+	supportedArchitectures = None
 
 	#: Set of supported platforms. If this toolchain supports all possible platforms,
 	#  set this value to None. An empty set implies it supports no platforms and can never be run.

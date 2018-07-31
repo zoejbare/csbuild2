@@ -69,7 +69,7 @@ def PathHook(_):
 		pass
 	else:
 		edit_done = True
-		if argv[0].endswith('_jb_unittest_runner.py'):
+		if argv[0].endswith('_jb_unittest_runner.py') or argv[0].endswith("pydevd.py"):
 			import signal
 			import time
 

@@ -1,2 +1,7 @@
 *.pyc
 *.artifacts
+/.idea/
+/.csbuild/
+/__pycache__/
+/failedLints.txt
+/result.xml
