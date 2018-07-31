@@ -115,7 +115,7 @@ class JavaArchiverBase(JavaToolBase):
 		:return: Tuple of files that will be produced from linking.
 		:rtype: tuple[str]
 		"""
-		return tuple([""])
+		return ("", )
 
 	@abstractmethod
 	def _getCommand(self, project, inputFiles, classRootPath):

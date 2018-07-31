@@ -65,6 +65,7 @@ class ResponseFile(object):
 
 		# Create the output directory.
 		if not os.access(dirPath, os.F_OK):
+			# TODO: Investigate ways to handle this in a lock-free manner.
 			with ResponseFile._lock: # pylint:disable=not-context-manager
 				if not os.access(dirPath, os.F_OK):
 					os.makedirs(dirPath)
@@ -96,8 +97,7 @@ class ResponseFile(object):
 		"""
 		return self._commandList
 
-	@property
-	def asString(self):
+	def AsString(self):
 		"""
 		Get the full string of the command arguments, quoted as necessary.
 		:return: Original command list as string.

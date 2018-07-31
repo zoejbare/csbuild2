@@ -32,7 +32,6 @@ import platform
 
 from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
-from .java_compilers import JavaCompileChecker
 
 from .assemblers.android_clang_assembler import AndroidClangAssembler
 from .assemblers.android_gcc_assembler import AndroidGccAssembler
@@ -57,6 +56,8 @@ from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
+
+from ..toolchain import CompileChecker
 
 def InitTools():
 	"""
@@ -94,7 +95,7 @@ def InitTools():
 		( "oracle-java", OracleJavaCompiler, OracleJavaArchiver ),
 	]:
 		checkers = {}
-		javaChecker = JavaCompileChecker(compiler)
+		javaChecker = CompileChecker()
 
 		for inputExtension in compiler.inputFiles:
 			checkers[inputExtension] = javaChecker

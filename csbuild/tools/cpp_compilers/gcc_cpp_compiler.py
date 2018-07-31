@@ -76,7 +76,7 @@ class GccCppCompiler(CppCompilerBase):
 		responseFile = response_file.ResponseFile(project, inputFileBasename, cmd)
 
 		if shared_globals.showCommands:
-			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.asString))
+			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
 
 		return [cmdExe, "@{}".format(responseFile.filePath)]
 

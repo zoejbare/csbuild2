@@ -26,16 +26,3 @@
 """
 
 from __future__ import unicode_literals, division, print_function
-
-from ...toolchain import CompileChecker
-
-def _ignore(_):
-	pass
-
-class JavaCompileChecker(CompileChecker):
-	"""
-	CompileChecker for Java source files.
-	"""
-	def __init__(self, compiler):
-		CompileChecker.__init__(self)
-		_ignore(compiler)

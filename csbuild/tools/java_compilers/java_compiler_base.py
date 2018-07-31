@@ -144,7 +144,7 @@ class JavaCompilerBase(JavaToolBase):
 		:return: Tuple of files that will be produced from compiling.
 		:rtype: tuple[str]
 		"""
-		return tuple([""])
+		return ("", )
 
 	@abstractmethod
 	def _getCommand(self, project, inputFiles, classRootPath):
@@ -171,20 +171,6 @@ class JavaCompilerBase(JavaToolBase):
 	################################################################################
 
 	def RunGroup(self, inputProject, inputFiles):
-		"""
-		Execute a group build step. Note that this method is run massively in parallel with other build steps.
-		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
-		mutex.
-
-		:param inputProject: Project being built.
-		:type inputProject: csbuild._build.project.Project
-
-		:param inputFiles: List of files to build.
-		:type inputFiles: list[input_file.InputFile]
-
-		:return: Tuple of files created by the tool - all files must have an extension in the outputFiles list.
-		:rtype: tuple[str]
-		"""
 		log.Build(
 			"Compiling Java files for {}: [{}]",
 			inputProject.outputName,

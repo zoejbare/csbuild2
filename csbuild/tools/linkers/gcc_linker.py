@@ -87,7 +87,7 @@ class GccLinker(LinkerBase):
 			responseFile = response_file.ResponseFile(project, project.outputName, cmd)
 
 			if shared_globals.showCommands:
-				log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.asString))
+				log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
 
 			cmd = [cmdExe, "@{}".format(responseFile.filePath)]
 

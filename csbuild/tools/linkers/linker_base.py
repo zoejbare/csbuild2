@@ -163,7 +163,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:return: tuple of files that will be produced from linking
 		:rtype: tuple[str]
 		"""
-		return tuple([""])
+		return ("", )
 
 	@abstractmethod
 	def _getCommand(self, project, inputFiles):
