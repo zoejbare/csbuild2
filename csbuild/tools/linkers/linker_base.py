@@ -89,7 +89,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		"""
 		log.Linker("Verifying libraries for {}...", project)
 		if self._libraries:
-			self._actualLibraryLocations = self._findLibraries(self._libraries)
+			self._actualLibraryLocations = self._findLibraries(project, self._libraries)
 
 			if self._actualLibraryLocations is None:
 				raise LibraryError(project)
@@ -163,7 +163,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:return: tuple of files that will be produced from linking
 		:rtype: tuple[str]
 		"""
-		return ""
+		return ("", )
 
 	@abstractmethod
 	def _getCommand(self, project, inputFiles):
@@ -180,13 +180,17 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		return []
 
 	@abstractmethod
-	def _findLibraries(self, libs):
+	def _findLibraries(self, project, libs):
 		"""
-		Search for the provided set of libraries, verify they exist, and map them to their actual file locations
+		Search for the provided set of libraries, verify they exist, and map them to their actual file locations.
 
-		:param libs: libraries to search for
+		:param project: Project searching for libraries.
+		:type project: :class:`csbuild._build.project.Project`
+
+		:param libs: Libraries to search for.
 		:type libs: str
-		:return: map of input string to actual absolute path to the library
+
+		:return: Map of input string to actual absolute path to the library.
 		:rtype: dict[str, str]
 		"""
 		return {}

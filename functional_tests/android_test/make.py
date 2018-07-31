@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,24 +19,23 @@
 # SOFTWARE.
 
 """
-.. module:: clang_linker
-	:synopsis: Clang linker tool.
+.. module:: make
+	:synopsis: Makefile for this test
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from .gcc_linker import GccLinker
+import csbuild
+import os
 
-class ClangLinker(GccLinker):
-	"""
-	Clang linker implementation
-	"""
+csbuild.SetOutputDirectory("out")
 
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
-
-	def _getBinaryLinkerName(self):
-		return "clang"
+with csbuild.Project("hello_world", "hello_world"):
+	csbuild.SetAndroidTargetSdkVersion(26)
+	csbuild.SetAndroidManifestFilePath(os.path.join("hello_world", "AndroidManifest.xml"))
+	csbuild.SetAndroidNativeAppGlue(True)
+	csbuild.SetSupportedToolchains("android-gcc", "android-clang")
+	csbuild.AddLibraries("EGL", "GLESv2")
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)

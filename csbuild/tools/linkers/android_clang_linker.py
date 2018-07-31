@@ -19,66 +19,35 @@
 # SOFTWARE.
 
 """
-.. module:: mac_os_clang_linker
-	:synopsis: Clang linker tool for the macOS platform.
+.. module:: android_clang_linker
+	:synopsis: Android clang linker tool.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
+from .android_gcc_linker import AndroidGccLinker
 
-from .clang_linker import ClangLinker
-
-from ..common.apple_tool_base import MacOsToolBase
-
-class MacOsClangLinker(MacOsToolBase, ClangLinker):
+class AndroidClangLinker(AndroidGccLinker):
 	"""
-	Clang compiler implementation
+	Clang linker implementation
 	"""
-
-	outputFiles = {"", ".a", ".dylib"}
-	crossProjectDependencies = {".a", ".dylib"}
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def __init__(self, projectSettings):
-		MacOsToolBase.__init__(self, projectSettings)
-		ClangLinker.__init__(self, projectSettings)
-
-	def SetupForProject(self, project):
-		MacOsToolBase.SetupForProject(self, project)
-		ClangLinker.SetupForProject(self, project)
+	def _getBinaryLinkerName(self):
+		return self._androidInfo.clangPath
 
 	def _getDefaultArgs(self, project):
-		baseArgs = ClangLinker._getDefaultArgs(self, project)
-
-		# Get the special library build flag.
-		libraryBuildArg = {
-			csbuild.ProjectType.SharedLibrary: "-dynamiclib",
-		}.get(project.projectType, "")
-
-		return baseArgs + [
-			libraryBuildArg
+		args = AndroidGccLinker._getDefaultArgs(self, project)
+		return args + [
+			"-gcc-toolchain",
+			self._androidInfo.gccToolchainRootPath,
 		]
 
-	def _getLibraryArgs(self):
-		libArgs = [lib for lib in self._actualLibraryLocations.values()]
-		frameworkDirArgs = ["-F{}".format(path) for path in self._frameworkDirectories]
-		frameworkArgs = []
-		for framework in self._frameworks:
-			frameworkArgs.extend(["-framework", framework])
-
-		return frameworkDirArgs + frameworkArgs + libArgs
-
-	def _getStartGroupArgs(self):
-		return []
-
-	def _getEndGroupArgs(self):
-		return []
-
-	def _useResponseFileWithArchiver(self):
-		return False
+	def _getArchitectureArgs(self, project):
+		targetName = self._getTargetTripleName(project.architectureName)
+		return ["-target", targetName]

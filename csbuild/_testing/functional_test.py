@@ -196,9 +196,9 @@ class FunctionalTest(TestCase):
 				else:
 					self.RunMake("--clean")
 				if os.access(self.outDir, os.F_OK):
-					self.fail("Out dir not empty:\n{}".format(ListFiles(self.outDir)))
+					self.fail("Out dir not removed by clean:\n{}".format(ListFiles(self.outDir)))
 				if os.access(self.intermediateDir, os.F_OK):
-					self.fail("Intermediate dir not empty:\n{}".format(ListFiles(self.intermediateDir)))
+					self.fail("Intermediate dir not removed by clean:\n{}".format(ListFiles(self.intermediateDir)))
 		finally:
 			os.chdir(self._prevdir)
 			if self._oldenviron is not None:

@@ -99,4 +99,5 @@ with csbuild.Project("TestProject", "."):
 	with csbuild.ToolchainGroup("MiddleTwo"):
 		csbuild.SetOutput("MiddleFoo", csbuild.ProjectType.Application)
 
+	csbuild.SetSupportedToolchains("AddDoubles", "AddDoubles2", "AddDoubles3", "AddDoubles4")
 	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

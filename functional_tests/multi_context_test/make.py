@@ -99,4 +99,5 @@ with csbuild.Project("TestProject", "."):
 	with csbuild.MultiContext(csbuild.Toolchain("AddDoubles"), csbuild.Architecture("foo")):
 		csbuild.SetOutput("{architectureName}Foo", csbuild.ProjectType.Application)
 
+	csbuild.SetSupportedToolchains("AddDoubles", "AddDoubles2", "AddDoubles3", "AddDoubles4")
 	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

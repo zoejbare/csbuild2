@@ -19,66 +19,42 @@
 # SOFTWARE.
 
 """
-.. module:: mac_os_clang_linker
-	:synopsis: Clang linker tool for the macOS platform.
+.. module:: android_gcc_assembler
+	:synopsis: Android GCC assember tool
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
+from ..common.android_tool_base import AndroidToolBase
 
-from .clang_linker import ClangLinker
+from .gcc_assembler import GccAssembler
 
-from ..common.apple_tool_base import MacOsToolBase
-
-class MacOsClangLinker(MacOsToolBase, ClangLinker):
+class AndroidGccAssembler(GccAssembler, AndroidToolBase):
 	"""
-	Clang compiler implementation
+	Android GCC assembler implementation
 	"""
+	supportedArchitectures = AndroidToolBase.supportedArchitectures
 
-	outputFiles = {"", ".a", ".dylib"}
-	crossProjectDependencies = {".a", ".dylib"}
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def __init__(self, projectSettings):
-		MacOsToolBase.__init__(self, projectSettings)
-		ClangLinker.__init__(self, projectSettings)
-
 	def SetupForProject(self, project):
-		MacOsToolBase.SetupForProject(self, project)
-		ClangLinker.SetupForProject(self, project)
+		"""
+		Run project setup, if any, before building the project, but after all dependencies have been resolved.
 
-	def _getDefaultArgs(self, project):
-		baseArgs = ClangLinker._getDefaultArgs(self, project)
+		:param project: project being set up
+		:type project: csbuild._build.project.Project
+		"""
+		GccAssembler.SetupForProject(self, project)
+		AndroidToolBase.SetupForProject(self, project)
 
-		# Get the special library build flag.
-		libraryBuildArg = {
-			csbuild.ProjectType.SharedLibrary: "-dynamiclib",
-		}.get(project.projectType, "")
+	def _getComplierName(self):
+		return self._androidInfo.gccPath
 
-		return baseArgs + [
-			libraryBuildArg
-		]
-
-	def _getLibraryArgs(self):
-		libArgs = [lib for lib in self._actualLibraryLocations.values()]
-		frameworkDirArgs = ["-F{}".format(path) for path in self._frameworkDirectories]
-		frameworkArgs = []
-		for framework in self._frameworks:
-			frameworkArgs.extend(["-framework", framework])
-
-		return frameworkDirArgs + frameworkArgs + libArgs
-
-	def _getStartGroupArgs(self):
+	def _getArchitectureArgs(self, project):
+		# The architecture is implied from the executable being run.
 		return []
-
-	def _getEndGroupArgs(self):
-		return []
-
-	def _useResponseFileWithArchiver(self):
-		return False

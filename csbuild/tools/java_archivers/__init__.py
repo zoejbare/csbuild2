@@ -19,24 +19,10 @@
 # SOFTWARE.
 
 """
-.. module:: clang_linker
-	:synopsis: Clang linker tool.
+.. package:: java_archivers
+	:synopsis: Built-in Java archivers.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
-
-from .gcc_linker import GccLinker
-
-class ClangLinker(GccLinker):
-	"""
-	Clang linker implementation
-	"""
-
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
-
-	def _getBinaryLinkerName(self):
-		return "clang"

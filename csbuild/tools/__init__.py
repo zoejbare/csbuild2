@@ -33,19 +33,31 @@ import platform
 from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
 
+from .assemblers.android_clang_assembler import AndroidClangAssembler
+from .assemblers.android_gcc_assembler import AndroidGccAssembler
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
 
+from .cpp_compilers.android_clang_cpp_compiler import AndroidClangCppCompiler
+from .cpp_compilers.android_gcc_cpp_compiler import AndroidGccCppCompiler
 from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
 
+from .java_archivers.oracle_java_archiver import OracleJavaArchiver
+
+from .java_compilers.oracle_java_compiler import OracleJavaCompiler
+
+from .linkers.android_clang_linker import AndroidClangLinker
+from .linkers.android_gcc_linker import AndroidGccLinker
 from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
+
+from ..toolchain import CompileChecker
 
 def InitTools():
 	"""
@@ -58,10 +70,13 @@ def InitTools():
 		"Darwin": (MacOsClangCppCompiler, MacOsClangLinker),
 	}.get(platform.system(), (ClangCppCompiler, ClangLinker))
 
+	# Register C/C++ toolchains.
 	for name, compiler, linker, assembler in [
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
 		( "clang", clangCompiler, clangLinker, ClangAssembler ),
-		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler )
+		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler ),
+		( "android-gcc", AndroidGccCppCompiler, AndroidGccLinker, AndroidGccAssembler ),
+		( "android-clang", AndroidClangCppCompiler, AndroidClangLinker, AndroidClangAssembler ),
 	]:
 		checkers = {}
 		cppChecker = CppCompileChecker(compiler)
@@ -75,4 +90,18 @@ def InitTools():
 
 		csbuild.RegisterToolchain(name, systemArchitecture, compiler, linker, assembler, checkers=checkers)
 
+	# Register Java toolchains.
+	for name, compiler, archiver in [
+		( "oracle-java", OracleJavaCompiler, OracleJavaArchiver ),
+	]:
+		checkers = {}
+		javaChecker = CompileChecker()
+
+		for inputExtension in compiler.inputFiles:
+			checkers[inputExtension] = javaChecker
+
+		csbuild.RegisterToolchain(name, systemArchitecture, compiler, archiver, checkers=checkers)
+
+	# Register toolchain groups.
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
+	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")

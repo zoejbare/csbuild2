@@ -1,4 +1,4 @@
-# Copyright (C) 2013 Jaedyn K. Draper
+# Copyright (C) 2016 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,24 +19,18 @@
 # SOFTWARE.
 
 """
-.. module:: clang_linker
-	:synopsis: Clang linker tool.
+.. module:: make
+	:synopsis: Makefile for this test
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from .gcc_linker import GccLinker
+import csbuild
 
-class ClangLinker(GccLinker):
-	"""
-	Clang linker implementation
-	"""
+csbuild.SetOutputDirectory("out")
 
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
-
-	def _getBinaryLinkerName(self):
-		return "clang"
+with csbuild.Project("hello_world", "hello_world"):
+	csbuild.SetJavaEntryPointClass("com.sleepingcat.HelloWorld")
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)

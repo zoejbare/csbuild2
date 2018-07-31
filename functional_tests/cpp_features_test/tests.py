@@ -57,13 +57,13 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--target=nosymbols_noopt_dynamic_release")
 
 		if platform.system() == "Windows":
-			self.assertIs(re.compile(R"^COMMAND: .* (/Z7 |/Zi |/ZI )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/Od )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/MD )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIs(re.compile(R"^.* (/Z7 |/Zi |/ZI )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/Od )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/MD )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
 		elif platform.system() == "Linux":
-			self.assertIs(re.compile(R"^COMMAND: .* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-O0 )", re.M).search(out), None)
+			self.assertIs(re.compile(R"^.* (-g )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-O0 )", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -76,14 +76,14 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--target=embeddedsymbols_sizeopt_static_release")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/Z7 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/O1 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/MT )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/DEXPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/Z7 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/O1 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/MT )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/DEXPLICIT_DEFINE )", re.M).search(out), None)
 		elif platform.system() == "Linux":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-Os )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-g )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-Os )", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -96,14 +96,14 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--target=externalsymbols_speedopt_dynamic_debug")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/Zi )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/O2 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/MDd )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/UIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/Zi )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/O2 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/MDd )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/UIMPLICIT_DEFINE )", re.M).search(out), None)
 		elif platform.system() == "Linux":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-Ofast )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-g )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-Ofast )", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -116,15 +116,15 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--target=externalplussymbols_maxopt_static_debug")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/ZI )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/Ox )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/MTd )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/DEXPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/UIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/ZI )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/Ox )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/MTd )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/DEXPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/UIMPLICIT_DEFINE )", re.M).search(out), None)
 		elif platform.system() == "Linux":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-O3 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-g )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-O3 )", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -137,10 +137,10 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, err = self.assertMakeSucceeds("--show-commands", "--target=custom_options")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/W4 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (/STACK:1048576 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/W4 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (/STACK:1048576 )", re.M).search(out), None)
 			self.assertIn("warning C4101: 'unused': unreferenced local variable", out)
 		elif platform.system() == "Linux":
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-Wunused-variable )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^COMMAND: .* (-shared-libgcc )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-Wunused-variable )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"^.* (-shared-libgcc )", re.M).search(out), None)
 			self.assertIsNot(re.compile(R"warning: unused variable .unused. \[-Wunused-variable\]").search(err), None)

@@ -41,7 +41,7 @@ class ClangAssembler(GccAssembler):
 	####################################################################################################################
 
 	def _getComplierName(self):
-		return "gcc"
+		return "clang"
 
 	def _getDefaultArgs(self, project):
 		args = []
