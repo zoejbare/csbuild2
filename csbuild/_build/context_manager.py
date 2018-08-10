@@ -58,6 +58,71 @@ class NestedContext(object):
 		ret._parentContext = self.ctx
 		return ret
 
+class MultiDataContext(object):
+	"""Contains multiple pieces of data returned from a function - typically a list of functions to call."""
+	def __init__(self, contexts):
+		object.__setattr__(self, "inself", True)
+		self._contexts = contexts
+		self._previousResolver = None
+		object.__setattr__(self, "inself", False)
+
+	@property
+	def contexts(self):
+		"""Get access to the contexts used for this manager"""
+		return self._contexts
+
+	def __enter__(self):
+		"""
+		Enter the context, making the listed contexts active
+		"""
+		object.__setattr__(self, "inself", True)
+
+		# pylint: disable=protected-access
+		self._previousResolver = csbuild._resolver
+		csbuild._resolver = self
+
+		object.__setattr__(self, "inself", False)
+
+	def __exit__(self, excType, excValue, traceback):
+		"""
+		Leave the context
+
+		:param excType: type of exception thrown in the context (ignored)
+		:type excType: type
+		:param excValue: value of thrown exception (ignored)
+		:type excValue: any
+		:param traceback: traceback attached to the thrown exception (ignored)
+		:type traceback: traceback
+		:return: Always false
+		:rtype: bool
+		"""
+		# pylint: disable=protected-access
+		csbuild._resolver = self._previousResolver
+		return False
+
+	def __getattribute__(self, name):
+		if object.__getattribute__(self, "inself"):
+			return object.__getattribute__(self, name)
+
+		contexts = object.__getattribute__(self, "_contexts")
+
+		funcs = []
+		for context in contexts:
+			if hasattr(context, name):
+				funcs.append(getattr(context, name))
+
+		if funcs:
+			def _wrapDataMethods(*args, **kwargs):
+				rets = []
+				with self:
+					for func in funcs:
+						rets.append(func(*args, **kwargs))
+				return MultiDataContext(rets)
+
+			return _wrapDataMethods
+
+		return object.__getattribute__(self, name)
+
 class ContextManager(object):
 	"""
 	Base type for a context manager, used to set context for project plan settings
@@ -75,6 +140,7 @@ class ContextManager(object):
 		self._methodResolvers = methodResolvers
 		self._previousResolver = None
 		self._parentContext = None
+		self._inContext = False
 		object.__setattr__(self, "inself", False)
 
 	@property
@@ -104,6 +170,8 @@ class ContextManager(object):
 			self._previousResolver = csbuild._resolver
 			csbuild._resolver = self
 
+		self._inContext = True
+
 		object.__setattr__(self, "inself", False)
 
 	def __exit__(self, excType, excValue, traceback):
@@ -132,12 +200,18 @@ class ContextManager(object):
 		if self._parentContext is not None:
 			object.__getattribute__(self._parentContext, "__exit__")(excType, excValue, traceback)
 
+		self._inContext = False
+
 		object.__setattr__(self, "inself", False)
 		return False
 
 	def __getattribute__(self, name):
 		if object.__getattribute__(self, "inself"):
 			return object.__getattribute__(self, name)
+
+		if object.__getattribute__(self, '_inContext') is False:
+			with self:
+				return getattr(self, name)
 
 		if ContextManager.methodResolvers:
 			funcs = set()
@@ -149,9 +223,14 @@ class ContextManager(object):
 
 			if funcs:
 				def _wrapResolverMethods(*args, **kwargs):
-					with self:
-						for func in funcs:
-							func(*args, **kwargs)
+					rets = []
+					for func in funcs:
+						rets.append(func(*args, **kwargs))
+					if len(rets) == 1:
+						return rets[0]
+					elif len(rets) > 1:
+						return MultiDataContext(rets)
+					return None
 
 				return _wrapResolverMethods
 

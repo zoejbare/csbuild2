@@ -111,12 +111,17 @@ with perf_timer.PerfTimer("csbuild module init"):
 			return funcs.pop()[2]
 
 		def _runFuncs(*args, **kwargs):
+			rets = []
 			for tempToolchain, tool, func in funcs:
 				if tool is None:
-					func(*args, **kwargs)
+					rets.append(func(*args, **kwargs))
 				else:
 					with tempToolchain.Use(tool):
-						func.__get__(tool)(*args, **kwargs)
+						rets.append(func.__get__(tool)(*args, **kwargs))
+			if len(rets) == 1:
+				return rets[0]
+			elif len(rets) > 1:
+				return MultiDataContext(rets)
 
 		return _runFuncs
 
@@ -164,7 +169,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	sys.modules["csbuild"] = Csbuild()
 
 	# pylint: disable=wrong-import-position
-	from ._build.context_manager import ContextManager
+	from ._build.context_manager import ContextManager, MultiDataContext
 	from ._build import project_plan, project, input_file
 
 	from . import _build, log
@@ -207,15 +212,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		LinkLibs = 0
 		LinkIntermediateObjects = 1
 
-	class RunMode( object ):
-		"""
-		'enum' representing the way csbuild has been invoked
-		"""
-		Normal = 0
-		Help = 1
-		Version = 2
-		GenerateSolution = 3
-		QUALAP = 4
+	RunMode = shared_globals.RunMode
 
 	class BuildFailureException(Exception):
 		"""
@@ -338,6 +335,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 			names.add(tool.__name__)
 		shared_globals.allToolchains.add(name)
 
+		if shared_globals.runMode == RunMode.GenerateSolution:
+			tools = list(tools)
+			tools.extend(list(shared_globals.allGeneratorTools))
+
 		currentPlan.EnterContext(("toolchain", (name,)))
 
 		checkers = kwargs.get("checkers", {})
@@ -352,6 +353,27 @@ with perf_timer.PerfTimer("csbuild module init"):
 		for tool in tools:
 			if tool.supportedArchitectures is not None:
 				shared_globals.allArchitectures.update(tool.supportedArchitectures)
+
+	@TypeChecked(name=String, projectTools=list, solutionTool=(_classType, _typeType))
+	def RegisterProjectGenerator(name, projectTools, solutionTool):
+		"""
+		Register a new toolchain to be used by the project for building
+
+		:param name: The name of the toolchain, which will be used to reference it
+		:type name: str, bytes
+		:param projectTools: List of tools to be used to make individual project files
+		:type projectTools: list[class]
+		:param solutionTool: tool to generate the final solution file
+		:type solutionTool: class
+		"""
+
+		for tool in projectTools:
+			shared_globals.allGeneratorTools.add(tool)
+		shared_globals.allGenerators[name] = shared_globals.GeneratorData(projectTools, solutionTool)
+
+		if shared_globals.runMode == RunMode.GenerateSolution:
+			for tool in projectTools:
+				sys.modules["csbuild"].Toolchain(*shared_globals.allToolchains).AddTool(tool)
 
 	@TypeChecked(name=String)
 	def RegisterToolchainGroup(name, *toolchains):
@@ -721,6 +743,15 @@ with perf_timer.PerfTimer("csbuild module init"):
 			global currentPlan
 			currentPlan = self._prevPlan
 			return False
+
+	def OnBuildFinished(func):
+		"""
+		Decorator that registers an OnBuildFinished event hook.
+		:param func: function that accepts a single parameter with type list[csbuild._build.project.Project],
+			containing all projects built in this run
+		:type func: Callable
+		"""
+		shared_globals.buildFinishedHooks.add(func)
 
 	def Run():
 		"""

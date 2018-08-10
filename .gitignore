@@ -4,6 +4,7 @@
 *.artifacts
 **/.idea
 .csbuild
+/__pycache__/
 
 # Specific files
 failedLints.txt

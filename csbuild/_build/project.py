@@ -104,6 +104,13 @@ class Project(object):
 			self.tools = projectSettings["tools"]
 			self.checkers = projectSettings.get("checkers", {})
 
+			if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+				tools = []
+				for tool in self.tools:
+					if tool in shared_globals.allGeneratorTools:
+						tools.append(tool)
+				self.tools = tools
+
 			self.toolchain = Toolchain(projectSettings, *self.tools, checkers=self.checkers)
 
 			self.userData = UserData(projectSettings.get("_userData", {}))
@@ -165,19 +172,24 @@ class Project(object):
 					)
 				)
 			)
-			#: type: str
-			self.outputDir = os.path.join(
-				self.scriptDir,
-				projectSettings.get(
-					"outputDir",
-					os.path.join(
-						"out",
-						self.toolchainName,
-						self.architectureName,
-						self.targetName,
+			if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+				#: type: str
+				self.outputDir = shared_globals.solutionPath
+			else:
+				#: type: str
+				self.outputDir = os.path.join(
+					self.scriptDir,
+					projectSettings.get(
+						"outputDir",
+						os.path.join(
+							"out",
+							self.toolchainName,
+							self.architectureName,
+							self.targetName,
+						)
 					)
 				)
-			)
+
 			#: type: str
 			self.csbuildDir = os.path.join(self.scriptDir, ".csbuild")
 
@@ -258,11 +270,16 @@ class Project(object):
 		:param artifact: absolute path to the file
 		:type artifact: str
 		"""
+		if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+			if artifact not in self.artifacts.get(inputs, {}):
+				self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
+			return
+
 		if inputs is not None:
 			if isinstance(inputs, input_file.InputFile):
 				inputs = [inputs]
 			inputs = tuple(sorted(i.filename for i in inputs))
-		if artifact not in self.artifacts:
+		if artifact not in self.artifacts.get(inputs, {}):
 			self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
 			shared_globals.settings.Save(repr(self)+".artifacts", self.artifacts)
 
