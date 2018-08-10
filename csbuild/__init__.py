@@ -122,8 +122,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				return rets[0]
 			elif len(rets) > 1:
 				return MultiDataContext(rets)
-			else:
-				return None
+			return None
 
 		return _runFuncs
 
