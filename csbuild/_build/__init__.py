@@ -434,7 +434,6 @@ def _build(numThreads, projectBuildList):
 
 		for buildProject in projectBuildList:
 			for tool in buildProject.toolchain.GetAllTools():
-				log.Warn("{}: {} {}", tool, tool.crossProjectDependencies, tool.crossProjectInputGroups)
 				if tool.crossProjectDependencies or tool.crossProjectInputGroups:
 					projectsWithCrossProjectDeps.append(buildProject)
 					break
@@ -849,10 +848,6 @@ def Run():
 
 		if args.generate_solution:
 			shared_globals.runMode = csbuild.RunMode.GenerateSolution
-
-		_execfile(mainFile, makefileDict, makefileDict)
-
-		if args.generate_solution:
 			if args.solution_path:
 				shared_globals.solutionPath = args.solutionPath
 			else:
@@ -860,16 +855,28 @@ def Run():
 
 			shared_globals.solutionPath = os.path.abspath(shared_globals.solutionPath)
 
-			with csbuild.Project("<Solution Generation>", ".", [proj.name for proj in shared_globals.sortedProjects], autoDiscoverSourceFiles=False):
-				csbuild.SetOutputDirectory(shared_globals.solutionPath)
+			if args.solution_name:
+				solutionName = args.solution_name
+			else:
+				solutionName = "csbuild"
 
-				if args.solution_name:
-					csbuild.SetOutput(args.solution_name)
-				else:
-					csbuild.SetOutput("csbuild")
+			@csbuild.OnBuildFinished
+			def onBuildFinished(projectList):
+				"""
 
-				csbuild.Toolchain(*shared_globals.allToolchains).AddTool(shared_globals.allGenerators[args.generate_solution].solutionTool)
-			shared_globals.allGeneratorTools.add(shared_globals.allGenerators[args.generate_solution].solutionTool)
+				:type projectList: list[project.Project]
+				:return:
+				"""
+				inputs = {}
+				solutionTool = shared_globals.allGenerators[args.generate_solution].solutionTool
+				for project in projectList:
+					for ext in solutionTool.projectExtensions:
+						inputs.setdefault(project.toolchainName, {}).setdefault(project.architectureName, {}).setdefault(project.targetName, set()).update(project.inputFiles.get(ext, []))
+				if not os.access(shared_globals.solutionPath, os.F_OK):
+					os.makedirs(shared_globals.solutionPath)
+				solutionTool.GenerateSolution(shared_globals.solutionPath, solutionName, inputs)
+
+		_execfile(mainFile, makefileDict, makefileDict)
 
 		if args.at:
 			targetList = list(shared_globals.allTargets)
@@ -1025,6 +1032,10 @@ def Run():
 		shared_globals.commandOutputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		shared_globals.commandOutputThread.start()
 		failures = _build(args.jobs, projectBuildList)
+
+		log.Build("Executing build completion hooks on")
+		for hook in shared_globals.buildFinishedHooks:
+			hook(projectBuildList)
 
 	with perf_timer.PerfTimer("Waiting on logging to shut down"):
 		log.StopLogThread()

@@ -100,6 +100,8 @@ startTime = 0
 totalBuilds = 0
 completedBuilds = 0
 
+buildFinishedHooks = set()
+
 class InMemoryOnlySettings(object):
 	"""Mockup class for settings_manager.SettingsManager"""
 	def __init__(self):

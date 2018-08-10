@@ -165,6 +165,9 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 		outputThread.join()
 		errorThread.join()
 
+		proc.stdout.close()
+		proc.stderr.close()
+
 		if shared.queue is not None:
 			shared.queue.Put(stopEvent)
 

@@ -705,6 +705,9 @@ with perf_timer.PerfTimer("csbuild module init"):
 			currentPlan = self._prevPlan
 			return False
 
+	def OnBuildFinished(func):
+		shared_globals.buildFinishedHooks.add(func)
+
 	def Run():
 		"""
 		Run a build. This is called automatically if the environment variable CSBUILD_NO_AUTO_RUN is not equal to 1.

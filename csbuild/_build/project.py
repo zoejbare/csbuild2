@@ -271,13 +271,15 @@ class Project(object):
 		:type artifact: str
 		"""
 		if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+			if artifact not in self.artifacts.get(inputs, {}):
+				self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
 			return
 
 		if inputs is not None:
 			if isinstance(inputs, input_file.InputFile):
 				inputs = [inputs]
 			inputs = tuple(sorted(i.filename for i in inputs))
-		if artifact not in self.artifacts:
+		if artifact not in self.artifacts.get(inputs, {}):
 			self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
 			shared_globals.settings.Save(repr(self)+".artifacts", self.artifacts)
 

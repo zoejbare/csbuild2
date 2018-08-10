@@ -44,18 +44,25 @@ class SolutionGenerationTest(FunctionalTest):
 	# pylint: disable=invalid-name
 	def testSolutionGenerationWorks(self):
 		"""Basic solution generation test"""
-		self.assertMakeSucceeds("-v", "--generate-solution", "DummyGenerator")
-		self.assertFileContents("./Solutions/DummyGenerator/csbuild.sln", os.path.abspath("./Solutions/DummyGenerator/Foo.proj"))
+		self.assertMakeSucceeds("-v", "--generate-solution", "DummyGenerator", "--all-targets")
 
-		self.assertFileExists("./Solutions/DummyGenerator/Foo.proj")
-		with open("./Solutions/DummyGenerator/Foo.proj") as f:
-			contents = f.read().splitlines()
-		for i in range(1, 11):
-			self.assertIn(os.path.abspath("./firsts/{}.first".format(i)), contents)
+		targets = ["debug", "fastdebug", "release"]
 
-		self.assertFileDoesNotExist("./out/Foo.third")
-		for i in range(1, 11):
-			self.assertFileDoesNotExist("./intermediate/{}.second".format(i))
+		expectedContents = "\n".join([os.path.abspath("./Solutions/DummyGenerator/Foo_{}.proj".format(target)) for target in targets])
+
+		self.assertFileContents("./Solutions/DummyGenerator/csbuild.sln", expectedContents)
+
+		for target in targets:
+			projectFile = "./Solutions/DummyGenerator/Foo_{}.proj".format(target)
+			self.assertFileExists(projectFile)
+			with open(projectFile) as f:
+				contents = f.read().splitlines()
+			for i in range(1, 11):
+				self.assertIn(os.path.abspath("./firsts/{}.first".format(i)), contents)
+
+			self.assertFileDoesNotExist("./out/Foo.third")
+			for i in range(1, 11):
+				self.assertFileDoesNotExist("./intermediate/{}.second".format(i))
 
 	def testCleanDoesntRemoveSolutionDir(self):
 		"""Tests that cleaning doesn't delete solution files"""
@@ -63,10 +70,10 @@ class SolutionGenerationTest(FunctionalTest):
 		self.assertMakeSucceeds("-v", "--clean")
 		self.assertMakeSucceeds("-v", "--generate-solution", "DummyGenerator", "--clean")
 
-		self.assertFileContents("./Solutions/DummyGenerator/csbuild.sln", os.path.abspath("./Solutions/DummyGenerator/Foo.proj"))
+		self.assertFileContents("./Solutions/DummyGenerator/csbuild.sln", os.path.abspath("./Solutions/DummyGenerator/Foo_release.proj"))
 
-		self.assertFileExists("./Solutions/DummyGenerator/Foo.proj")
-		with open("./Solutions/DummyGenerator/Foo.proj") as f:
+		self.assertFileExists("./Solutions/DummyGenerator/Foo_release.proj")
+		with open("./Solutions/DummyGenerator/Foo_release.proj") as f:
 			contents = f.read().splitlines()
 		for i in range(1, 11):
 			self.assertIn(os.path.abspath("./firsts/{}.first".format(i)), contents)
