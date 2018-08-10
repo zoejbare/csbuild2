@@ -111,8 +111,6 @@ with perf_timer.PerfTimer("csbuild module init"):
 			return funcs.pop()[2]
 
 		def _runFuncs(*args, **kwargs):
-			# pylint: disable=inconsistent-return-statements
-			# wtf pylint? They all return expressions!
 			rets = []
 			for tempToolchain, tool, func in funcs:
 				if tool is None:
@@ -124,6 +122,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 				return rets[0]
 			elif len(rets) > 1:
 				return MultiDataContext(rets)
+			else
+				return None
 
 		return _runFuncs
 
