@@ -69,7 +69,7 @@ def PathHook(_):
 		pass
 	else:
 		edit_done = True
-		if argv[0].endswith('_jb_unittest_runner.py'):
+		if argv[0].endswith('_jb_unittest_runner.py') or argv[0].endswith("pydevd.py"):
 			import signal
 			import time
 
@@ -98,6 +98,75 @@ def PathHook(_):
 
 			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 			shared_globals.showCommands = True
-	raise ImportError # let the real import machinery do its work
+	raise ImportError  # let the real import machinery do its work
+
 
 sys.path_hooks[:0] = [PathHook]
+
+def EnableResourceWarningStackTraces():
+	"""
+	Calling this function patches the open() function to collect tracebacks, which will get printed
+	if a ResourceWarning is thrown.
+	"""
+	from io import FileIO as _FileIO
+	import _pyio
+	import builtins # pylint: disable=import-error
+	import linecache
+	import traceback
+	import tracemalloc # pylint: disable=import-error
+	import warnings
+
+	def WarnUnclosed(obj, delta=1):
+		"""Warns when unclosed files are detected"""
+		delta += 1
+		trace = tracemalloc.get_object_traceback(obj)
+		if trace is None:
+			return
+		try:
+			warnings.warn("unclosed %r" % obj, ResourceWarning, delta + 1) # pylint: disable=undefined-variable
+			print("Allocation traceback (most recent first):")
+			for frame in trace:
+				print("  File %r, line %s" % (frame.filename, frame.lineno))
+				line = linecache.getline(frame.filename, frame.lineno)
+				line = line.strip()
+				if line:
+					print("    %s" % line)
+
+			frame = sys._getframe(delta) # pylint: disable=protected-access
+			trace = traceback.format_stack(frame)
+			print("Destroy traceback (most recent last):")
+			for line in trace:
+				sys.stdout.write(line)
+			sys.stdout.flush()
+		finally:
+			obj.close()
+
+
+	class MyFileIO(_FileIO):
+		"""Override for fileio that detects file leaks"""
+		def __init__(self, *args, **kw):
+			_FileIO.__init__(self, *args, **kw)
+			trace = tracemalloc.get_object_traceback(self)
+			if trace is None:
+				raise RuntimeError("tracemalloc is disabled")
+
+		def __del__(self):
+			if not self.closed:
+				WarnUnclosed(self)
+			if hasattr(_FileIO, '__del__'):
+				_FileIO.__del__(self)
+
+
+	def PatchOpen():
+		"""patch the open function to detect file leaks"""
+		# Already patched
+		if _pyio.FileIO is MyFileIO:
+			return
+
+		# _io.open() uses an hardcoded reference to _io.FileIO
+		# use _pyio.open() which lookup for FilIO in _pyio namespace
+		_pyio.FileIO = MyFileIO
+		builtins.open = _pyio.open
+
+	tracemalloc.start(25)
+	PatchOpen()
