@@ -851,6 +851,10 @@ def Run():
 			pass
 
 		if args.generate_solution:
+			if args.generate_solution not in shared_globals.allGenerators:
+				log.Error("No such solution generator: {}", args.generate_solution)
+				system.Exit(1)
+
 			shared_globals.runMode = csbuild.RunMode.GenerateSolution
 			if args.solution_path:
 				shared_globals.solutionPath = args.solutionPath
