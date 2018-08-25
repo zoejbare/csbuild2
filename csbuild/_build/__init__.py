@@ -128,7 +128,7 @@ def _getGroupInputFiles(buildProject, tool):
 		fileList = ordered_set.OrderedSet()
 		if tool.crossProjectInputGroups:
 			for inputFile in tool.crossProjectInputGroups:
-				log.Info("Checking if all cross-porject builds for {} are done yet", inputFile)
+				log.Info("Checking if all cross-project builds for {} are done yet", inputFile)
 				if buildProject.toolchain.IsOutputActive(inputFile):
 					log.Info("Extension {} is still active, can't build yet.", inputFile)
 					return None

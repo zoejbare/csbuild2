@@ -68,7 +68,7 @@ class Tool(object):
 	#: List of file extensions to be passed to Run as a group input, collected from all dependent projects.
 	#  RunGroup() will be called only once all tools in all dependent projects that output this type have finished running
 	#  and will be called only once on the entire group.
-	#  Example: In project generation, the result of all .proj files might be passed to a .sln file.
+	#  Example: An packaging tool might take inputs of type {".so"} from dependencies and add them to the package.
 	#  An empty string indicates a file with no extension
 	# **Note: A tool may set EITHER inputGroups OR crossProjectInputGroups, but not both.
 	# If both are set, crossProjectInputGroups takes precedence**
