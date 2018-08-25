@@ -870,15 +870,10 @@ def Run():
 				:param projectList: list of projects
 				:type projectList: list[project.Project]
 				"""
-				inputs = {}
 				solutionTool = shared_globals.allGenerators[args.generate_solution].solutionTool
-				for inputProect in projectList:
-					for ext in solutionTool.projectExtensions:
-						inputs.setdefault(inputProect.toolchainName, {}).setdefault(inputProect.architectureName, {}).\
-							setdefault(inputProect.targetName, set()).update(inputProect.inputFiles.get(ext, []))
 				if not os.access(shared_globals.solutionPath, os.F_OK):
 					os.makedirs(shared_globals.solutionPath)
-				solutionTool.GenerateSolution(shared_globals.solutionPath, solutionName, inputs)
+				solutionTool.GenerateSolution(shared_globals.solutionPath, solutionName, projectList)
 
 		_execfile(mainFile, makefileDict, makefileDict)
 

@@ -207,7 +207,7 @@ class Project(object):
 			if not os.access(self.outputDir, os.F_OK):
 				os.makedirs(self.outputDir)
 
-			#: type: dict[str, ordered_set.OrderedSet]
+			#: type: dict[str, set[csbuild._build.input_file.InputFile]]
 			self.inputFiles = {}
 
 			self.RediscoverFiles()

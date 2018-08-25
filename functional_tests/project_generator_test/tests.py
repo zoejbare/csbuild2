@@ -48,9 +48,13 @@ class SolutionGenerationTest(FunctionalTest):
 
 		targets = ["debug", "fastdebug", "release"]
 
-		expectedContents = "\n".join([os.path.abspath("./Solutions/DummyGenerator/Foo_{}.proj".format(target)) for target in targets])
+		self.assertFileExists("./Solutions/DummyGenerator/csbuild.sln")
+		with open("./Solutions/DummyGenerator/csbuild.sln") as f:
+			contents = f.read()
 
-		self.assertFileContents("./Solutions/DummyGenerator/csbuild.sln", expectedContents)
+		for target in targets:
+			expectedContents = os.path.abspath("./Solutions/DummyGenerator/Foo_{}.proj".format(target))
+			self.assertIn(expectedContents, contents)
 
 		for target in targets:
 			projectFile = "./Solutions/DummyGenerator/Foo_{}.proj".format(target)
