@@ -605,6 +605,7 @@ def Run():
 	"""
 	Run the build! This is the main entry point for csbuild.
 	"""
+	shared_globals.startTime = time.time()
 	with perf_timer.PerfTimer("Argument Parsing"):
 		mainFileDir = ""
 		mainFile = sys.modules['__main__'].__file__
@@ -851,9 +852,6 @@ def Run():
 			pass
 
 		if args.generate_solution:
-			if args.generate_solution not in shared_globals.allGenerators:
-				log.Error("No such solution generator: {}", args.generate_solution)
-				system.Exit(1)
 
 			shared_globals.runMode = csbuild.RunMode.GenerateSolution
 			if args.solution_path:
@@ -880,6 +878,11 @@ def Run():
 				solutionTool.GenerateSolution(shared_globals.solutionPath, solutionName, projectList)
 
 		_execfile(mainFile, makefileDict, makefileDict)
+
+		if args.generate_solution:
+			if args.generate_solution not in shared_globals.allGenerators:
+				log.Error("No such solution generator: {}", args.generate_solution)
+				system.Exit(1)
 
 		if args.at:
 			targetList = list(shared_globals.allTargets)
