@@ -222,7 +222,7 @@ class FunctionalTest(TestCase):
 		log.SetCallbackQueue(callbackQueue)
 
 		class _shared(object):
-			ret = None
+			ret = None, None, None # type: tuple[int, str, str]
 
 		def _runCommand():
 			cmd = [sys.executable, os.path.abspath("make.py")]
