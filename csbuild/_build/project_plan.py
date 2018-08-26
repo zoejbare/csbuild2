@@ -337,7 +337,8 @@ class ProjectPlan(object):
 				"all"
 			)
 
-			for depend in flattenedDepends: # pylint: disable=protected-access
+			for depend in flattenedDepends:
+				# pylint: disable=protected-access
 				dependObj = allPlans[depend] # type: ProjectPlan
 
 				if projectType == ProjectType.Application:

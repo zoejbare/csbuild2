@@ -86,7 +86,6 @@ disable=
 	too-many-lines,
 	too-many-nested-blocks,
 	too-many-ancestors,
-	try-except-raise,
 	ungrouped-imports,
 	unsubscriptable-object,
 	unsupported-assignment-operation,

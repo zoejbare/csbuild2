@@ -184,10 +184,6 @@ class GccLinker(LinkerBase):
 				assert len(matches) == len(shortLibs) + len(longLibs)
 				assert len(matches) + len(ret) == len(libs)
 
-			except:
-				# Unexpected errors are re-raised.
-				raise
-
 			for i, lib in enumerate(shortLibs):
 				ret[lib] = matches[i]
 			for i, lib in enumerate(longLibs):
