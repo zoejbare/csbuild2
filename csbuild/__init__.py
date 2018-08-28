@@ -563,7 +563,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		def __init__(self, *scopeTypes):
 			for scopeType in scopeTypes:
-				assert scopeType in (Csbuild.ScopeDef.Intermediate, Csbuild.ScopeDef.Final), "Invalid scope type"
+				# pylint: disable=consider-using-in
+				assert scopeType == Csbuild.ScopeDef.Intermediate or scopeType == Csbuild.ScopeDef.Final, "Invalid scope type"
 			ContextManager.__init__(self, (("scope", scopeTypes),))
 
 	class Toolchain(ContextManager):
