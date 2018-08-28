@@ -66,6 +66,7 @@ disable=
 	bare-except,
 	broad-except,
 	consider-using-get,
+	consider-using-in,
 	global-statement,
 	line-too-long,
 	locally-disabled,
