@@ -339,8 +339,7 @@ class ProjectPlan(object):
 
 			for depend in flattenedDepends:
 				# pylint: disable=protected-access
-				dependObj = allPlans[depend]
-				# type: ProjectPlan
+				dependObj = allPlans[depend] # type: ProjectPlan
 
 				if projectType == ProjectType.Application:
 					settings["libraries"] = ordered_set.OrderedSet(settings.get("libraries")) | ordered_set.OrderedSet(
