@@ -50,6 +50,8 @@ class GeneratorData(object):
 allGenerators = {}
 allGeneratorTools = set()
 
+solutionGeneratorType = ""
+
 runPerfReport = None
 
 toolchainGroups = {}

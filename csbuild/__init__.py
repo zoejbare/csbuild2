@@ -370,7 +370,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		for tool in projectTools:
 			shared_globals.allGeneratorTools.add(tool)
-		shared_globals.allGenerators[name] = shared_globals.GeneratorData(projectTools, solutionTool)
+		shared_globals.allGenerators[name] = shared_globals.GeneratorData(set(projectTools), solutionTool)
 
 		if shared_globals.runMode == RunMode.GenerateSolution:
 			for tool in projectTools:

@@ -106,8 +106,9 @@ class Project(object):
 
 			if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
 				tools = []
+				generatorTools = shared_globals.allGenerators[shared_globals.solutionGeneratorType].projectTools
 				for tool in self.tools:
-					if tool in shared_globals.allGeneratorTools:
+					if tool in generatorTools:
 						tools.append(tool)
 				self.tools = tools
 

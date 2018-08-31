@@ -854,6 +854,8 @@ def Run():
 		if args.generate_solution:
 
 			shared_globals.runMode = csbuild.RunMode.GenerateSolution
+			shared_globals.solutionGeneratorType = args.generate_solution
+
 			if args.solution_path:
 				shared_globals.solutionPath = args.solutionPath
 			else:
@@ -876,6 +878,9 @@ def Run():
 				if not os.access(shared_globals.solutionPath, os.F_OK):
 					os.makedirs(shared_globals.solutionPath)
 				solutionTool.GenerateSolution(shared_globals.solutionPath, solutionName, projectList)
+
+			for tool in shared_globals.allGeneratorTools:
+				csbuild.Toolchain(*shared_globals.allToolchains).AddTool(tool)
 
 		_execfile(mainFile, makefileDict, makefileDict)
 
