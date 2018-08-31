@@ -32,7 +32,12 @@ import csbuild
 
 from abc import ABCMeta, abstractmethod
 
-from ..common.tool_traits import HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasStaticRuntime
+from ..common.tool_traits import \
+	HasDebugLevel, \
+	HasDebugRuntime, \
+	HasIncludeDirectories, \
+	HasOptimizationLevel, \
+	HasStaticRuntime
 
 from ... import commands, log
 from ..._utils import ordered_set
@@ -42,7 +47,7 @@ def _ignore(_):
 	pass
 
 @MetaClass(ABCMeta)
-class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasStaticRuntime):
+class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasIncludeDirectories, HasOptimizationLevel, HasStaticRuntime):
 	"""
 	Base class for C++ compilers
 
@@ -57,7 +62,6 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	################################################################################
 
 	def __init__(self, projectSettings):
-		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
 		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
 		self._undefines = projectSettings.get("undefines", ordered_set.OrderedSet())
 		self._cFlags = projectSettings.get("cFlags", [])
@@ -65,6 +69,7 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 
 		HasDebugLevel.__init__(self, projectSettings)
 		HasDebugRuntime.__init__(self, projectSettings)
+		HasIncludeDirectories.__init__(self, projectSettings)
 		HasOptimizationLevel.__init__(self, projectSettings)
 		HasStaticRuntime.__init__(self, projectSettings)
 
@@ -72,16 +77,6 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	################################################################################
 	### Static makefile methods
 	################################################################################
-
-	@staticmethod
-	def AddIncludeDirectories(*dirs):
-		"""
-		Add directories to search for headers in
-
-		:param dirs: list of directories
-		:type dirs: str
-		"""
-		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
 
 	@staticmethod
 	def AddDefines(*defines):
@@ -122,20 +117,6 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 		:type flags: str
 		"""
 		csbuild.currentPlan.ExtendList("cxxFlags", flags)
-
-
-	################################################################################
-	### Public API
-	################################################################################
-
-	def GetIncludeDirectories(self):
-		"""
-		Get the list of include directories
-
-		:return: include dirs
-		:rtype: ordered_set.OrderedSet[str]
-		"""
-		return self._includeDirectories
 
 
 	################################################################################

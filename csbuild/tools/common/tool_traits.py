@@ -28,8 +28,10 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
+import os
 
 from ...toolchain import Tool
+from ..._utils import ordered_set
 
 class HasDebugLevel(Tool):
 	"""
@@ -135,3 +137,34 @@ class HasDebugRuntime(Tool):
 		:type debugRuntime: bool
 		"""
 		csbuild.currentPlan.SetValue("debugRuntime", debugRuntime)
+
+
+class HasIncludeDirectories(Tool):
+	"""
+	Helper class to add C++ include directories.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
+
+	@staticmethod
+	def AddIncludeDirectories(*dirs):
+		"""
+		Add directories to search for headers in.
+
+		:param dirs: list of directories
+		:type dirs: str
+		"""
+		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
+
+	def GetIncludeDirectories(self):
+		"""
+		Get the list of include directories.
+
+		:return: include dirs
+		:rtype: ordered_set.OrderedSet[str]
+		"""
+		return self._includeDirectories
