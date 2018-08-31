@@ -28,6 +28,7 @@
 from __future__ import unicode_literals, division, print_function
 
 from csbuild import log
+from csbuild._utils.ordered_set import OrderedSet
 
 
 # Dictionary of MSVC version numbers to tuples of items needed for the file format.
@@ -39,4 +40,8 @@ FILE_FORMAT_VERSION_INFO = {
 	110: ("2012", "12.00", "2012"),
 	120: ("2013", "12.00", "2013"),
 	140: ("2015", "12.00", "14"),
+	141: ("2017", "12.00", "15"),
 }
+
+# Set of file extensions to use when determining whether or not a file should be considered a header/include file.
+HEADER_FILE_EXTENSIONS = { ".h", ".hh", ".hpp", ".hxx", ".inl", ".inc", ".def" }

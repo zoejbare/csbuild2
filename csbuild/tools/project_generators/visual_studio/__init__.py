@@ -31,6 +31,8 @@ import os
 
 from csbuild import log
 
+from .internal import HEADER_FILE_EXTENSIONS
+
 from ...assemblers.gcc_assembler import GccAssembler
 from ...assemblers.msvc_assembler import MsvcAssembler
 
@@ -50,39 +52,37 @@ class VsProjectGenerator(HasIncludeDirectories):
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
 	"""
-	inputGroups = GccAssembler.inputFiles \
+	inputGroups = HEADER_FILE_EXTENSIONS \
+		| GccAssembler.inputFiles \
 		| MsvcAssembler.inputFiles \
 		| CppCompilerBase.inputFiles \
 		| JavaCompilerBase.inputGroups
 
-	outputFiles = { ".dummy" }
+	outputFiles = { ".proj" }
 
 	def __init__(self, projectSettings):
 		HasIncludeDirectories.__init__(self, projectSettings)
 
-		self.sourceFiles = []
-		self.headerFiles = []
+		self._sourceFiles = []
+		self._groupSegments = []
 
 	def SetupForProject(self, project):
 		# No setup necessary.
 		pass
 
 	def RunGroup(self, inputProject, inputFiles):
-		validHeaderExts = [".h", ".hh", ".hpp", ".hxx"]
+		self._sourceFiles = [x.filename for x in inputFiles]
+		# TODO: One project groups are implemented, parse it for the current project and store the results in self._groupSegments.
 
-		for includePath in self._includeDirectories:
-			for rootPath, _, files in os.walk(includePath):
-				for filename in files:
-					# Only consider files with valid header extensions.
-					if os.path.splitext(filename) in validHeaderExts:
-						foundFile = os.path.abspath(os.path.join(rootPath, filename))
-						self.headerFiles.append(foundFile)
+		return "{}.proj".format(inputProject.outputName)
 
-		self.sourceFiles = sorted([x.filename for x in inputFiles])
-		self.headerFiles = sorted(self.headerFiles)
+	@property
+	def sourceFiles(self):
+		return self._sourceFiles
 
-		log.Info("Found source files:\n{}".format("\n".join(self.sourceFiles)))
-		log.Info("Found header files:\n{}".format("\n".join(self.headerFiles)))
+	@property
+	def groupSegments(self):
+		return self._groupSegments
 
 
 class VsSolutionGenerator2010(SolutionGenerator):
