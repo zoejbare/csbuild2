@@ -57,6 +57,14 @@ from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
 
+from .project_generators.visual_studio import \
+	VsProjectGenerator, \
+	VsSolutionGenerator2010, \
+	VsSolutionGenerator2012, \
+	VsSolutionGenerator2013, \
+	VsSolutionGenerator2015, \
+	VsSolutionGenerator2017
+
 from ..toolchain import CompileChecker
 
 def InitTools():
@@ -105,3 +113,10 @@ def InitTools():
 	# Register toolchain groups.
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
 	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")
+
+	# Register default project generators.
+	csbuild.RegisterProjectGenerator("visual-studio-2010", [VsProjectGenerator], VsSolutionGenerator2010)
+	csbuild.RegisterProjectGenerator("visual-studio-2012", [VsProjectGenerator], VsSolutionGenerator2012)
+	csbuild.RegisterProjectGenerator("visual-studio-2013", [VsProjectGenerator], VsSolutionGenerator2013)
+	csbuild.RegisterProjectGenerator("visual-studio-2015", [VsProjectGenerator], VsSolutionGenerator2015)
+	csbuild.RegisterProjectGenerator("visual-studio-2017", [VsProjectGenerator], VsSolutionGenerator2017)

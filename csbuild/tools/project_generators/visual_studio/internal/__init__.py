@@ -19,42 +19,24 @@
 # SOFTWARE.
 
 """
-.. module:: common
-	:synopsis: Common tool implementations for the Visual Studio project generators.
+.. package:: internal
+	:synopsis: Internal functionality for the Visual Studio solution generator.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-from ...assemblers.gcc_assembler import GccAssembler
-from ...assemblers.msvc_assembler import MsvcAssembler
+from csbuild import log
 
-from ...cpp_compilers.cpp_compiler_base import CppCompilerBase
 
-from ...java_compilers.java_compiler_base import JavaCompilerBase
-
-from ....toolchain import Tool
-
-class CommonVisualStudioProjectGenerator(Tool):
-	"""
-	Common Visual Studio project generator
-
-	:param projectSettings: A read-only scoped view into the project settings dictionary
-	:type projectSettings: toolchain.ReadOnlySettingsView
-	"""
-	inputGroups = GccAssembler.inputFiles \
-		| MsvcAssembler.inputFiles \
-		| CppCompilerBase.inputFiles \
-		| JavaCompilerBase.inputGroups
-
-	outputFiles = None
-
-	def __init__(self, projectSettings):
-		Tool.__init__(self, projectSettings)
-
-	def SetupForProject(self, project):
-		raise NotImplementedError()
-
-	def RunGroup(self, inputProject, inputFiles):
-		raise NotImplementedError()
+# Dictionary of MSVC version numbers to tuples of items needed for the file format.
+#   Tuple[0] = Friendly version name for logging output.
+#   Tuple[1] = File format version (e.g., "Microsoft Visual Studio Solution File, Format Version XX").
+#   Tuple[2] = Version of Visual Studio the solution belongs to (e.g., "# Visual Studio XX").
+FILE_FORMAT_VERSION_INFO = {
+	100: ("2010", "11.00", "2010"),
+	110: ("2012", "12.00", "2012"),
+	120: ("2013", "12.00", "2013"),
+	140: ("2015", "12.00", "14"),
+}
