@@ -857,7 +857,7 @@ def Run():
 			shared_globals.solutionGeneratorType = args.generate_solution
 
 			if args.solution_path:
-				shared_globals.solutionPath = args.solutionPath
+				shared_globals.solutionPath = args.solution_path
 			else:
 				shared_globals.solutionPath = "./Solutions/{}/".format(args.generate_solution)
 
