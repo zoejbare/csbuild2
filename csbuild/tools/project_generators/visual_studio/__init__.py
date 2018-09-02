@@ -31,16 +31,9 @@ import os
 
 from csbuild import log
 
-from .internal import HEADER_FILE_EXTENSIONS
-
-from ...assemblers.gcc_assembler import GccAssembler
-from ...assemblers.msvc_assembler import MsvcAssembler
+from . import internal
 
 from ...common.tool_traits import HasIncludeDirectories
-
-from ...cpp_compilers.cpp_compiler_base import CppCompilerBase
-
-from ...java_compilers.java_compiler_base import JavaCompilerBase
 
 from ....toolchain import SolutionGenerator
 
@@ -52,17 +45,13 @@ class VsProjectGenerator(HasIncludeDirectories):
 	:param projectSettings: A read-only scoped view into the project settings dictionary
 	:type projectSettings: toolchain.ReadOnlySettingsView
 	"""
-	inputGroups = HEADER_FILE_EXTENSIONS \
-		| GccAssembler.inputFiles \
-		| MsvcAssembler.inputFiles \
-		| CppCompilerBase.inputFiles \
-		| JavaCompilerBase.inputGroups
-
+	inputGroups = internal.ALL_FILE_EXTENSIONS
 	outputFiles = { ".proj" }
 
 	def __init__(self, projectSettings):
 		HasIncludeDirectories.__init__(self, projectSettings)
 
+		self._projectData = None
 		self._sourceFiles = []
 		self._groupSegments = []
 
@@ -71,6 +60,7 @@ class VsProjectGenerator(HasIncludeDirectories):
 		pass
 
 	def RunGroup(self, inputProject, inputFiles):
+		self._projectData = inputProject
 		self._sourceFiles = [x.filename for x in inputFiles]
 		# TODO: One project groups are implemented, parse it for the current project and store the results in self._groupSegments.
 
@@ -83,6 +73,10 @@ class VsProjectGenerator(HasIncludeDirectories):
 	@property
 	def groupSegments(self):
 		return self._groupSegments
+
+	@property
+	def projectData(self):
+		return self._projectData
 
 
 class VsSolutionGenerator2010(SolutionGenerator):
@@ -105,7 +99,9 @@ class VsSolutionGenerator2010(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		raise NotImplementedError()
+		projects = _getProjectData(projects)
+
+		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2010)
 
 
 class VsSolutionGenerator2012(SolutionGenerator):
@@ -128,7 +124,9 @@ class VsSolutionGenerator2012(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		raise NotImplementedError()
+		projects = _getProjectData(projects)
+
+		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2012)
 
 
 class VsSolutionGenerator2013(SolutionGenerator):
@@ -151,7 +149,9 @@ class VsSolutionGenerator2013(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		raise NotImplementedError()
+		projects = _getProjectData(projects)
+
+		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2013)
 
 
 class VsSolutionGenerator2015(SolutionGenerator):
@@ -174,7 +174,9 @@ class VsSolutionGenerator2015(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		raise NotImplementedError()
+		projects = _getProjectData(projects)
+
+		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2015)
 
 
 class VsSolutionGenerator2017(SolutionGenerator):
@@ -197,11 +199,12 @@ class VsSolutionGenerator2017(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		projects = _getProjectGenerators(projects)
-		raise NotImplementedError()
+		projects = _getProjectData(projects)
+
+		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2017)
 
 
-def _getProjectGenerators(projects):
+def _getProjectData(projects):
 	"""
 	Helper function to convert a list of projects to a list of their project generators.
 
@@ -209,6 +212,6 @@ def _getProjectGenerators(projects):
 	:type projects: list[csbuild._build.project.Project]
 
 	:return: List of project generators
-	:rtype: list[csbuild.toolchain.Tool]
+	:rtype: list[csbuild.tools.project_generator.visual_studio.VsProjectGenerator]
 	"""
 	return [x.toolchain.Tool(VsProjectGenerator) for x in projects]
