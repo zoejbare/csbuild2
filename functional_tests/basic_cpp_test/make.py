@@ -48,13 +48,15 @@ with csbuild.Project("libhello", "libhello"):
 		csbuild.SetOutput("libhello", csbuild.ProjectType.StaticLibrary)
 
 with csbuild.Project("hello_world", "hello_world"):
+	csbuild.SetUserData("libraryName", "libhello")
+
 	with csbuild.Target("shared"):
-		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("shared/libhello.so"))
-		csbuild.Platform("Windows").AddLibraries(os.path.abspath("shared/libhello.lib"))
+		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("shared/{userData.libraryName}.so"))
+		csbuild.Platform("Windows").AddLibraries(os.path.abspath("shared/{userData.libraryName}.lib"))
 
 	with csbuild.Target("static"):
-		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("static/libhello.a"))
-		csbuild.Platform("Windows").AddLibraries(os.path.abspath("static/libhello.lib"))
+		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("static/{userData.libraryName}.a"))
+		csbuild.Platform("Windows").AddLibraries(os.path.abspath("static/{userData.libraryName}.lib"))
 
 	csbuild.Platform("Linux").AddLibraries("pthread", "libdl.so", "libc.so.6")
 	csbuild.Platform("Windows").AddLibraries("winmm", "DbgHelp.lib")
