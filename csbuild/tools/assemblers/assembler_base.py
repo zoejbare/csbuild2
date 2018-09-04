@@ -156,7 +156,13 @@ class AssemblerBase(Tool):
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		"""
-		log.Build("Assembling {}...", os.path.basename(inputFile.filename))
+		log.Build(
+			"Assembling {} ({}-{}-{})...",
+			os.path.basename(inputFile.filename),
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName
+		)
 
 		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile), env=self._getEnv(inputProject))
 		if returncode != 0:

@@ -146,7 +146,13 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		"""
-		log.Build("Compiling {}...", os.path.basename(inputFile.filename))
+		log.Build(
+			"Compiling {} ({}-{}-{})...",
+			os.path.basename(inputFile.filename),
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName
+		)
 
 		_, extension = os.path.splitext(inputFile.filename)
 		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile, extension in {".cpp", ".cc", ".cxx"}), env=self._getEnv(inputProject))

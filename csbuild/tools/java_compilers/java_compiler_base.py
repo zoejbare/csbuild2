@@ -172,8 +172,11 @@ class JavaCompilerBase(JavaToolBase):
 
 	def RunGroup(self, inputProject, inputFiles):
 		log.Build(
-			"Compiling Java files for {}: [{}]",
+			"Compiling Java files for {} ({}-{}-{}): [{}]",
 			inputProject.outputName,
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName,
 			", ".join(
 				sorted([f.filename for f in inputFiles])
 			)

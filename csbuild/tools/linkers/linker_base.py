@@ -225,7 +225,14 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		"""
-		log.Linker("Linking {}{}...", inputProject.outputName, self._getOutputExtension(inputProject.projectType))
+		log.Linker(
+			"Linking {}{} ({}-{}-{})...",
+			inputProject.outputName,
+			self._getOutputExtension(inputProject.projectType),
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName
+		)
 		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFiles)
