@@ -179,17 +179,21 @@ def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, d
 					extension = os.path.splitext(inputFiles.filename)[1]
 					fileList = ordered_set.OrderedSet([inputFiles])
 
-				if not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
-					return tuple(buildProject.GetLastResult(inputFiles)), True
+				lastResult = buildProject.GetLastResult(inputFiles)
+				if lastResult is not None \
+						and not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
+					return tuple(lastResult), True
 		else:
 			if isinstance(inputFiles, ordered_set.OrderedSet):
 				fileList = inputFiles
 			else:
 				fileList = ordered_set.OrderedSet([inputFiles])
 
-			filesNeedingBuild = [f for f in fileList if not f.upToDate]
-			if not filesNeedingBuild:
-				return tuple(buildProject.GetLastResult(inputFiles)), True
+			lastResult = buildProject.GetLastResult(inputFiles)
+			if lastResult is not None:
+				filesNeedingBuild = [f for f in fileList if not f.upToDate]
+				if not filesNeedingBuild:
+					return tuple(buildProject.GetLastResult(inputFiles)), True
 
 
 	with perf_timer.PerfTimer("Tool execution"):
