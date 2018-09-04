@@ -35,19 +35,19 @@ from abc import ABCMeta, abstractmethod
 from ..common.tool_traits import \
 	HasDebugLevel, \
 	HasDebugRuntime, \
+	HasDefines, \
 	HasIncludeDirectories, \
 	HasOptimizationLevel, \
 	HasStaticRuntime
 
 from ... import commands, log
-from ..._utils import ordered_set
 from ..._utils.decorators import MetaClass
 
 def _ignore(_):
 	pass
 
 @MetaClass(ABCMeta)
-class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasIncludeDirectories, HasOptimizationLevel, HasStaticRuntime):
+class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDirectories, HasOptimizationLevel, HasStaticRuntime):
 	"""
 	Base class for C++ compilers
 
@@ -62,13 +62,12 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasIncludeDirectories, Has
 	################################################################################
 
 	def __init__(self, projectSettings):
-		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
-		self._undefines = projectSettings.get("undefines", ordered_set.OrderedSet())
 		self._cFlags = projectSettings.get("cFlags", [])
 		self._cxxFlags = projectSettings.get("cxxFlags", [])
 
 		HasDebugLevel.__init__(self, projectSettings)
 		HasDebugRuntime.__init__(self, projectSettings)
+		HasDefines.__init__(self, projectSettings)
 		HasIncludeDirectories.__init__(self, projectSettings)
 		HasOptimizationLevel.__init__(self, projectSettings)
 		HasStaticRuntime.__init__(self, projectSettings)
@@ -77,26 +76,6 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasIncludeDirectories, Has
 	################################################################################
 	### Static makefile methods
 	################################################################################
-
-	@staticmethod
-	def AddDefines(*defines):
-		"""
-		Add preprocessor defines to the current project.
-
-		:param defines: List of defines.
-		:type defines: str
-		"""
-		csbuild.currentPlan.UnionSet("defines", defines)
-
-	@staticmethod
-	def AddUndefines(*undefines):
-		"""
-		Add preprocessor undefines to the current project.
-
-		:param undefines: List of undefines.
-		:type undefines: str
-		"""
-		csbuild.currentPlan.UnionSet("undefines", undefines)
 
 	@staticmethod
 	def AddCompilerCFlags(*flags):

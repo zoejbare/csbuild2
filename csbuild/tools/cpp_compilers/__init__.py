@@ -49,17 +49,17 @@ class CppCompileChecker(CompileChecker):
 		:type buildProject: csbuild._build.project.Project
 		:param inputFile: The file to check
 		:type inputFile: input_file.InputFile
-		:return: List of files to depend on
-		:rtype: list[str]
+		:return: Set of files to depend on
+		:rtype: set[str]
 		"""
 		with open(inputFile.filename, "r") as f:
 			contents = f.read()
-		ret = []
+		ret = set()
 
 		includeDirs = [os.path.dirname(inputFile.filename)] + list(buildProject.toolchain.Tool(self._compiler).GetIncludeDirectories())
 		for header in _includeRegex.findall(contents):
 			for includeDir in includeDirs:
 				maybeHeaderLoc = os.path.join(includeDir, header)
 				if os.access(maybeHeaderLoc, os.F_OK):
-					ret.append(maybeHeaderLoc)
+					ret.add(maybeHeaderLoc)
 		return ret

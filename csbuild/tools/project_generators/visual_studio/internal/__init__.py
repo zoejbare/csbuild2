@@ -28,6 +28,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
+import sys
 import uuid
 
 from csbuild import log
@@ -210,6 +211,7 @@ class VsProjectItem(object):
 		self.name = name
 		self.path = path
 		self.itemType = itemType
+		self.supportedPlatforms = set()
 		self.children = {}
 
 
@@ -217,17 +219,31 @@ class VsProject(object):
 	"""
 	Container for project-level data in Visual Studio.
 	"""
-	def __init__(self, name, projType, generator):
+	def __init__(self, name, projType):
 		self.name = name
 		self.projType = projType
 		self.guid = _generateUuid(name)
 		self.children = {}
 		self.items = {}
+		self.supportedPlatforms = set()
+		self.platformIncludePaths = {}
+		self.platformDefines = {}
 
+	def MergeProjectData(self, platformId, generator):
 		if self.projType == VsProjectType.Standard:
+			projectData = generator.projectData
+
+			# Make sure the current platform is registered for this project.
+			if platformId not in self.supportedPlatforms:
+				self.supportedPlatforms.add(platformId)
+				self.platformIncludePaths.update({ platformId: [] })
+				self.platformDefines.update({ platformId: [] })
+
+			self.platformIncludePaths[platformId].extend([x for x in generator.includeDirectories])
+			self.platformDefines[platformId].extend([x for x in generator.defines])
+
 			# Added items for each source file in the project.
 			for filePath in generator.sourceFiles:
-				projectData = generator.projectData
 				projStructure = _getSourceFileProjectStructure(projectData.workingDirectory, projectData.sourceDirs, filePath, True)
 				parentMap = self.items
 
@@ -242,16 +258,23 @@ class VsProject(object):
 
 					parentMap = parentMap[segment].children
 
-				# Make sure the file hasn't somehow already been added to the project.
-				assert fileItem.name not in parentMap, "File item \"{}\" already exists in project \"{}\"".format(fileItem.name, self.name)
+				if fileItem.name not in parentMap:
+					# The current file item is new, so map it under the parent item.
+					parentMap.update({ fileItem.name: fileItem })
 
-				parentMap.update({ fileItem.name: fileItem })
+				else:
+					# The current file item already exists, so get the original object for its mapping.
+					fileItem = parentMap[fileItem.name]
+
+				# Update the set of supported platforms for the current file item.
+				fileItem.supportedPlatforms.add(platformId)
 
 
 def _buildProjectHierarchy(generators):
-	rootProject = VsProject(None, VsProjectType.Root, None)
+	rootProject = VsProject(None, VsProjectType.Root)
 
 	for gen in generators:
+		platformId = (gen.projectData.toolchainName, gen.projectData.architectureName, _fixConfigName(gen.projectData.targetName))
 		parent = rootProject
 
 		# Find the appropriate parent project if this project is part of a group.
@@ -259,16 +282,24 @@ def _buildProjectHierarchy(generators):
 			# If the current segment in the group is not represented in the current parent's child project list yet,
 			# create it and insert it.
 			if segment not in parent.children:
-				parent.children.update({ segment: VsProject(segment, VsProjectType.Filter, None) })
+				parent.children.update({ segment: VsProject(segment, VsProjectType.Filter) })
 
 			parent = parent.children[segment]
 
 		projName = gen.projectData.name
 
-		# Make sure we don't have any duplicate projects.
-		assert projName not in parent.children, "Project \"{}\" already exists".format(projName)
+		if projName not in parent.children:
+			# The current project does not exist yet, so create it and map it as a child to the parent project.
+			proj = VsProject(projName, VsProjectType.Standard)
+			parent.children.update({ projName: proj })
 
-		parent.children.update({ projName: VsProject(projName, VsProjectType.Standard, gen) })
+		else:
+			# Get the existing project entry from the parent.
+			proj = parent.children[projName]
+
+		# Merge the generator's platform data into the project.
+		proj.MergeProjectData(platformId, gen)
+
 
 	return rootProject
 

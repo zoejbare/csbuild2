@@ -168,3 +168,36 @@ class HasIncludeDirectories(Tool):
 		:rtype: ordered_set.OrderedSet[str]
 		"""
 		return self._includeDirectories
+
+
+class HasDefines(Tool):
+	"""
+	Helper class to add C++ defines and undefines.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
+		self._undefines = projectSettings.get("undefines", ordered_set.OrderedSet())
+
+	@staticmethod
+	def AddDefines(*defines):
+		"""
+		Add preprocessor defines to the current project.
+
+		:param defines: List of defines.
+		:type defines: str
+		"""
+		csbuild.currentPlan.UnionSet("defines", defines)
+
+	@staticmethod
+	def AddUndefines(*undefines):
+		"""
+		Add preprocessor undefines to the current project.
+
+		:param undefines: List of undefines.
+		:type undefines: str
+		"""
+		csbuild.currentPlan.UnionSet("undefines", undefines)
