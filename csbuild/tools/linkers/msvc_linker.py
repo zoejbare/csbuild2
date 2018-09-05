@@ -159,6 +159,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 	def _getDefaultArgs(self, project):
 		args = [
+			"/SUBSYSTEM:CONSOLE", # TODO: The subsystem needs to be configurable.
 			"/ERRORREPORT:NONE",
 			"/NOLOGO",
 			"/MACHINE:{}".format(project.architectureName.upper()),

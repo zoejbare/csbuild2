@@ -100,7 +100,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 					dependProject.outputDir,
 					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
 				)
-				for dependProject in project.dependencies if project.projectType != csbuild.ProjectType.Application
+				for dependProject in project.dependencies if dependProject.projectType != csbuild.ProjectType.Application
 			}
 		)
 
