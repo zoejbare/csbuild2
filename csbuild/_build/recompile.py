@@ -26,7 +26,7 @@
 from __future__ import unicode_literals, division, print_function
 
 from . import project, input_file
-from .._utils import memo, ordered_set
+from .._utils import memo, ordered_set, shared_globals
 from ..toolchain import CompileChecker
 from .._utils.decorators import TypeChecked
 from .. import perf_timer, log
@@ -207,6 +207,9 @@ def ShouldRecompile(buildProject, checker, inputFiles):
 	:rtype: bool
 	"""
 	with perf_timer.PerfTimer("Filter for recompile"):
+		if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+			# All files should be "compiled" when generating a solution.
+			return True
 		log.Info("Checking if we should compile {}", inputFiles)
 		baseline = checker.GetRecompileBaseline(buildProject, inputFiles)
 		if baseline is None:
