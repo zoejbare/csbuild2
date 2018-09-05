@@ -112,8 +112,6 @@ class Project(object):
 						tools.append(tool)
 				self.tools = tools
 
-			self.toolchain = Toolchain(projectSettings, *self.tools, checkers=self.checkers)
-
 			self.userData = UserData(projectSettings.get("_userData", {}))
 
 			def _convertSet(toConvert):
@@ -148,21 +146,23 @@ class Project(object):
 				self.settings = projectSettings
 				self.settings = _convertItem(projectSettings)
 
-			self.projectType = projectSettings.get("projectType", csbuild.ProjectType.Application)
+			self.toolchain = Toolchain(self.settings, *self.tools, checkers=self.checkers)
+
+			self.projectType = self.settings.get("projectType", csbuild.ProjectType.Application)
 
 			#: type: set[str]
-			self.excludeFiles = projectSettings.get("excludeFiles", set())
+			self.excludeFiles = self.settings.get("excludeFiles", set())
 			#: type: set[str]
-			self.excludeDirs = projectSettings.get("excludeDirs", set())
+			self.excludeDirs = self.settings.get("excludeDirs", set())
 			#: type: set[str]
-			self.sourceFiles = projectSettings.get("sourceFiles", set())
+			self.sourceFiles = self.settings.get("sourceFiles", set())
 			#: type: set[str]
-			self.sourceDirs = projectSettings.get("sourceDirs", set())
+			self.sourceDirs = self.settings.get("sourceDirs", set())
 
 			#: type: str
 			self.intermediateDir = os.path.join(
 				self.scriptDir,
-				projectSettings.get(
+				self.settings.get(
 					"intermediateDir",
 					os.path.join(
 						"intermediate",
@@ -180,7 +180,7 @@ class Project(object):
 				#: type: str
 				self.outputDir = os.path.join(
 					self.scriptDir,
-					projectSettings.get(
+					self.settings.get(
 						"outputDir",
 						os.path.join(
 							"out",
@@ -201,7 +201,7 @@ class Project(object):
 
 			self.artifacts = collections.OrderedDict()
 
-			self.outputName = projectSettings.get("outputName", self.name)
+			self.outputName = self.settings.get("outputName", self.name)
 
 			if not os.access(self.intermediateDir, os.F_OK):
 				os.makedirs(self.intermediateDir)
@@ -248,7 +248,6 @@ class Project(object):
 					toolchainName=self.toolchainName,
 					architectureName=self.architectureName,
 					targetName=self.targetName,
-					toolchain=self.toolchain,
 					userData=self.userData,
 					**self.settings
 				)
@@ -303,7 +302,7 @@ class Project(object):
 		"""Remove the artifacts for this project from the settings"""
 		shared_globals.settings.Delete(repr(self)+".artifacts")
 
-	@TypeChecked(inputFile=input_file.InputFile, _return=str)
+	@TypeChecked(inputFile=input_file.InputFile, _return=StrType)
 	def GetIntermediateDirectory(self, inputFile):
 		"""
 		Get the unique, intermediate directory path for an input file.  The directory will be created if it does not exist.
