@@ -124,7 +124,7 @@ class ProjectPlan(object):
 			self.knownTargets = set()
 			self.childTargets = set()
 
-		self.oldChildLimits = None
+		self.oldChildLimits = []
 
 		self._workingSettingsStack = [[self._settings]]
 		self._currentSettingsDicts = self._workingSettingsStack[0]
@@ -157,7 +157,7 @@ class ProjectPlan(object):
 		:type contextTypes: tuple[str, tuple[*str]]
 		"""
 		newSettingsDicts = []
-		self.oldChildLimits = copy.deepcopy(self.childLimits)
+		self.oldChildLimits.append(copy.deepcopy(self.childLimits))
 		for contextType, names in contextTypes:
 			assert contextType in ProjectPlan._validContextTypes, "Invalid context type!"
 
@@ -177,7 +177,8 @@ class ProjectPlan(object):
 		"""Leave the context and return to the previous one"""
 		self._workingSettingsStack.pop()
 		self._currentSettingsDicts = self._workingSettingsStack[-1]
-		self.childLimits = self.oldChildLimits
+		self.childLimits = self.oldChildLimits[-1]
+		self.oldChildLimits.pop()
 
 	def _absorbSettings(self, settings, overrideDict, toolchainName, architectureName, targetName, scopeType, inScope):
 		if overrideDict is None:

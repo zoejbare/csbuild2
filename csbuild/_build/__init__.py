@@ -193,7 +193,7 @@ def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, d
 			if lastResult is not None:
 				filesNeedingBuild = [f for f in fileList if not f.upToDate]
 				if not filesNeedingBuild:
-					return tuple(buildProject.GetLastResult(inputFiles)), True
+					return tuple(lastResult), True
 
 
 	with perf_timer.PerfTimer("Tool execution"):
