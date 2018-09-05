@@ -303,7 +303,7 @@ class Project(object):
 		"""Remove the artifacts for this project from the settings"""
 		shared_globals.settings.Delete(repr(self)+".artifacts")
 
-	@TypeChecked(inputFile=input_file.InputFile, _return=StrType)
+	@TypeChecked(inputFile=input_file.InputFile, _return=str)
 	def GetIntermediateDirectory(self, inputFile):
 		"""
 		Get the unique, intermediate directory path for an input file.  The directory will be created if it does not exist.
