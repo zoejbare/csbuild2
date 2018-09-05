@@ -36,11 +36,8 @@ import imp
 import math
 import multiprocessing
 import time
-import encodings
-import importlib
-import pkgutil
 import threading
-import traceback
+import collections
 
 from . import recompile
 from . import project_plan, project, input_file
@@ -591,6 +588,7 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 						if os.access(artifact, os.F_OK):
 							log.Info("Removing {}", artifact)
 							os.remove(artifact)
+				cleanProject.lastRunArtifacts = collections.OrderedDict()
 
 			if not keepArtifactsAndDirectories:
 				_rmDirIfPossible(cleanProject.csbuildDir)
