@@ -41,7 +41,7 @@ class VsBasePlatformHandler(object):
 		pass
 
 	@staticmethod
-	def GetToolchainArchitecturePair():
+	def GetToolchainArchitecturePair(): # pylint: disable=redundant-returns-doc
 		"""
 		Get a tuple describing the toolchain and architecture the current platform handler applies to.
 
@@ -51,7 +51,7 @@ class VsBasePlatformHandler(object):
 		pass
 
 	@staticmethod
-	def GetVisualStudioPlatformName():
+	def GetVisualStudioPlatformName(): # pylint: disable=redundant-returns-doc
 		"""
 		Get the name that is recognizeable by Visual Studio for the current platform.
 
