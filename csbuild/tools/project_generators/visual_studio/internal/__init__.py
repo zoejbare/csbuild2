@@ -27,8 +27,12 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import codecs
+import contextlib
+import hashlib
 import os
 import sys
+import tempfile
 import uuid
 
 from csbuild import log
@@ -52,16 +56,31 @@ class Version(object):
 	Vs2017 = "2017"
 
 
-# Dictionary of MSVC version numbers to tuples of items needed for the file format.
-#   Tuple[0] = Friendly version name for logging output.
-#   Tuple[1] = File format version (e.g., "Microsoft Visual Studio Solution File, Format Version XX").
-#   Tuple[2] = Version of Visual Studio the solution belongs to (e.g., "# Visual Studio XX").
+class VsFileInfo(object):
+	"""
+	Visual Studio version data helper class.
+
+	:ivar friendlyName: Friendly version name for logging.
+	:type friendlyName: str
+
+	:ivar fileVersion: File format version (e.g., "Microsoft Visual Studio Solution File, Format Version XX.XX" where "XX.XX" is the member value).
+	:type fileVersion: str
+
+	:ivar versionId: Version of Visual Studio the solution belongs to (e.g., "# Visual Studio XX" where "XX" is the member value).
+	:type versionId: str
+	"""
+	def __init__(self, friendlyName, fileVersion, versionId):
+		self.friendlyName = friendlyName
+		self.fileVersion = fileVersion
+		self.versionId = versionId
+
+
 FILE_FORMAT_VERSION_INFO = {
-	Version.Vs2010: ("2010", "11.00", "2010"),
-	Version.Vs2012: ("2012", "12.00", "2012"),
-	Version.Vs2013: ("2013", "12.00", "2013"),
-	Version.Vs2015: ("2015", "12.00", "14"),
-	Version.Vs2017: ("2017", "12.00", "15"),
+	Version.Vs2010: VsFileInfo("2010", "11.00", "2010"),
+	Version.Vs2012: VsFileInfo("2012", "12.00", "2012"),
+	Version.Vs2013: VsFileInfo("2013", "12.00", "2013"),
+	Version.Vs2015: VsFileInfo("2015", "12.00", "14"),
+	Version.Vs2017: VsFileInfo("2017", "12.00", "15"),
 }
 
 CPP_SOURCE_FILE_EXTENSIONS = CppCompilerBase.inputFiles
@@ -80,6 +99,9 @@ ALL_FILE_EXTENSIONS = CPP_SOURCE_FILE_EXTENSIONS \
 # Global set of generated UUIDs for Visual Studio projects.  The list is needed to make sure there are no
 # duplicates when generating new IDs.
 UUID_TRACKER = set()
+
+# Keep track of the registered platform handlers.
+PLATFORM_HANDLERS = {}
 
 
 def _generateUuid(name):
@@ -105,7 +127,7 @@ def _generateUuid(name):
 		newUuid = uuid.uuid5( uuid.NAMESPACE_OID, nameToHash )
 		if not newUuid in UUID_TRACKER:
 			UUID_TRACKER.add( newUuid )
-			return newUuid
+			return "{{{}}}".format(str(newUuid)).upper()
 
 		# Name collision!  The easy solution here is to slightly modify the name in a predictable way.
 		nameToHash = "{}{}".format( name, nameIndex )
@@ -184,15 +206,39 @@ def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, se
 	return projStructure
 
 
+def RegisterPlatformHandler(handler):
+	"""
+	Register a platform handler.
+
+	:param handler: Platform handler to be registered.
+	:type handler: class
+	"""
+	global PLATFORM_HANDLERS
+
+	key = handler.GetToolchainArchitecturePair()
+
+	if key in PLATFORM_HANDLERS:
+		log.Warn("Overwriting Visual Studio platform handler registered for {}".format(key))
+
+	PLATFORM_HANDLERS.update({ key: handler() })
+
+
 class VsProjectType(object):
 	"""
 	Enum describing project types.
 	"""
 	Root = "root"
 	Standard = "standard"
+	Filter = "filter"
+
+
+class VsProjectSubType(object):
+	"""
+	Enum describing project sub-types.
+	"""
+	Normal = "normal"
 	BuildAll = "build_all"
 	Regen = "regen"
-	Filter = "filter"
 
 
 class VsProjectItemType(object):
@@ -219,62 +265,180 @@ class VsProject(object):
 	"""
 	Container for project-level data in Visual Studio.
 	"""
-	def __init__(self, name, projType):
+	def __init__(self, name, relFilePath, projType):
 		self.name = name
+		self.relFilePath = relFilePath
 		self.projType = projType
+		self.subType = VsProjectSubType.Normal
 		self.guid = _generateUuid(name)
 		self.children = {}
 		self.items = {}
-		self.supportedPlatforms = set()
+		self.supportedTargets = set()
 		self.platformIncludePaths = {}
 		self.platformDefines = {}
 
-	def MergeProjectData(self, platformId, generator):
+		self.slnTypeGuid = {
+			VsProjectType.Standard: "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}",
+			VsProjectType.Filter: "{2150E333-8FDC-42A3-9474-1A3956D46DE8}",
+		}.get(self.projType, "{UNKNOWN}")
+
+	def MergeProjectData(self, target, generator):
+		"""
+		Merge data for a given target and generator into the project.
+
+		:param target: Target matching the input generator.
+		:type target: tuple[str, str, str]
+
+		:param generator: Generator containing the data that needs to be merged into the project.
+		:type generator: csbuild.tools.project_generators.visual_studio.VsProjectGenerator
+		"""
 		if self.projType == VsProjectType.Standard:
-			projectData = generator.projectData
 
-			# Make sure the current platform is registered for this project.
-			if platformId not in self.supportedPlatforms:
-				self.supportedPlatforms.add(platformId)
-				self.platformIncludePaths.update({ platformId: [] })
-				self.platformDefines.update({ platformId: [] })
+			# Register support for the input target.
+			if target not in self.supportedTargets:
+				self.supportedTargets.add(target)
+				self.platformIncludePaths.update({ target: [] })
+				self.platformDefines.update({ target: [] })
 
-			self.platformIncludePaths[platformId].extend([x for x in generator.includeDirectories])
-			self.platformDefines[platformId].extend([x for x in generator.defines])
+			# Merge the data from the generator.
+			if generator:
+				self.platformIncludePaths[target].extend([x for x in generator.includeDirectories])
+				self.platformDefines[target].extend([x for x in generator.defines])
 
-			# Added items for each source file in the project.
-			for filePath in generator.sourceFiles:
-				projStructure = _getSourceFileProjectStructure(projectData.workingDirectory, projectData.sourceDirs, filePath, True)
-				parentMap = self.items
+				projectData = generator.projectData
 
-				# Get the file item, then remove it from the project structure.
-				fileItem = VsProjectItem(projStructure[-1], filePath, VsProjectItemType.File)
-				projStructure = projStructure[:-1]
+				# Added items for each source file in the project.
+				for filePath in generator.sourceFiles:
+					projStructure = _getSourceFileProjectStructure(projectData.workingDirectory, projectData.sourceDirs, filePath, True)
+					parentMap = self.items
 
-				# Build the hierarchy of folder items under the project.
-				for segment in projStructure:
-					if segment not in parentMap:
-						parentMap.update({ segment: VsProjectItem(segment, None, VsProjectItemType.Folder) })
+					# Get the file item, then remove it from the project structure.
+					fileItem = VsProjectItem(projStructure[-1], filePath, VsProjectItemType.File)
+					projStructure = projStructure[:-1]
 
-					parentMap = parentMap[segment].children
+					# Build the hierarchy of folder items under the project.
+					for segment in projStructure:
+						if segment not in parentMap:
+							parentMap.update({ segment: VsProjectItem(segment, None, VsProjectItemType.Folder) })
 
-				if fileItem.name not in parentMap:
-					# The current file item is new, so map it under the parent item.
-					parentMap.update({ fileItem.name: fileItem })
+						parentMap = parentMap[segment].children
 
-				else:
-					# The current file item already exists, so get the original object for its mapping.
-					fileItem = parentMap[fileItem.name]
+					if fileItem.name not in parentMap:
+						# The current file item is new, so map it under the parent item.
+						parentMap.update({ fileItem.name: fileItem })
 
-				# Update the set of supported platforms for the current file item.
-				fileItem.supportedPlatforms.add(platformId)
+					else:
+						# The current file item already exists, so get the original object for its mapping.
+						fileItem = parentMap[fileItem.name]
+
+					# Update the set of supported platforms for the current file item.
+					fileItem.supportedPlatforms.add(target)
 
 
-def _buildProjectHierarchy(generators):
-	rootProject = VsProject(None, VsProjectType.Root)
+class VsFileProxy(object):
+	"""
+	Handler for copying a temp file to it's final location.
+	"""
+	def __init__(self, realFilePath, tempFilePath):
+		self.realFilePath = realFilePath
+		self.tempFilePath = tempFilePath
+
+	def Check(self):
+		"""
+		Check the temp file to see if it differs from the output file, then copy if they don't match.
+		"""
+		outDirPath = os.path.dirname(self.realFilePath)
+
+		# Create the output directory if it doesn't exist.
+		if not os.access(outDirPath, os.F_OK):
+			os.makedirs(outDirPath)
+
+		# Open the input file and get a hash of its data.
+		with open(self.tempFilePath, "rb") as inputFile:
+			inputFileData = inputFile.read()
+			inputHash = hashlib.md5()
+
+			inputHash.update(inputFileData)
+
+			inputHash = inputHash.hexdigest()
+
+		if os.access(self.realFilePath, os.F_OK):
+			# Open the output file and get a hash of its data.
+			with open(self.realFilePath, "rb") as outputFile:
+				outputFileData = outputFile.read()
+				outputHash = hashlib.md5()
+
+				outputHash.update(outputFileData)
+
+				outputHash = outputHash.hexdigest()
+
+		else:
+			# The output file doesn't exist, so use an empty string to stand in for the hash.
+			outputHash = ""
+
+		# Do a consistency check using the MD5 hashes of the input and output files to determine if we
+		# need to copy the data to the output file.
+		if inputHash != outputHash:
+			log.Build("[WRITING] {}".format(self.realFilePath))
+
+			with open(self.realFilePath, "wb") as outputFile:
+				outputFile.write(inputFileData)
+
+		else:
+			log.Build("[UP-TO-DATE] {}".format(self.realFilePath))
+
+		os.remove(self.tempFilePath)
+
+
+def _createBuildTarget(generator):
+	return generator.projectData.toolchainName  \
+		, generator.projectData.architectureName \
+		, _fixConfigName(generator.projectData.targetName)
+
+
+def _getToolchainArchPair(target):
+	return target[0], target[1]
+
+
+def _getBuildTargets(generators):
+	global PLATFORM_HANDLERS
+
+	buildTargets = set()
 
 	for gen in generators:
-		platformId = (gen.projectData.toolchainName, gen.projectData.architectureName, _fixConfigName(gen.projectData.targetName))
+		target = _createBuildTarget(gen)
+		toolchainArch = _getToolchainArchPair(target)
+
+		# Only add the generator's platform if we have a handler registered for it.
+		if toolchainArch in PLATFORM_HANDLERS:
+			buildTargets.add(target)
+
+	return sorted(buildTargets)
+
+
+def _buildProjectHierarchy(buildTargets, generators):
+	rootProject = VsProject(None, "", VsProjectType.Root)
+	buildAllProject = VsProject("(BUILD_ALL)", "", VsProjectType.Standard)
+	regenProject = VsProject("(REGENERATE_SOLUTION)", "", VsProjectType.Standard)
+
+	# Set the default project special types so they can be identified.
+	buildAllProject.subType = VsProjectSubType.BuildAll
+	regenProject.subType = VsProjectSubType.Regen
+
+	# The default projects can be used with all build targets.
+	for target in buildTargets:
+		buildAllProject.MergeProjectData(target, None)
+		regenProject.MergeProjectData(target, None)
+
+	# Add the default projects to the hierarchy.
+	rootProject.children.update({
+		buildAllProject.name: buildAllProject,
+		regenProject.name: regenProject,
+	})
+
+	# Parse the data from each project generator.
+	for gen in generators:
+		target = _createBuildTarget(gen)
 		parent = rootProject
 
 		# Find the appropriate parent project if this project is part of a group.
@@ -282,7 +446,7 @@ def _buildProjectHierarchy(generators):
 			# If the current segment in the group is not represented in the current parent's child project list yet,
 			# create it and insert it.
 			if segment not in parent.children:
-				parent.children.update({ segment: VsProject(segment, VsProjectType.Filter) })
+				parent.children.update({ segment: VsProject(segment, os.path.join(parent.relFilePath, segment), VsProjectType.Filter) })
 
 			parent = parent.children[segment]
 
@@ -290,7 +454,7 @@ def _buildProjectHierarchy(generators):
 
 		if projName not in parent.children:
 			# The current project does not exist yet, so create it and map it as a child to the parent project.
-			proj = VsProject(projName, VsProjectType.Standard)
+			proj = VsProject(projName, parent.relFilePath, VsProjectType.Standard)
 			parent.children.update({ projName: proj })
 
 		else:
@@ -298,10 +462,122 @@ def _buildProjectHierarchy(generators):
 			proj = parent.children[projName]
 
 		# Merge the generator's platform data into the project.
-		proj.MergeProjectData(platformId, gen)
+		proj.MergeProjectData(target, gen)
 
 
 	return rootProject
+
+
+def _writeSolutionFile(buildTargets, rootProject, outputRootPath, solutionName, vsVersion):
+	global FILE_FORMAT_VERSION_INFO
+	global PLATFORM_HANDLERS
+
+	def GetVsBuildTarget(target): # pylint: disable=missing-docstring
+		toolchainArch = _getToolchainArchPair(target)
+		handler = PLATFORM_HANDLERS[toolchainArch]
+		vsTarget = "{}|{}".format(target[2], handler.GetVisualStudioPlatformName())
+		return vsTarget
+
+	class SolutionWriter(object): # pylint: disable=missing-docstring
+		def __init__(self, fileHandle):
+			self.fileHandle = fileHandle
+			self.indentation = 0
+
+		def Line(self, text): # pylint: disable=missing-docstring
+			self.fileHandle.write("{}{}\r\n".format("\t" * self.indentation, text))
+
+		@contextlib.contextmanager
+		def Section(self, sectionName, headerSuffix): # pylint: disable=missing-docstring
+			self.Line("{}{}".format(sectionName, headerSuffix))
+
+			self.indentation += 1
+
+			try:
+				yield
+
+			finally:
+				self.indentation -= 1
+
+				self.Line("End{}".format(sectionName))
+
+	realFilePath = os.path.join(outputRootPath, "{}.sln".format(solutionName))
+	tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_sln_")
+
+	# Close the file since it needs to be re-opened with a specific encoding.
+	os.close(tmpFd)
+
+	vsFileInfo = FILE_FORMAT_VERSION_INFO[vsVersion]
+
+	# Visual Studio solution files need to be UTF-8 with the byte order marker because Visual Studio is VERY picky
+	# about these files. If ANYTHING is missing or not formatted properly, the Visual Studio version selector may
+	# not open the right version or Visual Studio itself may refuse to even attempt to load the file.
+	with codecs.open(tempFilePath, "w", "utf-8-sig") as f:
+		writer = SolutionWriter(f)
+
+		writer.Line("") # Required empty line.
+		writer.Line("Microsoft Visual Studio Solution File, Format Version {}".format(vsFileInfo.fileVersion))
+		writer.Line("# Visual Studio {}".format(vsFileInfo.versionId))
+
+		flatProjectList = []
+		projectStack = [rootProject]
+
+		# Build a flat list of all projects and filters.
+		while projectStack:
+			project = projectStack.pop(0)
+
+			# Add each child project to the stack.
+			for projKey in sorted(list(project.children)):
+				childProject = project.children[projKey]
+
+				flatProjectList.append(childProject)
+				projectStack.append(childProject)
+
+		# Write out the initial setup data for each project and filter.
+		for project in flatProjectList:
+			projectFilePath = os.path.join(project.relFilePath, project.name)
+			data = "(\"{}\") = \"{}\", \"{}.vcxproj\", \"{}\"".format(project.slnTypeGuid, project.name, projectFilePath, project.guid)
+
+			with writer.Section("Project", data):
+				pass
+
+		# Begin setting the global configuration data.
+		with writer.Section("Global", ""):
+
+			# Write out the build targets supported by this solution.
+			with writer.Section("GlobalSection", "(SolutionConfigurationPlatforms) = preSolution"):
+				for target in buildTargets:
+					vsTarget = GetVsBuildTarget(target)
+
+					writer.Line("{0} = {0}".format(vsTarget))
+
+			# Write out the supported project-to-target mappings.
+			with writer.Section("GlobalSection", "(ProjectConfigurationPlatforms) = postSolution"):
+				for project in flatProjectList:
+					# Only standard projects should be listed here.
+					if project.projType == VsProjectType.Standard:
+						for target in sorted(project.supportedTargets):
+							# Only write out for the current target if it's a supported target.
+							if target in buildTargets:
+								vsTarget = GetVsBuildTarget(target)
+								writer.Line("{0}.{1}.ActiveCfg = {1}".format(project.guid, vsTarget))
+
+								# Only enable the BuildAll project.  This will make sure the global build command only
+								# builds this project and none of the others (which can still be selectively built).
+								if project.subType == VsProjectSubType.BuildAll:
+									writer.Line("{0}.{1}.Build.0 = {1}".format(project.guid, vsTarget))
+
+			# Write out any standalone solution properties.
+			with writer.Section("GlobalSection", "(SolutionProperties) = preSolution"):
+				writer.Line("HideSolutionNode = FALSE")
+
+			# Write out the mapping that describe the solution hierarchy.
+			with writer.Section("GlobalSection", "(NestedProjects) = preSolution"):
+				for parentProject in flatProjectList:
+					for childProject in parentProject.children:
+						writer.Line("{} = {}".format(childProject.guid, parentProject.guid))
+
+	# Transfer the temp file to the final output location.
+	VsFileProxy(realFilePath, tempFilePath).Check()
 
 
 def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
@@ -320,4 +596,13 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 	:param vsVersion: Version of Visual Studio to create projects for.
 	:type vsVersion: str
 	"""
-	rootProject = _buildProjectHierarchy(generators)
+	if not generators:
+		log.Error("No projects available, cannot generate solution")
+		return
+
+	log.Build("Creating project files for Visual Studio {}".format(vsVersion))
+
+	buildTargets = _getBuildTargets(generators)
+	rootProject = _buildProjectHierarchy(buildTargets, generators)
+
+	_writeSolutionFile(buildTargets, rootProject, outputRootPath, solutionName, vsVersion)

@@ -27,137 +27,19 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import os
-import abc
-
-from csbuild import log
-
 from . import internal
 
-from ...common.tool_traits import HasDefines, HasIncludeDirectories
+from .platform_handlers import windows, VsBasePlatformHandler
 
-from ....toolchain import SolutionGenerator
-from ...._utils.decorators import MetaClass
+from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories
+
+from csbuild.toolchain import SolutionGenerator
 
 
-@MetaClass(abc.ABCMeta)
-class VsBasePlatformHandler(object):
-	def __init__(self):
-		pass
+def _writeProjectFiles(outputDir, solutionName, projects, version):
+	projects = [x.toolchain.Tool(VsProjectGenerator) for x in projects]
 
-	def GetToolchainArchitecturePair(self):
-		"""
-		Get a tuple describing the toolchain and architecture the current platform handler applies to.
-
-		:return: Tuple of toolchain and architecture.
-		:rtype: tuple[str, str]
-		"""
-		pass
-
-	def GetVisualStudioPlatformName(self):
-		"""
-		Get the name that is recognizeable by Visual Studio for the current platform.
-
-		:return: Visual Studio platform name.
-		:rtype: str
-		"""
-		pass
-
-	def WriteGlobalHeader(self, parentXmlNode, generator):
-		"""
-		Write any top-level information about this platform at the start of the project file.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
-
-	def WriteGlobalFooter(self, parentXmlNode, generator):
-		"""
-		Write any final data nodes needed by the project.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
-
-	def WriteProjectConfiguration(self, parentXmlNode, generator):
-		"""
-		Write the project configuration nodes for this platform.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
-
-	def WriteConfigPropertyGroup(self, parentXmlNode, generator):
-		"""
-		Write the property group nodes for the project's configuration and platform.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
-
-	def WriteImportProperties(self, parentXmlNode, generator):
-		"""
-		Write any special import properties for this platform.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
-
-	def WriteUserDebugPropertyGroup(self, parentXmlNode, generator):
-		"""
-		Write the property group nodes specifying the user debug settings.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
-
-	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, generator):
-		"""
-		Write extra property group nodes related to platform build properties.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
-
-	def WriteGlobalImportTargets(self, parentXmlNode, generator):
-		"""
-		Write global import target needed for the project.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
-		"""
-		pass
+	internal.WriteProjectFiles(outputDir, solutionName, projects, version)
 
 
 def AddPlatformHandlers(*args):
@@ -165,9 +47,10 @@ def AddPlatformHandlers(*args):
 	Added custom platform handlers to the Visual Studio generator.
 
 	:param args: Custom Visual Studio platform handlers.
-	:type args: list[VsBasePlatformHandler]
+	:type args: class
 	"""
-	pass
+	for handler in args:
+		internal.RegisterPlatformHandler(handler)
 
 
 class VsProjectGenerator(HasDefines, HasIncludeDirectories):
@@ -219,7 +102,6 @@ class VsProjectGenerator(HasDefines, HasIncludeDirectories):
 	def projectData(self):
 		return self._projectData
 
-
 class VsSolutionGenerator2010(SolutionGenerator):
 	"""Visual Studio 2010 solution generator"""
 
@@ -240,9 +122,7 @@ class VsSolutionGenerator2010(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		projects = _getProjectData(projects)
-
-		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2010)
+		_writeProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2010)
 
 
 class VsSolutionGenerator2012(SolutionGenerator):
@@ -265,9 +145,7 @@ class VsSolutionGenerator2012(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		projects = _getProjectData(projects)
-
-		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2012)
+		_writeProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2012)
 
 
 class VsSolutionGenerator2013(SolutionGenerator):
@@ -290,9 +168,7 @@ class VsSolutionGenerator2013(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		projects = _getProjectData(projects)
-
-		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2013)
+		_writeProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2013)
 
 
 class VsSolutionGenerator2015(SolutionGenerator):
@@ -315,9 +191,7 @@ class VsSolutionGenerator2015(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		projects = _getProjectData(projects)
-
-		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2015)
+		_writeProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2015)
 
 
 class VsSolutionGenerator2017(SolutionGenerator):
@@ -340,19 +214,10 @@ class VsSolutionGenerator2017(SolutionGenerator):
 		:param projects: Set of all built projects
 		:type projects: list[csbuild._build.project.Project]
 		"""
-		projects = _getProjectData(projects)
-
-		internal.WriteProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2017)
+		_writeProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2017)
 
 
-def _getProjectData(projects):
-	"""
-	Helper function to convert a list of projects to a list of their project generators.
-
-	:param projects: Set of all built projects
-	:type projects: list[csbuild._build.project.Project]
-
-	:return: List of project generators
-	:rtype: list[csbuild.tools.project_generator.visual_studio.VsProjectGenerator]
-	"""
-	return [x.toolchain.Tool(VsProjectGenerator) for x in projects]
+AddPlatformHandlers(
+	windows.VsWindowsX86PlatformHandler,
+	windows.VsWindowsX64PlatformHandler,
+)

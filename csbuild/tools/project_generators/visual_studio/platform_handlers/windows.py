@@ -19,13 +19,15 @@
 # SOFTWARE.
 
 """
-.. modele:: windows
+.. module:: windows
 	:synopsis: Built-in Visual Studio platform handlers for outputing Windows-compatible project files.
 
 .. moduleauthor:: Brandon Bare
 """
 
-from .. import VsBasePlatformHandler
+from __future__ import unicode_literals, division, print_function
+
+from . import VsBasePlatformHandler
 
 
 class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
@@ -35,50 +37,178 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 	def __init__(self):
 		VsBasePlatformHandler.__init__(self)
 
-	def WriteProjectConfiguration(self, parentXmlNode, generator):
+	def WriteGlobalHeader(self, parentXmlNode, project, config):
+		"""
+		Write any top-level information about this platform at the start of the project file.
+
+		:param parentXmlNode: Parent project XML node.
+		:type parentXmlNode: xml.etree.ElementTree.SubElement
+
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
+		"""
+		pass
+
+	def WriteGlobalFooter(self, parentXmlNode, project, config):
+		"""
+		Write any final data nodes needed by the project.
+
+		:param parentXmlNode: Parent project XML node.
+		:type parentXmlNode: xml.etree.ElementTree.SubElement
+
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
+		"""
+		pass
+
+	def WriteProjectConfiguration(self, parentXmlNode, project, config):
 		"""
 		Write the project configuration nodes for this platform.
 
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
 		"""
 		pass
 
-	def WriteConfigPropertyGroup(self, parentXmlNode, generator):
+	def WriteConfigPropertyGroup(self, parentXmlNode, project, config):
 		"""
 		Write the property group nodes for the project's configuration and platform.
 
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
 		"""
 		pass
 
-	def WriteImportProperties(self, parentXmlNode, generator):
+	def WriteImportProperties(self, parentXmlNode, project, config):
 		"""
 		Write any special import properties for this platform.
 
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
 		"""
 		pass
 
-	def WriteUserDebugPropertyGroup(self, parentXmlNode, generator):
+	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, config):
 		"""
 		Write the property group nodes specifying the user debug settings.
 
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param generator: Visual Studio project generator to use when writing out data.
-		:type generator: VsProjectGenerator
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
 		"""
 		pass
+
+	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, config):
+		"""
+		Write extra property group nodes related to platform build properties.
+
+		:param parentXmlNode: Parent project XML node.
+		:type parentXmlNode: xml.etree.ElementTree.SubElement
+
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
+		"""
+		pass
+
+	def WriteGlobalImportTargets(self, parentXmlNode, project, config):
+		"""
+		Write global import target needed for the project.
+
+		:param parentXmlNode: Parent project XML node.
+		:type parentXmlNode: xml.etree.ElementTree.SubElement
+
+		:param project: Visual Studio project project data.
+		:type project: internal.VsProject
+
+		:param config: Visual Studio configuration being written out.
+		:type config: str
+		"""
+		pass
+
+
+class VsWindowsX86PlatformHandler(VsBaseWindowsPlatformHandler):
+	"""
+	Visual Studio x86 platform handler implementation.
+	"""
+	def __init__(self):
+		VsBaseWindowsPlatformHandler.__init__(self)
+
+	@staticmethod
+	def GetToolchainArchitecturePair():
+		"""
+		Get a tuple describing the toolchain and architecture the current platform handler applies to.
+
+		:return: Tuple of toolchain and architecture.
+		:rtype: tuple[str, str]
+		"""
+		return "msvc", "x86"
+
+	@staticmethod
+	def GetVisualStudioPlatformName():
+		"""
+		Get the name that is recognizeable by Visual Studio for the current platform.
+
+		:return: Visual Studio platform name.
+		:rtype: str
+		"""
+		return "Win32"
+
+
+class VsWindowsX64PlatformHandler(VsBaseWindowsPlatformHandler):
+	"""
+	Visual Studio x64 platform handler implementation.
+	"""
+	def __init__(self):
+		VsBaseWindowsPlatformHandler.__init__(self)
+
+	@staticmethod
+	def GetToolchainArchitecturePair():
+		"""
+		Get a tuple describing the toolchain and architecture the current platform handler applies to.
+
+		:return: Tuple of toolchain and architecture.
+		:rtype: tuple[str, str]
+		"""
+		return "msvc", "x64"
+
+	@staticmethod
+	def GetVisualStudioPlatformName():
+		"""
+		Get the name that is recognizeable by Visual Studio for the current platform.
+
+		:return: Visual Studio platform name.
+		:rtype: str
+		"""
+		return "x64"
