@@ -210,7 +210,7 @@ class GccLinker(LinkerBase):
 		return "ld"
 
 	def _getBinaryLinkerName(self):
-		return "gcc"
+		return "g++"
 
 	def _getArchiverName(self):
 		return "ar"

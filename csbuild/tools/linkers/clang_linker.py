@@ -39,4 +39,4 @@ class ClangLinker(GccLinker):
 	####################################################################################################################
 
 	def _getBinaryLinkerName(self):
-		return "clang"
+		return "clang++"
