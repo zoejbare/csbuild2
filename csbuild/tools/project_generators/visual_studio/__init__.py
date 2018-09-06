@@ -78,28 +78,33 @@ class VsProjectGenerator(HasDefines, HasIncludeDirectories):
 	def RunGroup(self, inputProject, inputFiles):
 		self._projectData = inputProject
 		self._sourceFiles = [x.filename for x in inputFiles]
-		# TODO: One project groups are implemented, parse it for the current project and store the results in self._groupSegments.
+		# TODO: Once project groups are implemented, parse it for the current project and store the results in self._groupSegments.
 
 		return "{}.proj".format(inputProject.outputName)
 
 	@property
 	def sourceFiles(self):
+		"""Project source files"""
 		return self._sourceFiles
 
 	@property
 	def groupSegments(self):
+		"""Project group segments"""
 		return self._groupSegments
 
 	@property
 	def includeDirectories(self):
+		"""Project include directories"""
 		return self._includeDirectories
 
 	@property
 	def defines(self):
+		"""Project defines"""
 		return self._defines
 
 	@property
 	def projectData(self):
+		"""Project settings data"""
 		return self._projectData
 
 class VsSolutionGenerator2010(SolutionGenerator):
@@ -217,6 +222,7 @@ class VsSolutionGenerator2017(SolutionGenerator):
 		_writeProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2017)
 
 
+# TODO: Re-evaluate how platform handler registration works since different toolchains can potentially be used for the same platforms.
 AddPlatformHandlers(
 	windows.VsWindowsX86PlatformHandler,
 	windows.VsWindowsX64PlatformHandler,
