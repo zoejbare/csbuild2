@@ -317,7 +317,7 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 
 		for outputExtension in extensionsToCheck:
 			isActive = buildProject.toolchain.IsOutputActive(outputExtension)
-			log.Info("Checking if {} is still active... {}", outputExtension, "yes" if isActive else "no")
+			log.Info("Checking if {} is still active... {}", outputExtension if outputExtension else "<no extension>", "yes" if isActive else "no")
 
 			# If this was the last file being built of its extension, check whether we can pass it and maybe others to relevant group input tools
 			if not isActive:
