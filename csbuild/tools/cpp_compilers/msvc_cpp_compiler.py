@@ -32,9 +32,13 @@ import os
 from .cpp_compiler_base import CppCompilerBase
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
+from ..._utils.ordered_set import OrderedSet
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
+
+def _ignore(_):
+	pass
 
 class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 	"""
@@ -69,15 +73,14 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 
 	def _getCommand(self, project, inputFile, isCpp):
 		compilerPath = os.path.join(self.vcvarsall.binPath, "cl.exe")
-		extraFlags = self._cxxFlags if isCpp else self._cFlags
 		cmd = [compilerPath]  \
 			+ self._getDefaultArgs() \
+			+ self._getCustomArgs(project, isCpp) \
 			+ self._getPreprocessorArgs() \
 			+ self._getDebugArgs() \
 			+ self._getOptimizationArgs() \
 			+ self._getRuntimeLinkageArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ extraFlags \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
 		return [arg for arg in cmd if arg]
@@ -96,6 +99,10 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		if self._optLevel == OptimizationLevel.Disabled:
 			args.append("/RTC1")
 		return args
+
+	def _getCustomArgs(self, project, isCpp):
+		_ignore(project)
+		return list(OrderedSet(self._cxxFlags if isCpp else self._cFlags))
 
 	def _getDebugArgs(self):
 		arg = {

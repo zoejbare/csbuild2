@@ -35,6 +35,7 @@ from .cpp_compiler_base import CppCompilerBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
 from ... import log
 from ..._utils import response_file, shared_globals
+from ..._utils.ordered_set import OrderedSet
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
@@ -60,8 +61,8 @@ class GccCppCompiler(CppCompilerBase):
 
 	def _getCommand(self, project, inputFile, isCpp):
 		cmdExe = self._getComplierName(isCpp)
-		extraFlags = self._cxxFlags if isCpp else self._cFlags
 		cmd = self._getDefaultArgs(project) \
+			+ self._getCustomArgs(project, isCpp) \
 			+ self._getArchitectureArgs(project) \
 			+ self._getOptimizationArgs() \
 			+ self._getDebugArgs() \
@@ -69,8 +70,7 @@ class GccCppCompiler(CppCompilerBase):
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
-			+ self._getInputFileArgs(inputFile) \
-			+ extraFlags
+			+ self._getInputFileArgs(inputFile)
 
 		inputFileBasename = os.path.basename(inputFile.filename)
 		responseFile = response_file.ResponseFile(project, inputFileBasename, cmd)
@@ -93,6 +93,10 @@ class GccCppCompiler(CppCompilerBase):
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.append("-fPIC")
 		return args
+
+	def _getCustomArgs(self, project, isCpp):
+		_ignore(project)
+		return list(OrderedSet(self._cxxFlags if isCpp else self._cFlags))
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", inputFile.filename]
