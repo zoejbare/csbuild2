@@ -37,18 +37,18 @@ class VsBasePlatformHandler(object):
 	"""
 	Visual Studio platform handler interface.
 	"""
-	def __init__(self):
-		pass
+	def __init__(self, toolchainArch):
+		self._toolchainArch = toolchainArch
 
-	@staticmethod
-	def GetToolchainArchitecturePair(): # pylint: disable=redundant-returns-doc
+	@property
+	def toolchainArch(self):
 		"""
 		Get a tuple describing the toolchain and architecture the current platform handler applies to.
 
 		:return: Tuple of toolchain and architecture.
 		:rtype: tuple[str, str]
 		"""
-		pass
+		return self._toolchainArch
 
 	@staticmethod
 	def GetVisualStudioPlatformName(): # pylint: disable=redundant-returns-doc

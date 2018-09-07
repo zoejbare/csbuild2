@@ -29,7 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 from . import internal
 
-from .platform_handlers import windows, VsBasePlatformHandler
+from .platform_handlers import VsBasePlatformHandler
 
 from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories
 
@@ -42,15 +42,14 @@ def _writeProjectFiles(outputDir, solutionName, projects, version):
 	internal.WriteProjectFiles(outputDir, solutionName, projects, version)
 
 
-def AddPlatformHandlers(*args):
+def UpdatePlatformHandlers(handlers):
 	"""
 	Added custom platform handlers to the Visual Studio generator.
 
-	:param args: Custom Visual Studio platform handlers.
-	:type args: class
+	:param handlers: Dictionary of platform handlers to insert, mapped with tuples of toolchain name to architecture name.
+	:type handlers: dict[ tuple[str, str], platform_handlers.VsBasePlatformHandler ]
 	"""
-	for handler in args:
-		internal.RegisterPlatformHandler(handler)
+	internal.UpdatePlatformHandlers(handlers)
 
 
 class VsProjectGenerator(HasDefines, HasIncludeDirectories):
@@ -220,10 +219,3 @@ class VsSolutionGenerator2017(SolutionGenerator):
 		:type projects: list[csbuild._build.project.Project]
 		"""
 		_writeProjectFiles(outputDir, solutionName, projects, internal.Version.Vs2017)
-
-
-# TODO: Re-evaluate how platform handler registration works since different toolchains can potentially be used for the same platforms.
-AddPlatformHandlers(
-	windows.VsWindowsX86PlatformHandler,
-	windows.VsWindowsX64PlatformHandler,
-)

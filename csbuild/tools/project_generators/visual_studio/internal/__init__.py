@@ -36,6 +36,9 @@ import tempfile
 import uuid
 
 from csbuild import log
+from csbuild._utils import PlatformString
+
+from ..platform_handlers.windows import VsWindowsX86PlatformHandler, VsWindowsX64PlatformHandler
 
 from ....assemblers.gcc_assembler import GccAssembler
 from ....assemblers.msvc_assembler import MsvcAssembler
@@ -101,7 +104,7 @@ ALL_FILE_EXTENSIONS = CPP_SOURCE_FILE_EXTENSIONS \
 UUID_TRACKER = set()
 
 # Keep track of the registered platform handlers.
-PLATFORM_HANDLERS = {}
+PLATFORM_HANDLERS = {} # type: dict
 
 
 def _generateUuid(name):
@@ -117,7 +120,7 @@ def _generateUuid(name):
 	global UUID_TRACKER
 
 	nameIndex = 0
-	nameToHash = name if name else ""
+	nameToHash = PlatformString(name if name else "")
 
 	# Keep generating new UUIDs until we've found one that isn't already in use. This is only useful in cases
 	# where we have a pool of objects and each one needs to be guaranteed to have a UUID that doesn't collide
@@ -206,21 +209,16 @@ def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, se
 	return projStructure
 
 
-def RegisterPlatformHandler(handler):
+def UpdatePlatformHandlers(handlers):
 	"""
-	Register a platform handler.
+	Update the platform handler dictionary.
 
-	:param handler: Platform handler to be registered.
-	:type handler: class
+	:param handlers: Dictionary of platform handlers to be inserted.
+	:type handlers: dict[ tuple[str, str], class ]
 	"""
 	global PLATFORM_HANDLERS
 
-	key = handler.GetToolchainArchitecturePair()
-
-	if key in PLATFORM_HANDLERS:
-		log.Warn("Overwriting Visual Studio platform handler registered for {}".format(key))
-
-	PLATFORM_HANDLERS.update({ key: handler() })
+	PLATFORM_HANDLERS.update(handlers)
 
 
 class VsProjectType(object):
@@ -290,7 +288,7 @@ class VsProject(object):
 		:type target: tuple[str, str, str]
 
 		:param generator: Generator containing the data that needs to be merged into the project.
-		:type generator: csbuild.tools.project_generators.visual_studio.VsProjectGenerator
+		:type generator: csbuild.tools.project_generators.visual_studio.VsProjectGenerator or None
 		"""
 		if self.projType == VsProjectType.Standard:
 
@@ -398,6 +396,51 @@ def _createBuildTarget(generator):
 
 def _getToolchainArchPair(target):
 	return target[0], target[1]
+
+
+def _evaluatePlatforms(generators):
+	global PLATFORM_HANDLERS
+
+	if PLATFORM_HANDLERS:
+		acceptedHandlers = {}
+		rejectedToolchainArchs = set()
+		registeredPlatforms = set()
+
+		# Do validation to ensure each handler is unique. Sorting the handler keys will force consistency.
+		for key in sorted(PLATFORM_HANDLERS.keys()):
+			# Handlers with invalid keys are ignored.
+			if key or len(key) != 2:
+				cls = PLATFORM_HANDLERS[key]
+				if cls:
+					# The Visual Studio platform name will be used to make sure a given handler is only registered once.
+					vsPlatform = cls.GetVisualStudioPlatformName()
+					if vsPlatform in registeredPlatforms:
+						rejectedToolchainArchs.add(key)
+					else:
+						acceptedHandlers.update({ key: cls })
+						registeredPlatforms.add(vsPlatform)
+
+		log.Warn("Rejecting the following toolchains since they are registered to overlapping Visual Studio platforms: {}".format(sorted(rejectedToolchainArchs)))
+
+		# Update the global platform handlers with those we have accepted.
+		PLATFORM_HANDLERS = acceptedHandlers
+
+	else:
+		# No platform handlers have been registered by user, so we can add reasonable defaults here.
+		PLATFORM_HANDLERS.update({
+			("msvc", "x86"): VsWindowsX86PlatformHandler,
+			("msvc", "x64"): VsWindowsX64PlatformHandler,
+		})
+
+	# Instantiate each registered platform handler.
+	for key, cls in PLATFORM_HANDLERS.items():
+		clsObj = cls(key)
+		PLATFORM_HANDLERS[key] = clsObj
+
+	# Prune the generators down to a list with only supported platforms.
+	prunedGenerators = [x for x in generators if (x.projectData.toolchainName, x.projectData.architectureName) in PLATFORM_HANDLERS]
+
+	return prunedGenerators
 
 
 def _getBuildTargets(generators):
@@ -596,11 +639,12 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 	:param vsVersion: Version of Visual Studio to create projects for.
 	:type vsVersion: str
 	"""
+	log.Build("Creating project files for Visual Studio {}".format(vsVersion))
+
+	generators = _evaluatePlatforms(generators)
 	if not generators:
 		log.Error("No projects available, cannot generate solution")
 		return
-
-	log.Build("Creating project files for Visual Studio {}".format(vsVersion))
 
 	buildTargets = _getBuildTargets(generators)
 	rootProject = _buildProjectHierarchy(buildTargets, generators)

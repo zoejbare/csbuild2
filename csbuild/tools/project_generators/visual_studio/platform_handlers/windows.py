@@ -34,8 +34,8 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 	"""
 	Visual Studio platform handler as a base class, containing project writing functionality for all Windows platforms.
 	"""
-	def __init__(self):
-		VsBasePlatformHandler.__init__(self)
+	def __init__(self, toolchainArch):
+		VsBasePlatformHandler.__init__(self, toolchainArch)
 
 	def WriteGlobalHeader(self, parentXmlNode, project, config):
 		"""
@@ -162,18 +162,8 @@ class VsWindowsX86PlatformHandler(VsBaseWindowsPlatformHandler):
 	"""
 	Visual Studio x86 platform handler implementation.
 	"""
-	def __init__(self):
-		VsBaseWindowsPlatformHandler.__init__(self)
-
-	@staticmethod
-	def GetToolchainArchitecturePair():
-		"""
-		Get a tuple describing the toolchain and architecture the current platform handler applies to.
-
-		:return: Tuple of toolchain and architecture.
-		:rtype: tuple[str, str]
-		"""
-		return "msvc", "x86"
+	def __init__(self, toolchainArch):
+		VsBaseWindowsPlatformHandler.__init__(self, toolchainArch)
 
 	@staticmethod
 	def GetVisualStudioPlatformName():
@@ -190,18 +180,8 @@ class VsWindowsX64PlatformHandler(VsBaseWindowsPlatformHandler):
 	"""
 	Visual Studio x64 platform handler implementation.
 	"""
-	def __init__(self):
-		VsBaseWindowsPlatformHandler.__init__(self)
-
-	@staticmethod
-	def GetToolchainArchitecturePair():
-		"""
-		Get a tuple describing the toolchain and architecture the current platform handler applies to.
-
-		:return: Tuple of toolchain and architecture.
-		:rtype: tuple[str, str]
-		"""
-		return "msvc", "x64"
+	def __init__(self, toolchainArch):
+		VsBaseWindowsPlatformHandler.__init__(self, toolchainArch)
 
 	@staticmethod
 	def GetVisualStudioPlatformName():
