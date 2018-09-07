@@ -59,5 +59,5 @@ class ClangCppCompiler(GccCppCompiler):
 		}.get(project.architectureName, project.architectureName)
 
 		return baseArgs + [
-			"-arch", architecture,
+			"-target", "{}-unknown-linux-unknown".format(architecture),
 		]
