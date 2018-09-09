@@ -31,9 +31,11 @@ from . import internal
 
 from .platform_handlers import VsBasePlatformHandler
 
-from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories
+from csbuild._utils.decorators import TypeChecked
 
 from csbuild.toolchain import SolutionGenerator
+
+from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories
 
 
 def _writeProjectFiles(outputDir, solutionName, projects, version):
@@ -42,12 +44,13 @@ def _writeProjectFiles(outputDir, solutionName, projects, version):
 	internal.WriteProjectFiles(outputDir, solutionName, projects, version)
 
 
+@TypeChecked(handlers=dict)
 def UpdatePlatformHandlers(handlers):
 	"""
 	Added custom platform handlers to the Visual Studio generator.
 
-	:param handlers: Dictionary of platform handlers to insert, mapped with tuples of toolchain name to architecture name.
-	:type handlers: dict[ tuple[str, str], platform_handlers.VsBasePlatformHandler ]
+	:param handlers: Dictionary of platform handlers mappings to their build targets.
+	:type handlers: dict[ tuple[ str, str, str or None or tuple[str] ], class ]
 	"""
 	internal.UpdatePlatformHandlers(handlers)
 

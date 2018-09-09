@@ -34,8 +34,8 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 	"""
 	Visual Studio platform handler as a base class, containing project writing functionality for all Windows platforms.
 	"""
-	def __init__(self, toolchainArch):
-		VsBasePlatformHandler.__init__(self, toolchainArch)
+	def __init__(self, buildTarget):
+		VsBasePlatformHandler.__init__(self, buildTarget)
 
 	def WriteGlobalHeader(self, parentXmlNode, project, config):
 		"""
@@ -162,8 +162,8 @@ class VsWindowsX86PlatformHandler(VsBaseWindowsPlatformHandler):
 	"""
 	Visual Studio x86 platform handler implementation.
 	"""
-	def __init__(self, toolchainArch):
-		VsBaseWindowsPlatformHandler.__init__(self, toolchainArch)
+	def __init__(self, buildTarget):
+		VsBaseWindowsPlatformHandler.__init__(self, buildTarget)
 
 	@staticmethod
 	def GetVisualStudioPlatformName():
@@ -180,8 +180,8 @@ class VsWindowsX64PlatformHandler(VsBaseWindowsPlatformHandler):
 	"""
 	Visual Studio x64 platform handler implementation.
 	"""
-	def __init__(self, toolchainArch):
-		VsBaseWindowsPlatformHandler.__init__(self, toolchainArch)
+	def __init__(self, buildTarget):
+		VsBaseWindowsPlatformHandler.__init__(self, buildTarget)
 
 	@staticmethod
 	def GetVisualStudioPlatformName():

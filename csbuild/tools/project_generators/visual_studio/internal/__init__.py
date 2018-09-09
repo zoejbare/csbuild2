@@ -104,7 +104,11 @@ ALL_FILE_EXTENSIONS = CPP_SOURCE_FILE_EXTENSIONS \
 UUID_TRACKER = set()
 
 # Keep track of the registered platform handlers.
-PLATFORM_HANDLERS = {} # type: dict
+PLATFORM_HANDLERS = {}
+
+# Collection of all valid build targets used by input project generators. This will be pruned against
+# registered platform handlers.
+BUILD_TARGETS = []
 
 
 def _generateUuid(name):
@@ -210,15 +214,38 @@ def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, se
 
 
 def UpdatePlatformHandlers(handlers):
-	"""
-	Update the platform handler dictionary.
-
-	:param handlers: Dictionary of platform handlers to be inserted.
-	:type handlers: dict[ tuple[str, str], class ]
-	"""
 	global PLATFORM_HANDLERS
 
-	PLATFORM_HANDLERS.update(handlers)
+	fixedHandlers = {}
+
+	# Validate the handlers before adding the mappings to the global dictionary.
+	for key, cls in handlers:
+		if isinstance(key, tuple) and cls is not None:
+			key = list(key) # Convert the key to a list so we can modify it if necessary.
+
+			# Discard any tuple keys that don't have at least 3 elements.
+			if len(key) < 3:
+				log.Warn("Discarding Visual Studio platform handler mapping due to incorrect key format: {}".format(key))
+				continue
+
+			# Limit the key tuple to 3 elements.
+			elif len(key) > 3:
+				key = key[:3]
+
+			# It's valid for the 3rd element to be a string initially, but for the mappings, we'll need it in a list.
+			if isinstance(key[2], str):
+				key[2] = ( key[2], )
+
+			# Anything else will default to an empty list.
+			elif not isinstance(key[2], tuple) or key[2] is None:
+				key[2] = tuple()
+
+			# Convert the key back to a tuple for mapping it into the fixed handlers dictionary.
+			key = tuple(key)
+
+			fixedHandlers[key] = cls
+
+	PLATFORM_HANDLERS.update(fixedHandlers)
 
 
 class VsProjectType(object):
@@ -255,7 +282,7 @@ class VsProjectItem(object):
 		self.name = name
 		self.path = path
 		self.itemType = itemType
-		self.supportedPlatforms = set()
+		self.supportedTargets = set()
 		self.children = {}
 
 
@@ -330,7 +357,7 @@ class VsProject(object):
 						fileItem = parentMap[fileItem.name]
 
 					# Update the set of supported platforms for the current file item.
-					fileItem.supportedPlatforms.add(target)
+					fileItem.supportedTargets.add(target)
 
 
 class VsFileProxy(object):
@@ -391,75 +418,87 @@ class VsFileProxy(object):
 def _createBuildTarget(generator):
 	return generator.projectData.toolchainName  \
 		, generator.projectData.architectureName \
-		, _fixConfigName(generator.projectData.targetName)
+		, generator.projectData.targetName
 
 
-def _getToolchainArchPair(target):
-	return target[0], target[1]
+def _createVsPlatform(buildTarget, platformHandler):
+	return "{}|{}".format(_fixConfigName(buildTarget[2]), platformHandler.GetVisualStudioPlatformName())
 
 
 def _evaluatePlatforms(generators):
 	global PLATFORM_HANDLERS
+	global BUILD_TARGETS
 
-	if PLATFORM_HANDLERS:
-		acceptedHandlers = {}
-		rejectedToolchainArchs = set()
-		registeredPlatforms = set()
-
-		# Do validation to ensure each handler is unique. Sorting the handler keys will force consistency.
-		for key in sorted(PLATFORM_HANDLERS.keys()):
-			# Handlers with invalid keys are ignored.
-			if key or len(key) != 2:
-				cls = PLATFORM_HANDLERS[key]
-				if cls:
-					# The Visual Studio platform name will be used to make sure a given handler is only registered once.
-					vsPlatform = cls.GetVisualStudioPlatformName()
-					if vsPlatform in registeredPlatforms:
-						rejectedToolchainArchs.add(key)
-					else:
-						acceptedHandlers.update({ key: cls })
-						registeredPlatforms.add(vsPlatform)
-
-		log.Warn("Rejecting the following toolchains since they are registered to overlapping Visual Studio platforms: {}".format(sorted(rejectedToolchainArchs)))
-
-		# Update the global platform handlers with those we have accepted.
-		PLATFORM_HANDLERS = acceptedHandlers
-
-	else:
+	if not PLATFORM_HANDLERS:
 		# No platform handlers have been registered by user, so we can add reasonable defaults here.
 		PLATFORM_HANDLERS.update({
-			("msvc", "x86"): VsWindowsX86PlatformHandler,
-			("msvc", "x64"): VsWindowsX64PlatformHandler,
+			("msvc", "x86", ()): VsWindowsX86PlatformHandler,
+			("msvc", "x64", ()): VsWindowsX64PlatformHandler,
 		})
+
+	allFoundConfigs = set()
+
+	# Find all configs used by the generators.
+	for gen in generators:
+		allFoundConfigs.add(gen.projectData.targetName)
+
+	allFoundConfigs = sorted(list(allFoundConfigs))
+	tempHandlers = {}
 
 	# Instantiate each registered platform handler.
 	for key, cls in PLATFORM_HANDLERS.items():
-		clsObj = cls(key)
-		PLATFORM_HANDLERS[key] = clsObj
+		# Convert the key to a list so we can modify it if necessary.
+		key = list(key)
+
+		if not key[2]:
+			# If there were no configs specified by the user, that is an indication to use all known configs.
+			key[2] = allFoundConfigs
+		else:
+			# Of the configs provided by the user, trim them all down to only those we know about.
+			key[2] = [x for x in key[2] if x in allFoundConfigs]
+
+		allKeyConfigs = key[2]
+
+		# Split out the configs so each one produces a different key. This will make dictionary lookups easier.
+		for config in allKeyConfigs:
+			key = (key[0], key[1], config)
+			tempHandlers.update({ key: cls })
+
+	# We have all the handlers stored in a temporary dictionary so we can refill them globally as we validate them.
+	PLATFORM_HANDLERS = {}
+
+	foundVsPlatforms = set()
+	rejectedBuildTargets = set()
+
+	# Validate the platform handlers to make sure none of them overlap.
+	for key in sorted(tempHandlers.keys()):
+		cls = tempHandlers[key]
+		vsPlatform = _createVsPlatform(key, cls)
+		if vsPlatform in foundVsPlatforms:
+			rejectedBuildTargets.add(key)
+		else:
+			foundVsPlatforms.add(vsPlatform)
+			PLATFORM_HANDLERS.update({ key: cls(key) })
+
+	if rejectedBuildTargets:
+		log.Warn("Rejecting the following build targets since they are registered to overlapping Visual Studio platforms: {}".format(sorted(rejectedBuildTargets)))
 
 	# Prune the generators down to a list with only supported platforms.
-	prunedGenerators = [x for x in generators if (x.projectData.toolchainName, x.projectData.architectureName) in PLATFORM_HANDLERS]
+	prunedGenerators = [x for x in generators if _createBuildTarget(x) in PLATFORM_HANDLERS]
+
+	foundBuildTargets = set()
+
+	for gen in prunedGenerators:
+		foundBuildTargets.add(_createBuildTarget(gen))
+
+	BUILD_TARGETS = sorted(foundBuildTargets)
 
 	return prunedGenerators
 
 
-def _getBuildTargets(generators):
-	global PLATFORM_HANDLERS
+def _buildProjectHierarchy(generators):
+	global BUILD_TARGETS
 
-	buildTargets = set()
-
-	for gen in generators:
-		target = _createBuildTarget(gen)
-		toolchainArch = _getToolchainArchPair(target)
-
-		# Only add the generator's platform if we have a handler registered for it.
-		if toolchainArch in PLATFORM_HANDLERS:
-			buildTargets.add(target)
-
-	return sorted(buildTargets)
-
-
-def _buildProjectHierarchy(buildTargets, generators):
 	rootProject = VsProject(None, "", VsProjectType.Root)
 	buildAllProject = VsProject("(BUILD_ALL)", "", VsProjectType.Standard)
 	regenProject = VsProject("(REGENERATE_SOLUTION)", "", VsProjectType.Standard)
@@ -469,7 +508,7 @@ def _buildProjectHierarchy(buildTargets, generators):
 	regenProject.subType = VsProjectSubType.Regen
 
 	# The default projects can be used with all build targets.
-	for target in buildTargets:
+	for target in BUILD_TARGETS:
 		buildAllProject.MergeProjectData(target, None)
 		regenProject.MergeProjectData(target, None)
 
@@ -507,19 +546,13 @@ def _buildProjectHierarchy(buildTargets, generators):
 		# Merge the generator's platform data into the project.
 		proj.MergeProjectData(target, gen)
 
-
 	return rootProject
 
 
-def _writeSolutionFile(buildTargets, rootProject, outputRootPath, solutionName, vsVersion):
+def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsVersion):
 	global FILE_FORMAT_VERSION_INFO
 	global PLATFORM_HANDLERS
-
-	def GetVsBuildTarget(target): # pylint: disable=missing-docstring
-		toolchainArch = _getToolchainArchPair(target)
-		handler = PLATFORM_HANDLERS[toolchainArch]
-		vsTarget = "{}|{}".format(target[2], handler.GetVisualStudioPlatformName())
-		return vsTarget
+	global BUILD_TARGETS
 
 	class SolutionWriter(object): # pylint: disable=missing-docstring
 		def __init__(self, fileHandle):
@@ -588,10 +621,11 @@ def _writeSolutionFile(buildTargets, rootProject, outputRootPath, solutionName, 
 
 			# Write out the build targets supported by this solution.
 			with writer.Section("GlobalSection", "(SolutionConfigurationPlatforms) = preSolution"):
-				for target in buildTargets:
-					vsTarget = GetVsBuildTarget(target)
+				for target in BUILD_TARGETS:
+					handler = PLATFORM_HANDLERS[target]
+					vsPlatform = _createVsPlatform(target, handler)
 
-					writer.Line("{0} = {0}".format(vsTarget))
+					writer.Line("{0} = {0}".format(vsPlatform))
 
 			# Write out the supported project-to-target mappings.
 			with writer.Section("GlobalSection", "(ProjectConfigurationPlatforms) = postSolution"):
@@ -600,14 +634,15 @@ def _writeSolutionFile(buildTargets, rootProject, outputRootPath, solutionName, 
 					if project.projType == VsProjectType.Standard:
 						for target in sorted(project.supportedTargets):
 							# Only write out for the current target if it's a supported target.
-							if target in buildTargets:
-								vsTarget = GetVsBuildTarget(target)
-								writer.Line("{0}.{1}.ActiveCfg = {1}".format(project.guid, vsTarget))
+							if target in BUILD_TARGETS:
+								handler = PLATFORM_HANDLERS[target]
+								vsPlatform = _createVsPlatform(target, handler)
+								writer.Line("{0}.{1}.ActiveCfg = {1}".format(project.guid, vsPlatform))
 
 								# Only enable the BuildAll project.  This will make sure the global build command only
 								# builds this project and none of the others (which can still be selectively built).
 								if project.subType == VsProjectSubType.BuildAll:
-									writer.Line("{0}.{1}.Build.0 = {1}".format(project.guid, vsTarget))
+									writer.Line("{0}.{1}.Build.0 = {1}".format(project.guid, vsPlatform))
 
 			# Write out any standalone solution properties.
 			with writer.Section("GlobalSection", "(SolutionProperties) = preSolution"):
@@ -646,7 +681,6 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 		log.Error("No projects available, cannot generate solution")
 		return
 
-	buildTargets = _getBuildTargets(generators)
-	rootProject = _buildProjectHierarchy(buildTargets, generators)
+	rootProject = _buildProjectHierarchy(generators)
 
-	_writeSolutionFile(buildTargets, rootProject, outputRootPath, solutionName, vsVersion)
+	_writeSolutionFile(rootProject, outputRootPath, solutionName, vsVersion)

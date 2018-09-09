@@ -37,18 +37,18 @@ class VsBasePlatformHandler(object):
 	"""
 	Visual Studio platform handler interface.
 	"""
-	def __init__(self, toolchainArch):
-		self._toolchainArch = toolchainArch
+	def __init__(self, buildTarget):
+		self._buildTarget = buildTarget
 
 	@property
-	def toolchainArch(self):
+	def buildTarget(self):
 		"""
-		Get a tuple describing the toolchain and architecture the current platform handler applies to.
+		Get a tuple describing the toolchain, architecture, and config the current platform handler applies to.
 
-		:return: Tuple of toolchain and architecture.
-		:rtype: tuple[str, str]
+		:return: Tuple of the build target specification.
+		:rtype: tuple[str, str, str]
 		"""
-		return self._toolchainArch
+		return self._buildTarget
 
 	@staticmethod
 	def GetVisualStudioPlatformName(): # pylint: disable=redundant-returns-doc
