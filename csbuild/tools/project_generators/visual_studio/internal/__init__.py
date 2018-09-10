@@ -36,7 +36,7 @@ import tempfile
 import uuid
 
 from csbuild import log
-from csbuild._utils import PlatformString
+from csbuild._utils import PlatformBytes, PlatformString
 
 from xml.etree import ElementTree as ET
 from xml.dom import minidom
@@ -129,13 +129,13 @@ def _generateUuid(name):
 		nameIndex += 1
 
 
-def _fixConfigName( configName ):
+def _getVsConfigName(buildSpec):
 	# Visual Studio can be exceptionally picky about configuration names.  For instance, if your build script
 	# has the "debug" target, you may run into problems with Visual Studio showing that alongside it's own
 	# "Debug" configuration, which it may have decided to silently add alongside your own.  The solution is to
 	# just put the configurations in a format it expects (first letter upper case). That way, it will see "Debug"
 	# already there and won't try to silently 'fix' that up for you.
-	return configName.capitalize()
+	return buildSpec[2].capitalize()
 
 
 def _createBuildSpec(generator):
@@ -145,7 +145,7 @@ def _createBuildSpec(generator):
 
 
 def _createVsPlatform(buildSpec, platformHandler):
-	return "{}|{}".format(_fixConfigName(buildSpec[2]), platformHandler.GetVisualStudioPlatformName())
+	return "{}|{}".format(_getVsConfigName(buildSpec), platformHandler.GetVisualStudioPlatformName())
 
 
 def _constructRelPath(filePath, rootPath):
@@ -286,14 +286,14 @@ class VsProject(object):
 			VsProjectType.Filter: "{2150E333-8FDC-42A3-9474-1A3956D46DE8}",
 		}.get(self.projType, "{UNKNOWN}")
 
-	def GetVcxProjFilePath(self):
+	def GetVcxProjFilePath(self, extraExtension=""):
 		"""
 		Get the relative file path to this project's vcxproj file.
 
 		:return: Relative vcxproj file path.
 		:rtype: str
 		"""
-		return os.path.join(self.relFilePath, "{}.vcxproj".format(self.name))
+		return os.path.join(self.relFilePath, "{}.vcxproj{}".format(self.name, extraExtension))
 
 	def MergeProjectData(self, buildSpec, generator):
 		"""
@@ -525,6 +525,46 @@ def _buildProjectHierarchy(generators):
 	return rootProject
 
 
+def _buildFlatProjectList(rootProject):
+	flatProjects = []
+	projectStack = [rootProject]
+
+	# Build a flat list of all projects and filters.
+	while projectStack:
+		project = projectStack.pop(0)
+
+		# Add each child project to the stack.
+		for projKey in sorted(list(project.children)):
+			childProject = project.children[projKey]
+
+			flatProjects.append(childProject)
+			projectStack.append(childProject)
+
+	return flatProjects
+
+
+def _buildFlatProjectItemList(rootItems):
+	flatProjectItems = []
+	dummyRootItem = VsProjectItem(None, None, None)
+	itemStack = [dummyRootItem]
+
+	# Assign the input items to the dummy root.
+	dummyRootItem.children = rootItems
+
+	# Build a flat list of all projects and filters.
+	while itemStack:
+		item = itemStack.pop(0)
+
+		# Add each child project to the stack.
+		for projKey in sorted(list(item.children)):
+			childItem = item.children[projKey]
+
+			flatProjectItems.append(childItem)
+			itemStack.append(childItem)
+
+	return flatProjectItems
+
+
 def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo):
 	global FILE_FORMAT_VERSION_INFO
 	global PLATFORM_HANDLERS
@@ -568,19 +608,7 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 		writer.Line("Microsoft Visual Studio Solution File, Format Version {}".format(vsInstallInfo.fileVersion))
 		writer.Line("# Visual Studio {}".format(vsInstallInfo.versionId))
 
-		flatProjectList = []
-		projectStack = [rootProject]
-
-		# Build a flat list of all projects and filters.
-		while projectStack:
-			project = projectStack.pop(0)
-
-			# Add each child project to the stack.
-			for projKey in sorted(list(project.children)):
-				childProject = project.children[projKey]
-
-				flatProjectList.append(childProject)
-				projectStack.append(childProject)
+		flatProjectList = _buildFlatProjectList(rootProject)
 
 		# Write out the initial setup data for each project and filter.
 		for project in flatProjectList:
@@ -631,16 +659,139 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 	VsFileProxy(realFilePath, tempFilePath).Check()
 
 
-def _writeProjectFiles(rootProject, outputRootPath, vsInstallInfo):
+def _writeProjectFiles(rootProject, outputRootPath):
 	global PLATFORM_HANDLERS
+	global BUILD_SPECS
 
-	createRootNode = ET.Element
-	addNode = ET.SubElement
+	flatProjectList = _buildFlatProjectList(rootProject)
+	globalPlatformHandlers = {}
 
-	def MakeComment(parentNode, text): # pylint: disable=missing-docstring
+	# We'll need a single copy of each platform's handler regardless of VS config.
+	# Having this mapping simplifies the lookup when writing the global sections.
+	for buildSpec in BUILD_SPECS:
+		platformHandler = PLATFORM_HANDLERS[buildSpec]
+		vsPlatformName = platformHandler.GetVisualStudioPlatformName()
+
+		if vsPlatformName not in globalPlatformHandlers:
+			globalPlatformHandlers.update({ vsPlatformName: platformHandler })
+
+	_createRootXmlNode = ET.Element
+	_addXmlNode = ET.SubElement
+
+	def _makeXmlCommentNode(parentNode, text): # pylint: disable=missing-docstring
 		comment = ET.Comment(text)
 		parentNode.append(comment)
 		return comment
+
+	def _saveXmlFile(realFilePath, rootNode):
+		# Grab a string of the XML document we've created and save it.
+		xmlString = PlatformString(ET.tostring(rootNode))
+
+		# Use minidom to reformat the XML since ElementTree doesn't do it for us.
+		formattedXmlString = PlatformString(minidom.parseString(xmlString).toprettyxml("\t", "\n", encoding = "utf-8"))
+
+		tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
+
+		os.write(tmpFd, PlatformBytes(formattedXmlString))
+		os.close(tmpFd)
+
+		fileProxy = VsFileProxy(realFilePath, tempFilePath)
+
+		fileProxy.Check()
+
+	for project in flatProjectList:
+		if project.projType == VsProjectType.Standard:
+			outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath())
+
+			# Create the root XML node with the default data.
+			rootXmlNode = _createRootXmlNode("Project")
+			rootXmlNode.set("DefaultTargets", "Build")
+			rootXmlNode.set("ToolsVersion", "4.0")
+			rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
+
+			_makeXmlCommentNode(rootXmlNode, "Project header")
+
+			# Write any top-level information a generator platform may require.
+			for _, platformHandler in globalPlatformHandlers.items():
+				platformHandler.WriteGlobalHeader(rootXmlNode, project)
+
+			_makeXmlCommentNode(rootXmlNode, "Project configurations")
+
+			itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+			itemGroupXmlNode.set("Label", "ProjectConfigurations")
+
+			# Write the project configurations.
+			for buildSpec in BUILD_SPECS:
+				platformHandler = PLATFORM_HANDLERS[buildSpec]
+				platformHandler.WriteProjectConfiguration(itemGroupXmlNode, project, _getVsConfigName(buildSpec))
+
+			_makeXmlCommentNode(rootXmlNode, "Project source files")
+
+			# Write the project's files.
+			itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+			flatProjectItems = _buildFlatProjectItemList(project.items)
+
+			for item in flatProjectItems:
+				if item.itemType == VsProjectItemType.File:
+					sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, "None") # TODO: Embed the xml node type into the file item object.
+					sourceFileXmlNode.set("Include", _constructRelPath(item.path, os.path.dirname(outputFilePath)))
+
+			_makeXmlCommentNode(rootXmlNode, "Import properties")
+
+			# Add the global property group.
+			propertyGroupNode = _addXmlNode(rootXmlNode, "PropertyGroup")
+			importNode = _addXmlNode(rootXmlNode, "Import")
+			projectGuidNode = _addXmlNode(propertyGroupNode, "ProjectGuid")
+			namespaceNode = _addXmlNode(propertyGroupNode, "RootNamespace")
+
+			propertyGroupNode.set("Label", "Globals")
+			importNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.Default.props")
+			projectGuidNode.text = project.guid
+			namespaceNode.text = project.name
+
+			# We're not creating a native project, so Visual Studio needs to know this is a makefile project.
+			keywordNode = _addXmlNode(propertyGroupNode, "Keyword")
+			keywordNode.text = "MakeFileProj"
+
+			# Write the config property groups for each platform.
+			for buildSpec in BUILD_SPECS:
+				platformHandler = PLATFORM_HANDLERS[buildSpec]
+				platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
+
+			# Write out the standard import property.
+			importNode = _addXmlNode(rootXmlNode, "Import")
+			importNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.props")
+
+			# Write the import properties for each platform.
+			for buildSpec in BUILD_SPECS:
+				platformHandler = PLATFORM_HANDLERS[buildSpec]
+				platformHandler.WriteImportProperties(rootXmlNode, project, _getVsConfigName(buildSpec))
+
+			_makeXmlCommentNode(rootXmlNode, "Platform build commands")
+
+			# Write the build commands for each platform.
+			# TODO: Implement the commands for building the project.
+
+			_makeXmlCommentNode(rootXmlNode, "Import targets")
+
+			# Write the global import targets.
+			# MUST be before the "Microsoft.Cpp.targets" import!
+			for _, platformHandler in globalPlatformHandlers.items():
+				platformHandler.WriteGlobalImportTargets(rootXmlNode, project)
+
+			_makeXmlCommentNode(rootXmlNode, "Final import target; must always be the LAST import target!")
+
+			importNode = _addXmlNode(rootXmlNode, "Import")
+			importNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.targets")
+
+			_makeXmlCommentNode(rootXmlNode, "Project footer")
+
+			# Write any trailing information needed by the project.
+			for _, platformHandler in globalPlatformHandlers.items():
+				platformHandler.WriteGlobalFooter(rootXmlNode, project)
+
+			# Write out the XML file.
+			_saveXmlFile(outputFilePath, rootXmlNode)
 
 
 def UpdatePlatformHandlers(handlers): # pylint: disable=missing-docstring
@@ -711,4 +862,4 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 	rootProject = _buildProjectHierarchy(generators)
 
 	_writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
-	_writeProjectFiles(rootProject, outputRootPath, vsInstallInfo)
+	_writeProjectFiles(rootProject, outputRootPath)

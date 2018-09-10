@@ -80,7 +80,7 @@ class VsBasePlatformHandler(object):
 		"""
 		pass
 
-	def WriteGlobalHeader(self, parentXmlNode, project, vsConfig):
+	def WriteGlobalHeader(self, parentXmlNode, project):
 		"""
 		Write any top-level information about this platform at the start of the project file.
 
@@ -89,13 +89,10 @@ class VsBasePlatformHandler(object):
 
 		:param project: Visual Studio project project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-
-		:param vsConfig: Visual Studio configuration being written.
-		:type vsConfig: str
 		"""
 		pass
 
-	def WriteGlobalFooter(self, parentXmlNode, project, vsConfig):
+	def WriteGlobalFooter(self, parentXmlNode, project):
 		"""
 		Write any final data nodes needed by the project.
 
@@ -104,9 +101,18 @@ class VsBasePlatformHandler(object):
 
 		:param project: Visual Studio project project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+		"""
+		pass
 
-		:param vsConfig: Visual Studio configuration being written.
-		:type vsConfig: str
+	def WriteGlobalImportTargets(self, parentXmlNode, project):
+		"""
+		Write global import target needed for the project.
+
+		:param parentXmlNode: Parent project XML node.
+		:type parentXmlNode: xml.etree.ElementTree.SubElement
+
+		:param project: Visual Studio project project data.
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
 		pass
 
@@ -173,21 +179,6 @@ class VsBasePlatformHandler(object):
 	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, vsConfig):
 		"""
 		Write extra property group nodes related to platform build properties.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-
-		:param vsConfig: Visual Studio configuration being written.
-		:type vsConfig: str
-		"""
-		pass
-
-	def WriteGlobalImportTargets(self, parentXmlNode, project, vsConfig):
-		"""
-		Write global import target needed for the project.
 
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
