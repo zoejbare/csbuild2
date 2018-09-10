@@ -293,7 +293,7 @@ class VsProject(object):
 		:return: Relative vcxproj file path.
 		:rtype: str
 		"""
-		return os.path.join(self.relFilePath, "{}.vcxproj{}".format(self.name, extraExtension))
+		return os.path.join("vsproj", self.relFilePath, "{}.vcxproj{}".format(self.name, extraExtension))
 
 	def MergeProjectData(self, buildSpec, generator):
 		"""
@@ -702,6 +702,7 @@ def _writeProjectFiles(rootProject, outputRootPath):
 	for project in flatProjectList:
 		if project.projType == VsProjectType.Standard:
 			outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath())
+			outputDirPath = os.path.dirname(outputFilePath)
 
 			# Create the root XML node with the default data.
 			rootXmlNode = _createRootXmlNode("Project")
@@ -734,7 +735,7 @@ def _writeProjectFiles(rootProject, outputRootPath):
 			for item in flatProjectItems:
 				if item.itemType == VsProjectItemType.File:
 					sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, "None") # TODO: Embed the xml node type into the file item object.
-					sourceFileXmlNode.set("Include", _constructRelPath(item.path, os.path.dirname(outputFilePath)))
+					sourceFileXmlNode.set("Include", _constructRelPath(item.path, outputDirPath))
 
 			_makeXmlCommentNode(rootXmlNode, "Import properties")
 
