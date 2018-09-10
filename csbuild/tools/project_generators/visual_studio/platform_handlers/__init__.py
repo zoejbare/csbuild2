@@ -31,6 +31,10 @@ import abc
 
 from csbuild._utils.decorators import MetaClass
 
+from xml.etree import ElementTree as ET
+
+def _ignore(_):
+	pass
 
 class VsInstallInfo(object):
 	"""
@@ -69,6 +73,8 @@ class VsBasePlatformHandler(object):
 	def __init__(self, buildSpec, vsInstallInfo):
 		self.buildSpec = buildSpec
 		self.vsInstallInfo = vsInstallInfo
+
+		self._addXmlNode = ET.SubElement
 
 	@staticmethod
 	def GetVisualStudioPlatformName(): # pylint: disable=redundant-returns-doc
@@ -129,7 +135,19 @@ class VsBasePlatformHandler(object):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		pass
+		_ignore(project)
+
+		vsPlatformName = self.GetVisualStudioPlatformName()
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
+
+		projectConfigXmlNode = self._addXmlNode(parentXmlNode, "ProjectConfiguration")
+		projectConfigXmlNode.set("Include", vsBuildTarget)
+
+		configXmlNode = self._addXmlNode(projectConfigXmlNode, "Configuration")
+		configXmlNode.text = vsConfig
+
+		platformXmlNode = self._addXmlNode(projectConfigXmlNode, "Platform")
+		platformXmlNode.text = vsPlatformName
 
 	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""
@@ -159,7 +177,17 @@ class VsBasePlatformHandler(object):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		pass
+		vsPlatformName = self.GetVisualStudioPlatformName()
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
+
+		importGroupXmlNode = self._addXmlNode(parentXmlNode, "ImportGroup")
+		importGroupXmlNode.set("Label", "PropertySheets")
+		importGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
+
+		importXmlNode = self._addXmlNode(importGroupXmlNode, "Import")
+		importXmlNode.set("Label", "LocalAppDataPlatform")
+		importXmlNode.set("Project", r"$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props")
+		importXmlNode.set("Condition", "exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')")
 
 	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""

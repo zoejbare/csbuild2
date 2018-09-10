@@ -36,7 +36,9 @@ import tempfile
 import uuid
 
 from csbuild import log
-from csbuild._utils import PlatformBytes, PlatformString
+from csbuild._utils import GetCommandLineString, PlatformString
+
+from contextlib import closing
 
 from xml.etree import ElementTree as ET
 from xml.dom import minidom
@@ -97,6 +99,9 @@ BUILD_SPECS = []
 
 # Absolute path to the main makefile that invoked csbuild.
 MAKEFILE_PATH = os.path.abspath(sys.modules["__main__"].__file__)
+
+# Absolute path to the "regenerate solution" batch file. This will be filled in when the solution generator is run.
+REGEN_FILE_PATH = ""
 
 
 def _generateUuid(name):
@@ -290,6 +295,9 @@ class VsProject(object):
 		"""
 		Get the relative file path to this project's vcxproj file.
 
+		:param extraExtension: Extra part to add onto the file extension (allows us to construct ".vcxproj.filters" and ".vcxproj.user" files.
+		:type extraExtension: str
+
 		:return: Relative vcxproj file path.
 		:rtype: str
 		"""
@@ -415,8 +423,8 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 		})
 
 	# Find all specs used by the generators.
-	allFoundSpecs = { _createBuildSpec(x) for x in generators }
-	allFoundTargets = sorted(list({ x[2] for x in allFoundSpecs }))
+	allFoundSpecs = { _createBuildSpec(gen) for gen in generators }
+	allFoundTargets = sorted(list({ spec[2] for spec in allFoundSpecs }))
 	tempHandlers = {}
 
 	# Instantiate each registered platform handler.
@@ -436,8 +444,12 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 		# Split out the configs so each one produces a different key. This will make dictionary lookups easier.
 		for config in allKeyConfigs:
 			key = (key[0], key[1], config)
-			if key in allFoundSpecs:
-				tempHandlers.update({ key: cls })
+			tempHandlers.update({ key: cls })
+
+	sortedHandlerKeys = sorted(tempHandlers.keys())
+
+	log.Info("Found build specs in available projects: {}".format(sorted(allFoundSpecs)))
+	log.Info("Build specs mapped to platform handlers: {}".format(sortedHandlerKeys))
 
 	# We have all the handlers stored in a temporary dictionary so we can refill them globally as we validate them.
 	PLATFORM_HANDLERS = {}
@@ -446,14 +458,16 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 	rejectedBuildSpecs = set()
 
 	# Validate the platform handlers to make sure none of them overlap.
-	for key in sorted(tempHandlers.keys()):
-		cls = tempHandlers[key]
-		vsPlatform = _createVsPlatform(key, cls)
-		if vsPlatform in foundVsPlatforms:
-			rejectedBuildSpecs.add(key)
-		else:
-			foundVsPlatforms.add(vsPlatform)
-			PLATFORM_HANDLERS.update({ key: cls(key, vsInstallInfo) })
+	for key in sortedHandlerKeys:
+		# Do not include specs that are not common to the available generators.
+		if key in allFoundSpecs:
+			cls = tempHandlers[key]
+			vsPlatform = _createVsPlatform(key, cls)
+			if vsPlatform in foundVsPlatforms:
+				rejectedBuildSpecs.add(key)
+			else:
+				foundVsPlatforms.add(vsPlatform)
+				PLATFORM_HANDLERS.update({ key: cls(key, vsInstallInfo) })
 
 	if rejectedBuildSpecs:
 		log.Warn("Rejecting the following build specs since they are registered to overlapping Visual Studio platforms: {}".format(sorted(rejectedBuildSpecs)))
@@ -469,7 +483,37 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 
 	BUILD_SPECS = sorted(foundBuildSpecs)
 
+	if PLATFORM_HANDLERS:
+		log.Info("Using Visual Studio platforms: {}".format(", ".join(sorted({ handler.GetVisualStudioPlatformName() for _, handler in PLATFORM_HANDLERS.items() }))))
+
 	return prunedGenerators
+
+
+def _createRegenerateBatchFile(outputRootPath):
+	global MAKEFILE_PATH
+	global REGEN_FILE_PATH
+
+	outputFilePath = os.path.join(outputRootPath, "regenerate_solution.bat")
+	pythonExePath = os.path.normcase(sys.executable)
+	makefilePath = _constructRelPath(MAKEFILE_PATH, outputRootPath)
+	cmdLine = GetCommandLineString()
+
+	tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_regen_")
+
+	# Write the batch file data.
+	with closing(os.fdopen(tmpFd, "w")) as f:
+		writeLineToFile = lambda text: f.write("{}\n".format(text))
+
+		writeLineToFile("@echo off")
+		writeLineToFile("SETLOCAL")
+		writeLineToFile("PUSHD %~dp0")
+		writeLineToFile("\"{}\" \"{}\" {}".format(pythonExePath, makefilePath, cmdLine))
+		writeLineToFile("POPD")
+
+	REGEN_FILE_PATH = outputFilePath
+	proxy = VsFileProxy(REGEN_FILE_PATH, tempFilePath)
+
+	proxy.Check()
 
 
 def _buildProjectHierarchy(generators):
@@ -600,7 +644,7 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 
 	# Visual Studio solution files need to be UTF-8 with the byte order marker because Visual Studio is VERY picky
 	# about these files. If ANYTHING is missing or not formatted properly, the Visual Studio version selector may
-	# not open the right version or Visual Studio itself may refuse to even attempt to load the file.
+	# not open the with the right version or Visual Studio itself may refuse to even attempt to load the file.
 	with codecs.open(tempFilePath, "w", "utf-8-sig") as f:
 		writer = SolutionWriter(f)
 
@@ -692,8 +736,9 @@ def _writeProjectFiles(rootProject, outputRootPath):
 
 		tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
 
-		os.write(tmpFd, PlatformBytes(formattedXmlString))
-		os.close(tmpFd)
+		# Write the temp xml file data.
+		with closing(os.fdopen(tmpFd, "w")) as f:
+			f.write(formattedXmlString)
 
 		fileProxy = VsFileProxy(realFilePath, tempFilePath)
 
@@ -737,31 +782,39 @@ def _writeProjectFiles(rootProject, outputRootPath):
 					sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, "None") # TODO: Embed the xml node type into the file item object.
 					sourceFileXmlNode.set("Include", _constructRelPath(item.path, outputDirPath))
 
-			_makeXmlCommentNode(rootXmlNode, "Import properties")
+			_makeXmlCommentNode(rootXmlNode, "Project global properties")
 
 			# Add the global property group.
-			propertyGroupNode = _addXmlNode(rootXmlNode, "PropertyGroup")
-			importNode = _addXmlNode(rootXmlNode, "Import")
-			projectGuidNode = _addXmlNode(propertyGroupNode, "ProjectGuid")
-			namespaceNode = _addXmlNode(propertyGroupNode, "RootNamespace")
+			propertyGroupXmlNode = _addXmlNode(rootXmlNode, "PropertyGroup")
+			propertyGroupXmlNode.set("Label", "Globals")
 
-			propertyGroupNode.set("Label", "Globals")
-			importNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.Default.props")
-			projectGuidNode.text = project.guid
-			namespaceNode.text = project.name
+			_makeXmlCommentNode(rootXmlNode, "Import properties")
+
+			importXmlNode = _addXmlNode(rootXmlNode, "Import")
+			importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.Default.props")
+
+			projectGuidXmlNode = _addXmlNode(propertyGroupXmlNode, "ProjectGuid")
+			projectGuidXmlNode.text = project.guid
+
+			namespaceXmlNode = _addXmlNode(propertyGroupXmlNode, "RootNamespace")
+			namespaceXmlNode.text = project.name
 
 			# We're not creating a native project, so Visual Studio needs to know this is a makefile project.
-			keywordNode = _addXmlNode(propertyGroupNode, "Keyword")
-			keywordNode.text = "MakeFileProj"
+			keywordXmlNode = _addXmlNode(propertyGroupXmlNode, "Keyword")
+			keywordXmlNode.text = "MakeFileProj"
+
+			_makeXmlCommentNode(rootXmlNode, "Platform config property groups")
 
 			# Write the config property groups for each platform.
 			for buildSpec in BUILD_SPECS:
 				platformHandler = PLATFORM_HANDLERS[buildSpec]
 				platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
 
+			_makeXmlCommentNode(rootXmlNode, "Import properties (continued)")
+
 			# Write out the standard import property.
-			importNode = _addXmlNode(rootXmlNode, "Import")
-			importNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.props")
+			importXmlNode = _addXmlNode(rootXmlNode, "Import")
+			importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.props")
 
 			# Write the import properties for each platform.
 			for buildSpec in BUILD_SPECS:
@@ -782,8 +835,8 @@ def _writeProjectFiles(rootProject, outputRootPath):
 
 			_makeXmlCommentNode(rootXmlNode, "Final import target; must always be the LAST import target!")
 
-			importNode = _addXmlNode(rootXmlNode, "Import")
-			importNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.targets")
+			importXmlNode = _addXmlNode(rootXmlNode, "Import")
+			importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.targets")
 
 			_makeXmlCommentNode(rootXmlNode, "Project footer")
 
@@ -859,6 +912,8 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 	if not generators:
 		log.Error("No projects available, cannot generate solution")
 		return
+
+	_createRegenerateBatchFile(outputRootPath)
 
 	rootProject = _buildProjectHierarchy(generators)
 

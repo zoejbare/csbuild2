@@ -37,57 +37,6 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 	def __init__(self, buildTarget, vsInstallInfo):
 		VsBasePlatformHandler.__init__(self, buildTarget, vsInstallInfo)
 
-	def WriteGlobalHeader(self, parentXmlNode, project):
-		"""
-		Write any top-level information about this platform at the start of the project file.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-		"""
-		pass
-
-	def WriteGlobalFooter(self, parentXmlNode, project):
-		"""
-		Write any final data nodes needed by the project.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-		"""
-		pass
-
-	def WriteGlobalImportTargets(self, parentXmlNode, project):
-		"""
-		Write global import target needed for the project.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-		"""
-		pass
-
-	def WriteProjectConfiguration(self, parentXmlNode, project, vsConfig):
-		"""
-		Write the project configuration nodes for this platform.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-
-		:param vsConfig: Visual Studio configuration being written.
-		:type vsConfig: str
-		"""
-		pass
-
 	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.
@@ -101,22 +50,22 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		pass
+		vsPlatformName = self.GetVisualStudioPlatformName()
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
-	def WriteImportProperties(self, parentXmlNode, project, vsConfig):
-		"""
-		Write any special import properties for this platform.
+		propertyGroupXmlNode = self._addXmlNode(parentXmlNode, "PropertyGroup")
+		propertyGroupXmlNode.set("Label", "Configuration")
+		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
+		# While required for all native Visual Studio projects, makefiles projects won't really suffer any
+		# ill effects from not having this, but Visual Studio will sometimes annoyingly list each project
+		# as being built for another version of Visual Studio.  Adding the correct toolset for the running
+		# version of Visual Studio will make that annoyance go away.
+		platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
+		platformToolsetXmlNode.text = self.vsInstallInfo.toolsetVersion
 
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-
-		:param vsConfig: Visual Studio configuration being written.
-		:type vsConfig: str
-		"""
-		pass
+		configTypeNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
+		configTypeNode.text = "Makefile"
 
 	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""
@@ -131,22 +80,20 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		pass
+		vsPlatformName = self.GetVisualStudioPlatformName()
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
-	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, vsConfig):
-		"""
-		Write extra property group nodes related to platform build properties.
+		propertyGroupXmlNode = self._addXmlNode(parentXmlNode, "PropertyGroup")
+		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
+		workingDirXmlNode = self._addXmlNode(propertyGroupXmlNode, "LocalDebuggerWorkingDirectory")
+		workingDirXmlNode.text = "$(OutDir)"
 
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+		debuggerTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "LocalDebuggerDebuggerType")
+		debuggerTypeXmlNode.text = "NativeOnly"
 
-		:param vsConfig: Visual Studio configuration being written.
-		:type vsConfig: str
-		"""
-		pass
+		debuggerFlavorXmlNode = self._addXmlNode(propertyGroupXmlNode, "DebuggerFlavor")
+		debuggerFlavorXmlNode.text = "WindowsLocalDebugger"
 
 
 class VsWindowsX86PlatformHandler(VsBaseWindowsPlatformHandler):
