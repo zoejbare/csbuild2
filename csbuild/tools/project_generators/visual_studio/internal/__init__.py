@@ -38,6 +38,10 @@ import uuid
 from csbuild import log
 from csbuild._utils import PlatformString
 
+from xml.etree import ElementTree as ET
+from xml.dom import minidom
+
+from ..platform_handlers import VsInstallInfo
 from ..platform_handlers.windows import VsWindowsX86PlatformHandler, VsWindowsX64PlatformHandler
 
 from ....assemblers.gcc_assembler import GccAssembler
@@ -59,31 +63,12 @@ class Version(object):
 	Vs2017 = "2017"
 
 
-class VsFileInfo(object):
-	"""
-	Visual Studio version data helper class.
-
-	:ivar friendlyName: Friendly version name for logging.
-	:type friendlyName: str
-
-	:ivar fileVersion: File format version (e.g., "Microsoft Visual Studio Solution File, Format Version XX.XX" where "XX.XX" is the member value).
-	:type fileVersion: str
-
-	:ivar versionId: Version of Visual Studio the solution belongs to (e.g., "# Visual Studio XX" where "XX" is the member value).
-	:type versionId: str
-	"""
-	def __init__(self, friendlyName, fileVersion, versionId):
-		self.friendlyName = friendlyName
-		self.fileVersion = fileVersion
-		self.versionId = versionId
-
-
 FILE_FORMAT_VERSION_INFO = {
-	Version.Vs2010: VsFileInfo("2010", "11.00", "2010"),
-	Version.Vs2012: VsFileInfo("2012", "12.00", "2012"),
-	Version.Vs2013: VsFileInfo("2013", "12.00", "2013"),
-	Version.Vs2015: VsFileInfo("2015", "12.00", "14"),
-	Version.Vs2017: VsFileInfo("2017", "12.00", "15"),
+	Version.Vs2010: VsInstallInfo("Visual Studio 2010", "11.00", "2010", "v100"),
+	Version.Vs2012: VsInstallInfo("Visual Studio 2012", "12.00", "2012", "v110"),
+	Version.Vs2013: VsInstallInfo("Visual Studio 2013", "12.00", "2013", "v120"),
+	Version.Vs2015: VsInstallInfo("Visual Studio 2015", "12.00", "14", "v140"),
+	Version.Vs2017: VsInstallInfo("Visual Studio 2017", "12.00", "15", "v141"),
 }
 
 CPP_SOURCE_FILE_EXTENSIONS = CppCompilerBase.inputFiles
@@ -281,13 +266,17 @@ class VsProject(object):
 	Container for project-level data in Visual Studio.
 	"""
 	def __init__(self, name, relFilePath, projType):
+		global MAKEFILE_PATH
+
+		makeFileItem = VsProjectItem("make.py", MAKEFILE_PATH, VsProjectItemType.File)
+
 		self.name = name
 		self.relFilePath = relFilePath
 		self.projType = projType
 		self.subType = VsProjectSubType.Normal
 		self.guid = _generateUuid(name)
 		self.children = {}
-		self.items = {}
+		self.items = { makeFileItem.name: makeFileItem }
 		self.supportedBuildSpecs = set()
 		self.platformIncludePaths = {}
 		self.platformDefines = {}
@@ -298,6 +287,12 @@ class VsProject(object):
 		}.get(self.projType, "{UNKNOWN}")
 
 	def GetVcxProjFilePath(self):
+		"""
+		Get the relative file path to this project's vcxproj file.
+
+		:return: Relative vcxproj file path.
+		:rtype: str
+		"""
 		return os.path.join(self.relFilePath, "{}.vcxproj".format(self.name))
 
 	def MergeProjectData(self, buildSpec, generator):
@@ -408,7 +403,7 @@ class VsFileProxy(object):
 		os.remove(self.tempFilePath)
 
 
-def _evaluatePlatforms(generators):
+def _evaluatePlatforms(generators, vsInstallInfo):
 	global PLATFORM_HANDLERS
 	global BUILD_SPECS
 
@@ -419,14 +414,9 @@ def _evaluatePlatforms(generators):
 			("msvc", "x64", ()): VsWindowsX64PlatformHandler,
 		})
 
-	allFoundConfigs = set()
-
-	# Find all configs used by the generators.
-	for gen in generators:
-		allFoundConfigs.add(gen.projectData.targetName)
-
-	allFoundConfigs = sorted(list(allFoundConfigs))
-	allFoundSpecs = set([_createBuildSpec(x) for x in generators])
+	# Find all specs used by the generators.
+	allFoundSpecs = { _createBuildSpec(x) for x in generators }
+	allFoundTargets = sorted(list({ x[2] for x in allFoundSpecs }))
 	tempHandlers = {}
 
 	# Instantiate each registered platform handler.
@@ -436,10 +426,10 @@ def _evaluatePlatforms(generators):
 
 		if not key[2]:
 			# If there were no configs specified by the user, that is an indication to use all known configs.
-			key[2] = allFoundConfigs
+			key[2] = allFoundTargets
 		else:
 			# Of the configs provided by the user, trim them all down to only those we know about.
-			key[2] = [x for x in key[2] if x in allFoundConfigs]
+			key[2] = [x for x in key[2] if x in allFoundTargets]
 
 		allKeyConfigs = key[2]
 
@@ -463,7 +453,7 @@ def _evaluatePlatforms(generators):
 			rejectedBuildSpecs.add(key)
 		else:
 			foundVsPlatforms.add(vsPlatform)
-			PLATFORM_HANDLERS.update({ key: cls(key) })
+			PLATFORM_HANDLERS.update({ key: cls(key, vsInstallInfo) })
 
 	if rejectedBuildSpecs:
 		log.Warn("Rejecting the following build specs since they are registered to overlapping Visual Studio platforms: {}".format(sorted(rejectedBuildSpecs)))
@@ -535,7 +525,7 @@ def _buildProjectHierarchy(generators):
 	return rootProject
 
 
-def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsVersion):
+def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo):
 	global FILE_FORMAT_VERSION_INFO
 	global PLATFORM_HANDLERS
 	global BUILD_SPECS
@@ -568,8 +558,6 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsVersion):
 	# Close the file since it needs to be re-opened with a specific encoding.
 	os.close(tmpFd)
 
-	vsFileInfo = FILE_FORMAT_VERSION_INFO[vsVersion]
-
 	# Visual Studio solution files need to be UTF-8 with the byte order marker because Visual Studio is VERY picky
 	# about these files. If ANYTHING is missing or not formatted properly, the Visual Studio version selector may
 	# not open the right version or Visual Studio itself may refuse to even attempt to load the file.
@@ -577,8 +565,8 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsVersion):
 		writer = SolutionWriter(f)
 
 		writer.Line("") # Required empty line.
-		writer.Line("Microsoft Visual Studio Solution File, Format Version {}".format(vsFileInfo.fileVersion))
-		writer.Line("# Visual Studio {}".format(vsFileInfo.versionId))
+		writer.Line("Microsoft Visual Studio Solution File, Format Version {}".format(vsInstallInfo.fileVersion))
+		writer.Line("# Visual Studio {}".format(vsInstallInfo.versionId))
 
 		flatProjectList = []
 		projectStack = [rootProject]
@@ -643,7 +631,19 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsVersion):
 	VsFileProxy(realFilePath, tempFilePath).Check()
 
 
-def UpdatePlatformHandlers(handlers):
+def _writeProjectFiles(rootProject, outputRootPath, vsInstallInfo):
+	global PLATFORM_HANDLERS
+
+	createRootNode = ET.Element
+	addNode = ET.SubElement
+
+	def MakeComment(parentNode, text): # pylint: disable=missing-docstring
+		comment = ET.Comment(text)
+		parentNode.append(comment)
+		return comment
+
+
+def UpdatePlatformHandlers(handlers): # pylint: disable=missing-docstring
 	global PLATFORM_HANDLERS
 
 	fixedHandlers = {}
@@ -694,13 +694,21 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 	:param vsVersion: Version of Visual Studio to create projects for.
 	:type vsVersion: str
 	"""
-	log.Build("Creating project files for Visual Studio {}".format(vsVersion))
+	global FILE_FORMAT_VERSION_INFO
 
-	generators = _evaluatePlatforms(generators)
+	vsInstallInfo = FILE_FORMAT_VERSION_INFO.get(vsVersion, None)
+	if not vsInstallInfo:
+		log.Error("Unknown version of Visual Studio: {}".format(vsVersion))
+		return
+
+	log.Build("Creating project files for {}".format(vsInstallInfo.friendlyName))
+
+	generators = _evaluatePlatforms(generators, vsInstallInfo)
 	if not generators:
 		log.Error("No projects available, cannot generate solution")
 		return
 
 	rootProject = _buildProjectHierarchy(generators)
 
-	_writeSolutionFile(rootProject, outputRootPath, solutionName, vsVersion)
+	_writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
+	_writeProjectFiles(rootProject, outputRootPath, vsInstallInfo)

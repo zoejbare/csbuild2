@@ -32,23 +32,43 @@ import abc
 from csbuild._utils.decorators import MetaClass
 
 
+class VsInstallInfo(object):
+	"""
+	Visual Studio version data helper class.
+
+	:ivar friendlyName: Friendly version name for logging.
+	:type friendlyName: str
+
+	:ivar fileVersion: File format version (e.g., "Microsoft Visual Studio Solution File, Format Version XX.XX" where "XX.XX" is the member value).
+	:type fileVersion: str
+
+	:ivar versionId: Version of Visual Studio the solution belongs to (e.g., "# Visual Studio XX" where "XX" is the member value).
+	:type versionId: str
+
+	:ivar toolsetVersion: Platform toolset version for the Visual Studio version.
+	:type toolsetVersion: str
+	"""
+	def __init__(self, friendlyName, fileVersion, versionId, toolsetVersion):
+		self.friendlyName = friendlyName
+		self.fileVersion = fileVersion
+		self.versionId = versionId
+		self.toolsetVersion = toolsetVersion
+
+
 @MetaClass(abc.ABCMeta)
 class VsBasePlatformHandler(object):
 	"""
-	Visual Studio platform handler interface.
+	Visual Studio platform handler base class.
+
+	:ivar buildSpec: Internal build specification being written.
+	:type buildSpec: tuple[str, str, str]
+
+	:ivar vsInstallInfo: Information relating to the selected version of Visual Studio.
+	:type vsInstallInfo: csbuild.tools.project_generators.visual_studio.platform_handlers.VsInstallInfo
 	"""
-	def __init__(self, buildTarget):
-		self._buildTarget = buildTarget
-
-	@property
-	def buildTarget(self):
-		"""
-		Get a tuple describing the toolchain, architecture, and config the current platform handler applies to.
-
-		:return: Tuple of the build target specification.
-		:rtype: tuple[str, str, str]
-		"""
-		return self._buildTarget
+	def __init__(self, buildSpec, vsInstallInfo):
+		self.buildSpec = buildSpec
+		self.vsInstallInfo = vsInstallInfo
 
 	@staticmethod
 	def GetVisualStudioPlatformName(): # pylint: disable=redundant-returns-doc
@@ -60,7 +80,7 @@ class VsBasePlatformHandler(object):
 		"""
 		pass
 
-	def WriteGlobalHeader(self, parentXmlNode, project, config):
+	def WriteGlobalHeader(self, parentXmlNode, project, vsConfig):
 		"""
 		Write any top-level information about this platform at the start of the project file.
 
@@ -68,14 +88,14 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
 
-	def WriteGlobalFooter(self, parentXmlNode, project, config):
+	def WriteGlobalFooter(self, parentXmlNode, project, vsConfig):
 		"""
 		Write any final data nodes needed by the project.
 
@@ -83,14 +103,14 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
 
-	def WriteProjectConfiguration(self, parentXmlNode, project, config):
+	def WriteProjectConfiguration(self, parentXmlNode, project, vsConfig):
 		"""
 		Write the project configuration nodes for this platform.
 
@@ -98,14 +118,14 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
 
-	def WriteConfigPropertyGroup(self, parentXmlNode, project, config):
+	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.
 
@@ -113,14 +133,14 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
 
-	def WriteImportProperties(self, parentXmlNode, project, config):
+	def WriteImportProperties(self, parentXmlNode, project, vsConfig):
 		"""
 		Write any special import properties for this platform.
 
@@ -128,14 +148,14 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
 
-	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, config):
+	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""
 		Write the property group nodes specifying the user debug settings.
 
@@ -143,14 +163,14 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
 
-	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, config):
+	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, vsConfig):
 		"""
 		Write extra property group nodes related to platform build properties.
 
@@ -158,14 +178,14 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
 
-	def WriteGlobalImportTargets(self, parentXmlNode, project, config):
+	def WriteGlobalImportTargets(self, parentXmlNode, project, vsConfig):
 		"""
 		Write global import target needed for the project.
 
@@ -173,9 +193,9 @@ class VsBasePlatformHandler(object):
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
 		:param project: Visual Studio project project data.
-		:type project: internal.VsProject
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
-		:param config: Visual Studio configuration being written out.
-		:type config: str
+		:param vsConfig: Visual Studio configuration being written.
+		:type vsConfig: str
 		"""
 		pass
