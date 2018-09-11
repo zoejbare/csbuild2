@@ -262,6 +262,16 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		return shared_globals.solutionArgs
 
+	@TypeChecked(_return=str)
+	def GetSolutionPath():
+		"""
+		Get the root path when generating projects.
+
+		:return: Root solution path.
+		:rtype: str
+		"""
+		return shared_globals.solutionPath
+
 	@TypeChecked(_return=StrType)
 	def GetSystemArchitecture():
 		"""

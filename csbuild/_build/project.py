@@ -173,23 +173,20 @@ class Project(object):
 					)
 				)
 			)
-			if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
-				#: type: str
-				self.outputDir = shared_globals.solutionPath
-			else:
-				#: type: str
-				self.outputDir = os.path.join(
-					self.scriptDir,
-					self.settings.get(
-						"outputDir",
-						os.path.join(
-							"out",
-							self.toolchainName,
-							self.architectureName,
-							self.targetName,
-						)
+
+			#: type: str
+			self.outputDir = os.path.join(
+				self.scriptDir,
+				self.settings.get(
+					"outputDir",
+					os.path.join(
+						"out",
+						self.toolchainName,
+						self.architectureName,
+						self.targetName,
 					)
 				)
+			)
 
 			#: type: str
 			self.csbuildDir = os.path.join(self.scriptDir, ".csbuild")
