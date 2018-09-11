@@ -459,6 +459,8 @@ class VsFileProxy(object):
 
 			with open(self.realFilePath, "wb") as outputFile:
 				outputFile.write(inputFileData)
+				outputFile.flush()
+				os.fsync(outputFile.fileno())
 
 		else:
 			log.Build("[UP-TO-DATE] {}".format(self.realFilePath))
@@ -564,6 +566,9 @@ def _createRegenerateBatchFile(outputRootPath):
 		writeLineToFile("PUSHD %~dp0")
 		writeLineToFile("\"{}\" \"{}\" {}".format(pythonExePath, makefilePath, cmdLine))
 		writeLineToFile("POPD")
+
+		f.flush()
+		os.fsync(f.fileno())
 
 	REGEN_FILE_PATH = outputFilePath
 	proxy = VsFileProxy(REGEN_FILE_PATH, tempFilePath)
@@ -753,6 +758,9 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 				for parentProject in flatProjectList:
 					for childProject in parentProject.children:
 						writer.Line("{} = {}".format(childProject.guid, parentProject.guid))
+
+		f.flush()
+		os.fsync(f.fileno())
 
 	# Transfer the temp file to the final output location.
 	VsFileProxy(realFilePath, tempFilePath).Check()
