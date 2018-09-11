@@ -865,6 +865,9 @@ def Run():
 
 			shared_globals.solutionPath = os.path.abspath(shared_globals.solutionPath)
 
+			if not os.access(shared_globals.solutionPath, os.F_OK):
+				os.makedirs(shared_globals.solutionPath)
+
 			if args.solution_args:
 				shared_globals.solutionArgs = args.solution_args
 
