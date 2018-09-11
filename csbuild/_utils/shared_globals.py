@@ -57,6 +57,7 @@ runPerfReport = None
 toolchainGroups = {}
 
 solutionPath = ""
+solutionArgs = ""
 
 class RunMode(object):
 	"""

@@ -252,6 +252,16 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		return shared_globals.runMode
 
+	@TypeChecked(_return=str)
+	def GetSolutionArgs():
+		"""
+		Get the value passed to the --solution-args option.
+
+		:return: Solution args string.
+		:rtype: str
+		"""
+		return shared_globals.solutionArgs
+
 	@TypeChecked(_return=StrType)
 	def GetSystemArchitecture():
 		"""

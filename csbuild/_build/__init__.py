@@ -865,6 +865,9 @@ def Run():
 
 			shared_globals.solutionPath = os.path.abspath(shared_globals.solutionPath)
 
+			if args.solution_args:
+				shared_globals.solutionArgs = args.solution_args
+
 			if args.solution_name:
 				solutionName = args.solution_name
 			else:
