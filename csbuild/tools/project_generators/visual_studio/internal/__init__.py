@@ -104,17 +104,15 @@ MAKEFILE_PATH = os.path.abspath(sys.modules["__main__"].__file__)
 # Absolute path to the "regenerate solution" batch file. This will be filled in when the solution generator is run.
 REGEN_FILE_PATH = ""
 
+_createRootXmlNode = ET.Element
+_addXmlNode = ET.SubElement
+
+def _makeXmlCommentNode(parentXmlNode, text):
+	comment = ET.Comment(text)
+	parentXmlNode.append(comment)
+	return comment
 
 def _generateUuid(name):
-	"""
-	Generate a new UUID.
-
-	:param name: Name to use for hashing the new ID.
-	:type name: str
-
-	:return: New UUID
-	:rtype: :class:`UUID`
-	"""
 	global UUID_TRACKER
 
 	nameIndex = 0
@@ -262,6 +260,7 @@ class VsProjectItem(object):
 	def __init__(self, name, path, itemType):
 		self.name = name
 		self.path = path
+		self.guid = _generateUuid(self.path)
 		self.itemType = itemType
 		self.supportedBuildSpecs = set()
 		self.children = {}
@@ -714,6 +713,225 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 	VsFileProxy(realFilePath, tempFilePath).Check()
 
 
+def _saveXmlFile(realFilePath, rootNode):
+	# Grab a string of the XML document we've created and save it.
+	xmlString = PlatformString(ET.tostring(rootNode))
+
+	# Use minidom to reformat the XML since ElementTree doesn't do it for us.
+	formattedXmlString = PlatformString(minidom.parseString(xmlString).toprettyxml("\t", "\n", encoding = "utf-8"))
+
+	tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
+
+	# Write the temp xml file data.
+	with closing(os.fdopen(tmpFd, "w")) as f:
+		f.write(formattedXmlString)
+
+	fileProxy = VsFileProxy(realFilePath, tempFilePath)
+
+	fileProxy.Check()
+
+
+def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
+	outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath())
+	outputDirPath = os.path.dirname(outputFilePath)
+
+	# Create the root XML node with the default data.
+	rootXmlNode = _createRootXmlNode("Project")
+	rootXmlNode.set("DefaultTargets", "Build")
+	rootXmlNode.set("ToolsVersion", "4.0")
+	rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
+
+	_makeXmlCommentNode(rootXmlNode, "Project header")
+
+	# Write any top-level information a generator platform may require.
+	for _, platformHandler in globalPlatformHandlers.items():
+		platformHandler.WriteGlobalHeader(rootXmlNode, project)
+
+	_makeXmlCommentNode(rootXmlNode, "Project configurations")
+
+	itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+	itemGroupXmlNode.set("Label", "ProjectConfigurations")
+
+	# Write the project configurations.
+	for buildSpec in BUILD_SPECS:
+		platformHandler = PLATFORM_HANDLERS[buildSpec]
+		platformHandler.WriteProjectConfiguration(itemGroupXmlNode, project, _getVsConfigName(buildSpec))
+
+	_makeXmlCommentNode(rootXmlNode, "Project source files")
+
+	# Write the project's files.
+	itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+	flatProjectItems = _buildFlatProjectItemList(project.items)
+
+	for item in flatProjectItems:
+		if item.itemType == VsProjectItemType.File:
+			sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, "None") # TODO: Embed the xml node type into the file item object.
+			sourceFileXmlNode.set("Include", _constructRelPath(item.path, outputDirPath))
+
+	_makeXmlCommentNode(rootXmlNode, "Project global properties")
+
+	# Add the global property group.
+	propertyGroupXmlNode = _addXmlNode(rootXmlNode, "PropertyGroup")
+	propertyGroupXmlNode.set("Label", "Globals")
+
+	_makeXmlCommentNode(rootXmlNode, "Import properties")
+
+	importXmlNode = _addXmlNode(rootXmlNode, "Import")
+	importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.Default.props")
+
+	projectGuidXmlNode = _addXmlNode(propertyGroupXmlNode, "ProjectGuid")
+	projectGuidXmlNode.text = project.guid
+
+	namespaceXmlNode = _addXmlNode(propertyGroupXmlNode, "RootNamespace")
+	namespaceXmlNode.text = project.name
+
+	# We're not creating a native project, so Visual Studio needs to know this is a makefile project.
+	keywordXmlNode = _addXmlNode(propertyGroupXmlNode, "Keyword")
+	keywordXmlNode.text = "MakeFileProj"
+
+	_makeXmlCommentNode(rootXmlNode, "Platform config property groups")
+
+	# Write the config property groups for each platform.
+	for buildSpec in BUILD_SPECS:
+		platformHandler = PLATFORM_HANDLERS[buildSpec]
+		platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
+
+	_makeXmlCommentNode(rootXmlNode, "Import properties (continued)")
+
+	# Write out the standard import property.
+	importXmlNode = _addXmlNode(rootXmlNode, "Import")
+	importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.props")
+
+	# Write the import properties for each platform.
+	for buildSpec in BUILD_SPECS:
+		platformHandler = PLATFORM_HANDLERS[buildSpec]
+		platformHandler.WriteImportProperties(rootXmlNode, project, _getVsConfigName(buildSpec))
+
+	_makeXmlCommentNode(rootXmlNode, "Platform build commands")
+
+	# Write the build commands for each platform.
+	for buildSpec in BUILD_SPECS:
+		platformHandler = PLATFORM_HANDLERS[buildSpec]
+		extraBuildArgs = csbuild.GetSolutionArgs().replace(",", " ")
+
+		if project.subType == VsProjectSubType.Regen:
+			buildArgs = [
+				"\"{}\"".format(_constructRelPath(REGEN_FILE_PATH, outputDirPath))
+			]
+
+			rebuildArgs = buildArgs
+			cleanArgs = buildArgs
+
+		else:
+			buildArgs = [
+				"\"{}\"".format(os.path.normcase(sys.executable)),
+				"\"{}\"".format(_constructRelPath(MAKEFILE_PATH, outputDirPath)),
+				"-o", "\"{}\"".format(buildSpec[0]),
+				"-a", "\"{}\"".format(buildSpec[1]),
+				"-t", "\"{}\"".format(buildSpec[2]),
+			]
+
+			if project.subType != VsProjectSubType.BuildAll:
+				buildArgs.extend([
+					"-p", "\"{}\"".format(project.name),
+				])
+
+			rebuildArgs = buildArgs + ["-r", extraBuildArgs]
+			cleanArgs = buildArgs + ["-c", extraBuildArgs]
+
+			buildArgs.append(extraBuildArgs)
+
+		buildArgs = " ".join([x for x in buildArgs if x])
+		rebuildArgs = " ".join([x for x in rebuildArgs if x])
+		cleanArgs = " ".join([x for x in cleanArgs if x])
+
+		vsConfig = _getVsConfigName(buildSpec)
+		vsPlatformName = platformHandler.GetVisualStudioPlatformName()
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
+
+		propertyGroupXmlNode = _addXmlNode(rootXmlNode, "PropertyGroup")
+		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
+
+		buildCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeBuildCommandLine")
+		buildCommandXmlNode.text = buildArgs
+
+		rebuildCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeReBuildCommandLine")
+		rebuildCommandXmlNode.text = rebuildArgs
+
+		cleanCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeCleanCommandLine")
+		cleanCommandXmlNode.text = cleanArgs
+
+		includePathXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeIncludeSearchPath")
+		includePathXmlNode.text = ";".join(sorted(set(project.platformIncludePaths[buildSpec])))
+
+		preprocessorXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakePreprocessorDefinitions")
+		preprocessorXmlNode.text = ";".join(sorted(set(project.platformDefines[buildSpec])) + ["$(NMakePreprocessorDefinitions)"])
+
+		if project.subType == VsProjectSubType.Normal:
+			outputXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeOutput")
+			outputXmlNode.text = project.platformOutputName[buildSpec]
+
+			outDirXmlNode = _addXmlNode(propertyGroupXmlNode, "OutDir")
+			outDirXmlNode.text = project.platformOutputDirPath[buildSpec]
+
+			intDirXmlNode = _addXmlNode(propertyGroupXmlNode, "IntDir")
+			intDirXmlNode.text = project.platformIntermediateDirPath[buildSpec]
+
+		platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, vsConfig)
+
+	_makeXmlCommentNode(rootXmlNode, "Import targets")
+
+	# Write the global import targets.
+	# MUST be before the "Microsoft.Cpp.targets" import!
+	for _, platformHandler in globalPlatformHandlers.items():
+		platformHandler.WriteGlobalImportTargets(rootXmlNode, project)
+
+	_makeXmlCommentNode(rootXmlNode, "Final import target; must always be the LAST import target!")
+
+	importXmlNode = _addXmlNode(rootXmlNode, "Import")
+	importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.targets")
+
+	_makeXmlCommentNode(rootXmlNode, "Project footer")
+
+	# Write any trailing information needed by the project.
+	for _, platformHandler in globalPlatformHandlers.items():
+		platformHandler.WriteGlobalFooter(rootXmlNode, project)
+
+	# Write out the XML file.
+	_saveXmlFile(outputFilePath, rootXmlNode)
+
+
+def _writeFiltersVcxProj(outputRootPath, project):
+	outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath(".filters"))
+
+	rootXmlNode = _createRootXmlNode("Project")
+	rootXmlNode.set("ToolsVersion", "4.0")
+	rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
+
+	itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+	# TODO: Write out all project items.
+
+	# Write out the XML file.
+	_saveXmlFile(outputFilePath, rootXmlNode)
+
+
+def _writeUserVcxProj(outputRootPath, project):
+	outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath(".user"))
+
+	rootXmlNode = _createRootXmlNode("Project")
+	rootXmlNode.set("ToolsVersion", "4.0")
+	rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
+
+	# Write out the user debug settings
+	if project.subType == VsProjectSubType.Normal:
+		for buildSpec in BUILD_SPECS:
+			platformHandler = PLATFORM_HANDLERS[buildSpec]
+			platformHandler.WriteUserDebugPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
+
+	# Write out the XML file.
+	_saveXmlFile(outputFilePath, rootXmlNode)
+
+
 def _writeProjectFiles(rootProject, outputRootPath):
 	global PLATFORM_HANDLERS
 	global BUILD_SPECS
@@ -732,200 +950,12 @@ def _writeProjectFiles(rootProject, outputRootPath):
 		if vsPlatformName not in globalPlatformHandlers:
 			globalPlatformHandlers.update({ vsPlatformName: platformHandler })
 
-	_createRootXmlNode = ET.Element
-	_addXmlNode = ET.SubElement
-
-	def _makeXmlCommentNode(parentNode, text): # pylint: disable=missing-docstring
-		comment = ET.Comment(text)
-		parentNode.append(comment)
-		return comment
-
-	def _saveXmlFile(realFilePath, rootNode):
-		# Grab a string of the XML document we've created and save it.
-		xmlString = PlatformString(ET.tostring(rootNode))
-
-		# Use minidom to reformat the XML since ElementTree doesn't do it for us.
-		formattedXmlString = PlatformString(minidom.parseString(xmlString).toprettyxml("\t", "\n", encoding = "utf-8"))
-
-		tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
-
-		# Write the temp xml file data.
-		with closing(os.fdopen(tmpFd, "w")) as f:
-			f.write(formattedXmlString)
-
-		fileProxy = VsFileProxy(realFilePath, tempFilePath)
-
-		fileProxy.Check()
-
+	# Write all the necessary files for each projects.
 	for project in flatProjectList:
 		if project.projType == VsProjectType.Standard:
-			outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath())
-			outputDirPath = os.path.dirname(outputFilePath)
-
-			# Create the root XML node with the default data.
-			rootXmlNode = _createRootXmlNode("Project")
-			rootXmlNode.set("DefaultTargets", "Build")
-			rootXmlNode.set("ToolsVersion", "4.0")
-			rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
-
-			_makeXmlCommentNode(rootXmlNode, "Project header")
-
-			# Write any top-level information a generator platform may require.
-			for _, platformHandler in globalPlatformHandlers.items():
-				platformHandler.WriteGlobalHeader(rootXmlNode, project)
-
-			_makeXmlCommentNode(rootXmlNode, "Project configurations")
-
-			itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
-			itemGroupXmlNode.set("Label", "ProjectConfigurations")
-
-			# Write the project configurations.
-			for buildSpec in BUILD_SPECS:
-				platformHandler = PLATFORM_HANDLERS[buildSpec]
-				platformHandler.WriteProjectConfiguration(itemGroupXmlNode, project, _getVsConfigName(buildSpec))
-
-			_makeXmlCommentNode(rootXmlNode, "Project source files")
-
-			# Write the project's files.
-			itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
-			flatProjectItems = _buildFlatProjectItemList(project.items)
-
-			for item in flatProjectItems:
-				if item.itemType == VsProjectItemType.File:
-					sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, "None") # TODO: Embed the xml node type into the file item object.
-					sourceFileXmlNode.set("Include", _constructRelPath(item.path, outputDirPath))
-
-			_makeXmlCommentNode(rootXmlNode, "Project global properties")
-
-			# Add the global property group.
-			propertyGroupXmlNode = _addXmlNode(rootXmlNode, "PropertyGroup")
-			propertyGroupXmlNode.set("Label", "Globals")
-
-			_makeXmlCommentNode(rootXmlNode, "Import properties")
-
-			importXmlNode = _addXmlNode(rootXmlNode, "Import")
-			importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.Default.props")
-
-			projectGuidXmlNode = _addXmlNode(propertyGroupXmlNode, "ProjectGuid")
-			projectGuidXmlNode.text = project.guid
-
-			namespaceXmlNode = _addXmlNode(propertyGroupXmlNode, "RootNamespace")
-			namespaceXmlNode.text = project.name
-
-			# We're not creating a native project, so Visual Studio needs to know this is a makefile project.
-			keywordXmlNode = _addXmlNode(propertyGroupXmlNode, "Keyword")
-			keywordXmlNode.text = "MakeFileProj"
-
-			_makeXmlCommentNode(rootXmlNode, "Platform config property groups")
-
-			# Write the config property groups for each platform.
-			for buildSpec in BUILD_SPECS:
-				platformHandler = PLATFORM_HANDLERS[buildSpec]
-				platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
-
-			_makeXmlCommentNode(rootXmlNode, "Import properties (continued)")
-
-			# Write out the standard import property.
-			importXmlNode = _addXmlNode(rootXmlNode, "Import")
-			importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.props")
-
-			# Write the import properties for each platform.
-			for buildSpec in BUILD_SPECS:
-				platformHandler = PLATFORM_HANDLERS[buildSpec]
-				platformHandler.WriteImportProperties(rootXmlNode, project, _getVsConfigName(buildSpec))
-
-			_makeXmlCommentNode(rootXmlNode, "Platform build commands")
-
-			# Write the build commands for each platform.
-			for buildSpec in BUILD_SPECS:
-				platformHandler = PLATFORM_HANDLERS[buildSpec]
-				extraBuildArgs = csbuild.GetSolutionArgs().replace(",", " ")
-
-				if project.subType == VsProjectSubType.Regen:
-					buildArgs = [
-						"\"{}\"".format(_constructRelPath(REGEN_FILE_PATH, outputDirPath))
-					]
-
-					rebuildArgs = buildArgs
-					cleanArgs = buildArgs
-
-				else:
-					buildArgs = [
-						"\"{}\"".format(os.path.normcase(sys.executable)),
-						"\"{}\"".format(_constructRelPath(MAKEFILE_PATH, outputDirPath)),
-						"-o", "\"{}\"".format(buildSpec[0]),
-						"-a", "\"{}\"".format(buildSpec[1]),
-						"-t", "\"{}\"".format(buildSpec[2]),
-					]
-
-					if project.subType != VsProjectSubType.BuildAll:
-						buildArgs.extend([
-							"-p", "\"{}\"".format(project.name),
-						])
-
-					rebuildArgs = buildArgs + ["-r", extraBuildArgs]
-					cleanArgs = buildArgs + ["-c", extraBuildArgs]
-
-					buildArgs.append(extraBuildArgs)
-
-				buildArgs = " ".join([x for x in buildArgs if x])
-				rebuildArgs = " ".join([x for x in rebuildArgs if x])
-				cleanArgs = " ".join([x for x in cleanArgs if x])
-
-				vsConfig = _getVsConfigName(buildSpec)
-				vsPlatformName = platformHandler.GetVisualStudioPlatformName()
-				vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
-
-				propertyGroupXmlNode = _addXmlNode(rootXmlNode, "PropertyGroup")
-				propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
-
-				buildCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeBuildCommandLine")
-				buildCommandXmlNode.text = buildArgs
-
-				rebuildCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeReBuildCommandLine")
-				rebuildCommandXmlNode.text = rebuildArgs
-
-				cleanCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeCleanCommandLine")
-				cleanCommandXmlNode.text = cleanArgs
-
-				includePathXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeIncludeSearchPath")
-				includePathXmlNode.text = ";".join(sorted(set(project.platformIncludePaths[buildSpec])))
-
-				preprocessorXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakePreprocessorDefinitions")
-				preprocessorXmlNode.text = ";".join(sorted(set(project.platformDefines[buildSpec])) + ["$(NMakePreprocessorDefinitions)"])
-
-				if project.subType == VsProjectSubType.Normal:
-					outputXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeOutput")
-					outputXmlNode.text = project.platformOutputName[buildSpec]
-
-					outDirXmlNode = _addXmlNode(propertyGroupXmlNode, "OutDir")
-					outDirXmlNode.text = project.platformOutputDirPath[buildSpec]
-
-					intDirXmlNode = _addXmlNode(propertyGroupXmlNode, "IntDir")
-					intDirXmlNode.text = project.platformIntermediateDirPath[buildSpec]
-
-				platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, vsConfig)
-
-			_makeXmlCommentNode(rootXmlNode, "Import targets")
-
-			# Write the global import targets.
-			# MUST be before the "Microsoft.Cpp.targets" import!
-			for _, platformHandler in globalPlatformHandlers.items():
-				platformHandler.WriteGlobalImportTargets(rootXmlNode, project)
-
-			_makeXmlCommentNode(rootXmlNode, "Final import target; must always be the LAST import target!")
-
-			importXmlNode = _addXmlNode(rootXmlNode, "Import")
-			importXmlNode.set("Project", r"$(VCTargetsPath)\Microsoft.Cpp.targets")
-
-			_makeXmlCommentNode(rootXmlNode, "Project footer")
-
-			# Write any trailing information needed by the project.
-			for _, platformHandler in globalPlatformHandlers.items():
-				platformHandler.WriteGlobalFooter(rootXmlNode, project)
-
-			# Write out the XML file.
-			_saveXmlFile(outputFilePath, rootXmlNode)
+			_writeMainVcxProj(outputRootPath, project, globalPlatformHandlers)
+			_writeFiltersVcxProj(outputRootPath, project)
+			_writeUserVcxProj(outputRootPath, project)
 
 
 def UpdatePlatformHandlers(handlers): # pylint: disable=missing-docstring
