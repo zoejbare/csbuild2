@@ -29,6 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 import codecs
 import contextlib
+import csbuild
 import hashlib
 import os
 import sys
@@ -283,6 +284,9 @@ class VsProject(object):
 		self.children = {}
 		self.items = { makeFileItem.name: makeFileItem }
 		self.supportedBuildSpecs = set()
+		self.platformOutputName = {}
+		self.platformOutputDirPath = {}
+		self.platformIntermediateDirPath = {}
 		self.platformIncludePaths = {}
 		self.platformDefines = {}
 
@@ -318,8 +322,11 @@ class VsProject(object):
 			# Register support for the input build spec.
 			if buildSpec not in self.supportedBuildSpecs:
 				self.supportedBuildSpecs.add(buildSpec)
-				self.platformIncludePaths.update({buildSpec: []})
-				self.platformDefines.update({buildSpec: []})
+				self.platformOutputName.update({ buildSpec: "" })
+				self.platformOutputDirPath.update({ buildSpec: "" })
+				self.platformIntermediateDirPath.update({ buildSpec: "" })
+				self.platformIncludePaths.update({ buildSpec: [] })
+				self.platformDefines.update({ buildSpec: [] })
 
 			# Merge the data from the generator.
 			if generator:
@@ -327,6 +334,10 @@ class VsProject(object):
 				self.platformDefines[buildSpec].extend([x for x in generator.defines])
 
 				projectData = generator.projectData
+
+				self.platformOutputName[buildSpec] = projectData.name
+				self.platformOutputDirPath[buildSpec] = projectData.outputDir
+				self.platformIntermediateDirPath[buildSpec] = projectData.intermediateDir
 
 				# Added items for each source file in the project.
 				for filePath in generator.sourceFiles:
@@ -706,6 +717,8 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 def _writeProjectFiles(rootProject, outputRootPath):
 	global PLATFORM_HANDLERS
 	global BUILD_SPECS
+	global MAKEFILE_PATH
+	global REGEN_FILE_PATH
 
 	flatProjectList = _buildFlatProjectList(rootProject)
 	globalPlatformHandlers = {}
@@ -824,7 +837,74 @@ def _writeProjectFiles(rootProject, outputRootPath):
 			_makeXmlCommentNode(rootXmlNode, "Platform build commands")
 
 			# Write the build commands for each platform.
-			# TODO: Implement the commands for building the project.
+			for buildSpec in BUILD_SPECS:
+				platformHandler = PLATFORM_HANDLERS[buildSpec]
+				extraBuildArgs = csbuild.GetSolutionArgs().replace(",", " ")
+
+				if project.subType == VsProjectSubType.Regen:
+					buildArgs = [
+						"\"{}\"".format(_constructRelPath(REGEN_FILE_PATH, outputDirPath))
+					]
+
+					rebuildArgs = buildArgs
+					cleanArgs = buildArgs
+
+				else:
+					buildArgs = [
+						"\"{}\"".format(os.path.normcase(sys.executable)),
+						"\"{}\"".format(_constructRelPath(MAKEFILE_PATH, outputDirPath)),
+						"-o", "\"{}\"".format(buildSpec[0]),
+						"-a", "\"{}\"".format(buildSpec[1]),
+						"-t", "\"{}\"".format(buildSpec[2]),
+					]
+
+					if project.subType != VsProjectSubType.BuildAll:
+						buildArgs.extend([
+							"-p", "\"{}\"".format(project.name),
+						])
+
+					rebuildArgs = buildArgs + ["-r", extraBuildArgs]
+					cleanArgs = buildArgs + ["-c", extraBuildArgs]
+
+					buildArgs.append(extraBuildArgs)
+
+				buildArgs = " ".join([x for x in buildArgs if x])
+				rebuildArgs = " ".join([x for x in rebuildArgs if x])
+				cleanArgs = " ".join([x for x in cleanArgs if x])
+
+				vsConfig = _getVsConfigName(buildSpec)
+				vsPlatformName = platformHandler.GetVisualStudioPlatformName()
+				vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
+
+				propertyGroupXmlNode = _addXmlNode(rootXmlNode, "PropertyGroup")
+				propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
+
+				buildCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeBuildCommandLine")
+				buildCommandXmlNode.text = buildArgs
+
+				rebuildCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeReBuildCommandLine")
+				rebuildCommandXmlNode.text = rebuildArgs
+
+				cleanCommandXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeCleanCommandLine")
+				cleanCommandXmlNode.text = cleanArgs
+
+				includePathXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeIncludeSearchPath")
+				includePathXmlNode.text = ";".join(sorted(set(project.platformIncludePaths[buildSpec])))
+
+				preprocessorXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakePreprocessorDefinitions")
+				preprocessorXmlNode.text = ";".join(sorted(set(project.platformDefines[buildSpec])) + ["$(NMakePreprocessorDefinitions)"])
+
+				if project.subType == VsProjectSubType.Normal:
+					outputXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeOutput")
+					outputXmlNode.text = project.platformOutputName[buildSpec]
+
+					outDirXmlNode = _addXmlNode(propertyGroupXmlNode, "OutDir")
+					outDirXmlNode.text = project.platformOutputDirPath[buildSpec]
+
+					intDirXmlNode = _addXmlNode(propertyGroupXmlNode, "IntDir")
+					intDirXmlNode.text = project.platformIntermediateDirPath[buildSpec]
+
+				platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, vsConfig)
 
 			_makeXmlCommentNode(rootXmlNode, "Import targets")
 
