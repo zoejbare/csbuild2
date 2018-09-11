@@ -86,6 +86,16 @@ class VsBasePlatformHandler(object):
 		"""
 		pass
 
+	@staticmethod
+	def GetApplicationExtension():
+		"""
+		Get the extension that represents executables for the current platform.
+
+		:return: Application extension.
+		:rtype: str
+		"""
+		pass
+
 	def WriteGlobalHeader(self, parentXmlNode, project):
 		"""
 		Write any top-level information about this platform at the start of the project file.
@@ -93,7 +103,7 @@ class VsBasePlatformHandler(object):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
 		pass
@@ -105,7 +115,7 @@ class VsBasePlatformHandler(object):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
 		pass
@@ -117,7 +127,7 @@ class VsBasePlatformHandler(object):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
 		pass
@@ -129,7 +139,7 @@ class VsBasePlatformHandler(object):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
 		:param vsConfig: Visual Studio configuration being written.
@@ -156,7 +166,7 @@ class VsBasePlatformHandler(object):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
 		:param vsConfig: Visual Studio configuration being written.
@@ -171,12 +181,14 @@ class VsBasePlatformHandler(object):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
+		_ignore(project)
+
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -187,7 +199,7 @@ class VsBasePlatformHandler(object):
 		importXmlNode = self._addXmlNode(importGroupXmlNode, "Import")
 		importXmlNode.set("Label", "LocalAppDataPlatform")
 		importXmlNode.set("Project", r"$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props")
-		importXmlNode.set("Condition", "exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')")
+		importXmlNode.set("Condition", r"exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')")
 
 	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""

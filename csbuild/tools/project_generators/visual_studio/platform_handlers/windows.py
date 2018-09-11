@@ -37,6 +37,16 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 	def __init__(self, buildTarget, vsInstallInfo):
 		VsBasePlatformHandler.__init__(self, buildTarget, vsInstallInfo)
 
+	@staticmethod
+	def GetApplicationExtension():
+		"""
+		Get the extension that represents executables for the current platform.
+
+		:return: Application extension.
+		:rtype: str
+		"""
+		return ".exe"
+
 	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.
@@ -44,7 +54,7 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
 		:param vsConfig: Visual Studio configuration being written.
@@ -74,7 +84,7 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
 		:param vsConfig: Visual Studio configuration being written.

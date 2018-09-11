@@ -55,6 +55,18 @@ def UpdatePlatformHandlers(handlers):
 	internal.UpdatePlatformHandlers(handlers)
 
 
+@TypeChecked(enable=bool)
+def SetEnableFileTypeFolders(enable):
+	"""
+	Helper function to toggle the "file type folder" feature in the project generator.
+
+	:param enable: Enable file type folders in the generated projects.
+	:type enable: bool
+	"""
+	if isinstance(enable, bool):
+		internal.ENABLE_FILE_TYPE_FOLDERS = enable
+
+
 class VsProjectGenerator(HasDefines, HasIncludeDirectories):
 	"""
 	Visual Studio project generator

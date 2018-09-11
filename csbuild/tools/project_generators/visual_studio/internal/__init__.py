@@ -39,8 +39,6 @@ import uuid
 from csbuild import log
 from csbuild._utils import GetCommandLineString, PlatformString
 
-from contextlib import closing
-
 from xml.etree import ElementTree as ET
 from xml.dom import minidom
 
@@ -87,9 +85,12 @@ ALL_FILE_EXTENSIONS = CPP_SOURCE_FILE_EXTENSIONS \
 	| ASM_FILE_EXTENSIONS \
 	| MISC_FILE_EXTENSIONS
 
-# Global set of generated UUIDs for Visual Studio projects.  The list is needed to make sure there are no
-# duplicates when generating new IDs.
-UUID_TRACKER = set()
+# Switch for toggling the project folders separating files by their extensions.
+ENABLE_FILE_TYPE_FOLDERS = True
+
+# Global dictionary of generated UUIDs for Visual Studio projects.  This is needed to make sure there are no
+# duplicates when generating new UUIDs.
+UUID_TRACKER = {}
 
 # Keep track of the registered platform handlers.
 PLATFORM_HANDLERS = {}
@@ -115,8 +116,13 @@ def _makeXmlCommentNode(parentXmlNode, text):
 def _generateUuid(name):
 	global UUID_TRACKER
 
+	if not name:
+		return "{{{}}}".format(str(uuid.UUID(int=0)))
+
+	name = PlatformString(name if name else "")
+
 	nameIndex = 0
-	nameToHash = PlatformString(name if name else "")
+	nameToHash = name
 
 	# Keep generating new UUIDs until we've found one that isn't already in use. This is only useful in cases
 	# where we have a pool of objects and each one needs to be guaranteed to have a UUID that doesn't collide
@@ -124,8 +130,12 @@ def _generateUuid(name):
 	# be extremely rare anyway.
 	while True:
 		newUuid = uuid.uuid5( uuid.NAMESPACE_OID, nameToHash )
-		if not newUuid in UUID_TRACKER:
-			UUID_TRACKER.add( newUuid )
+		mappedName = UUID_TRACKER.get(newUuid, None)
+
+		if not mappedName or mappedName == nameToHash:
+			if not mappedName:
+				UUID_TRACKER.update({ newUuid: name })
+
 			return "{{{}}}".format(str(newUuid)).upper()
 
 		# Name collision!  The easy solution here is to slightly modify the name in a predictable way.
@@ -257,13 +267,36 @@ class VsProjectItem(object):
 	"""
 	Container for items owned by Visual Studio projects.
 	"""
-	def __init__(self, name, path, itemType):
-		self.name = name
-		self.path = path
-		self.guid = _generateUuid(self.path)
+	def __init__(self, name, dirPath, itemType, parentSegments):
+		global CPP_SOURCE_FILE_EXTENSIONS
+		global CPP_HEADER_FILE_EXTENSIONS
+
+		self.name = name if name else ""
+		self.dirPath = dirPath if dirPath else ""
+		self.guid = _generateUuid(os.path.join(self.dirPath, self.name))
 		self.itemType = itemType
 		self.supportedBuildSpecs = set()
 		self.children = {}
+		self.parentSegments = parentSegments if parentSegments else []
+		self.tag = None
+
+		if self.itemType == VsProjectItemType.File:
+			fileExt = os.path.splitext(self.name)[1]
+			if fileExt in CPP_SOURCE_FILE_EXTENSIONS:
+				self.tag = "ClCompile"
+			elif fileExt in CPP_HEADER_FILE_EXTENSIONS:
+				self.tag = "ClInclude"
+			else:
+				self.tag = "None"
+
+	def GetSegmentPath(self):
+		"""
+		Get the item parent segments as a path string.
+
+		:return: Parent segment path string.
+		:rtype: str
+		"""
+		return os.sep.join(self.parentSegments)
 
 
 class VsProject(object):
@@ -273,7 +306,7 @@ class VsProject(object):
 	def __init__(self, name, relFilePath, projType):
 		global MAKEFILE_PATH
 
-		makeFileItem = VsProjectItem("make.py", MAKEFILE_PATH, VsProjectItemType.File)
+		makeFileItem = VsProjectItem("make.py", os.path.dirname(MAKEFILE_PATH), VsProjectItemType.File, [])
 
 		self.name = name
 		self.relFilePath = relFilePath
@@ -283,6 +316,7 @@ class VsProject(object):
 		self.children = {}
 		self.items = { makeFileItem.name: makeFileItem }
 		self.supportedBuildSpecs = set()
+		self.platformOutputType = {}
 		self.platformOutputName = {}
 		self.platformOutputDirPath = {}
 		self.platformIntermediateDirPath = {}
@@ -316,11 +350,14 @@ class VsProject(object):
 		:param generator: Generator containing the data that needs to be merged into the project.
 		:type generator: csbuild.tools.project_generators.visual_studio.VsProjectGenerator or None
 		"""
+		global ENABLE_FILE_TYPE_FOLDERS
+
 		if self.projType == VsProjectType.Standard:
 
 			# Register support for the input build spec.
 			if buildSpec not in self.supportedBuildSpecs:
 				self.supportedBuildSpecs.add(buildSpec)
+				self.platformOutputType.update({ buildSpec: csbuild.ProjectType.Application })
 				self.platformOutputName.update({ buildSpec: "" })
 				self.platformOutputDirPath.update({ buildSpec: "" })
 				self.platformIntermediateDirPath.update({ buildSpec: "" })
@@ -334,33 +371,41 @@ class VsProject(object):
 
 				projectData = generator.projectData
 
+				self.platformOutputType[buildSpec] = projectData.projectType
 				self.platformOutputName[buildSpec] = projectData.name
-				self.platformOutputDirPath[buildSpec] = projectData.outputDir
-				self.platformIntermediateDirPath[buildSpec] = projectData.intermediateDir
+				self.platformOutputDirPath[buildSpec] = os.path.abspath(projectData.outputDir)
+				self.platformIntermediateDirPath[buildSpec] = os.path.abspath(projectData.intermediateDir)
 
 				# Added items for each source file in the project.
 				for filePath in generator.sourceFiles:
-					projStructure = _getSourceFileProjectStructure(projectData.workingDirectory, projectData.sourceDirs, filePath, True)
+					fileStructure = _getSourceFileProjectStructure(projectData.workingDirectory, projectData.sourceDirs, filePath, ENABLE_FILE_TYPE_FOLDERS)
 					parentMap = self.items
 
-					# Get the file item, then remove it from the project structure.
-					fileItem = VsProjectItem(projStructure[-1], filePath, VsProjectItemType.File)
-					projStructure = projStructure[:-1]
+					# Get the file item name, then remove it from the project structure.
+					fileItemName = fileStructure[-1]
+					fileStructure = fileStructure[:-1]
+					parentSegments = []
 
-					# Build the hierarchy of folder items under the project.
-					for segment in projStructure:
+					# Build the hierarchy of folder items for the current file.
+					for segment in fileStructure:
 						if segment not in parentMap:
-							parentMap.update({ segment: VsProjectItem(segment, None, VsProjectItemType.Folder) })
+							parentMap.update({ segment: VsProjectItem(segment, os.sep.join(parentSegments), VsProjectItemType.Folder, parentSegments) })
 
 						parentMap = parentMap[segment].children
 
-					if fileItem.name not in parentMap:
+						# Keep track of each segment along the way since each item (including the folder items)
+						# need to know their parent segements when the vcxproj.filters file is generated.
+						parentSegments.append(segment)
+
+					if fileItemName not in parentMap:
 						# The current file item is new, so map it under the parent item.
-						parentMap.update({ fileItem.name: fileItem })
+						fileItem = VsProjectItem(fileItemName, os.path.dirname(filePath), VsProjectItemType.File, parentSegments)
+
+						parentMap.update({ fileItemName: fileItem })
 
 					else:
 						# The current file item already exists, so get the original object for its mapping.
-						fileItem = parentMap[fileItem.name]
+						fileItem = parentMap[fileItemName]
 
 					# Update the set of supported platforms for the current file item.
 					fileItem.supportedBuildSpecs.add(buildSpec)
@@ -511,7 +556,7 @@ def _createRegenerateBatchFile(outputRootPath):
 	tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_regen_")
 
 	# Write the batch file data.
-	with closing(os.fdopen(tmpFd, "w")) as f:
+	with os.fdopen(tmpFd, "w") as f:
 		writeLineToFile = lambda text: f.write("{}\n".format(text))
 
 		writeLineToFile("@echo off")
@@ -599,7 +644,7 @@ def _buildFlatProjectList(rootProject):
 
 def _buildFlatProjectItemList(rootItems):
 	flatProjectItems = []
-	dummyRootItem = VsProjectItem(None, None, None)
+	dummyRootItem = VsProjectItem(None, None, None, None)
 	itemStack = [dummyRootItem]
 
 	# Assign the input items to the dummy root.
@@ -723,7 +768,7 @@ def _saveXmlFile(realFilePath, rootNode):
 	tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
 
 	# Write the temp xml file data.
-	with closing(os.fdopen(tmpFd, "w")) as f:
+	with os.fdopen(tmpFd, "w") as f:
 		f.write(formattedXmlString)
 
 	fileProxy = VsFileProxy(realFilePath, tempFilePath)
@@ -754,19 +799,35 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 
 	# Write the project configurations.
 	for buildSpec in BUILD_SPECS:
+		# Skip build specs that are not supported by the project.
+		if buildSpec not in project.supportedBuildSpecs:
+			continue
+
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
 		platformHandler.WriteProjectConfiguration(itemGroupXmlNode, project, _getVsConfigName(buildSpec))
 
-	_makeXmlCommentNode(rootXmlNode, "Project source files")
+	_makeXmlCommentNode(rootXmlNode, "Project files")
 
 	# Write the project's files.
-	itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
 	flatProjectItems = _buildFlatProjectItemList(project.items)
+	flatProjectItems = [item for item in flatProjectItems if item.itemType == VsProjectItemType.File]
+	groupedProjectItems = {}
 
+	# Group the project file items by XML tag.
 	for item in flatProjectItems:
-		if item.itemType == VsProjectItemType.File:
-			sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, "None") # TODO: Embed the xml node type into the file item object.
-			sourceFileXmlNode.set("Include", _constructRelPath(item.path, outputDirPath))
+		if item.tag not in groupedProjectItems:
+			groupedProjectItems.update({ item.tag: [] })
+
+		groupedProjectItems[item.tag].append(item)
+
+	# Write out each item for each tagged group.
+	for key in sorted(groupedProjectItems.keys()):
+		projectItems = groupedProjectItems[key]
+		itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+
+		for item in projectItems:
+			sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, item.tag)
+			sourceFileXmlNode.set("Include", _constructRelPath(os.path.join(item.dirPath, item.name), outputDirPath))
 
 	_makeXmlCommentNode(rootXmlNode, "Project global properties")
 
@@ -793,6 +854,10 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 
 	# Write the config property groups for each platform.
 	for buildSpec in BUILD_SPECS:
+		# Skip build specs that are not supported by the project.
+		if buildSpec not in project.supportedBuildSpecs:
+			continue
+
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
 		platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
 
@@ -804,6 +869,10 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 
 	# Write the import properties for each platform.
 	for buildSpec in BUILD_SPECS:
+		# Skip build specs that are not supported by the project.
+		if buildSpec not in project.supportedBuildSpecs:
+			continue
+
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
 		platformHandler.WriteImportProperties(rootXmlNode, project, _getVsConfigName(buildSpec))
 
@@ -811,6 +880,10 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 
 	# Write the build commands for each platform.
 	for buildSpec in BUILD_SPECS:
+		# Skip build specs that are not supported by the project.
+		if buildSpec not in project.supportedBuildSpecs:
+			continue
+
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
 		extraBuildArgs = csbuild.GetSolutionArgs().replace(",", " ")
 
@@ -868,14 +941,22 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 		preprocessorXmlNode.text = ";".join(sorted(set(project.platformDefines[buildSpec])) + ["$(NMakePreprocessorDefinitions)"])
 
 		if project.subType == VsProjectSubType.Normal:
-			outputXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeOutput")
-			outputXmlNode.text = project.platformOutputName[buildSpec]
+			buildOutputType = project.platformOutputType[buildSpec]
+			buildOutputName = project.platformOutputName[buildSpec]
+			buildOutputDirPath = project.platformOutputDirPath[buildSpec]
+			buildIntermediateDirPath = project.platformIntermediateDirPath[buildSpec]
+
+			# Only include the NMakeOutput extension if the current project build is an application.
+			# This is what Visual Studio will look for when attempting to debug.
+			if buildOutputType == csbuild.ProjectType.Application:
+				outputXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeOutput")
+				outputXmlNode.text = _constructRelPath(os.path.join(buildOutputDirPath, "{}{}".format(buildOutputName, platformHandler.GetApplicationExtension())), outputDirPath)
 
 			outDirXmlNode = _addXmlNode(propertyGroupXmlNode, "OutDir")
-			outDirXmlNode.text = project.platformOutputDirPath[buildSpec]
+			outDirXmlNode.text = _constructRelPath(buildOutputDirPath, outputDirPath)
 
 			intDirXmlNode = _addXmlNode(propertyGroupXmlNode, "IntDir")
-			intDirXmlNode.text = project.platformIntermediateDirPath[buildSpec]
+			intDirXmlNode.text = _constructRelPath(buildIntermediateDirPath, outputDirPath)
 
 		platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, vsConfig)
 
@@ -903,13 +984,51 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 
 def _writeFiltersVcxProj(outputRootPath, project):
 	outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath(".filters"))
+	outputDirPath = os.path.dirname(outputFilePath)
 
 	rootXmlNode = _createRootXmlNode("Project")
 	rootXmlNode.set("ToolsVersion", "4.0")
 	rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
 
-	itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
-	# TODO: Write out all project items.
+	# Get a complete list of all items in the project.
+	flatProjectItems = _buildFlatProjectItemList(project.items)
+	if flatProjectItems:
+		# Separate the folder items from the file items.
+		projectFolderItems = [item for item in flatProjectItems if item.itemType == VsProjectItemType.Folder]
+		projectFileItems = [item for item in flatProjectItems if item.itemType == VsProjectItemType.File]
+		groupedFileItems = {}
+
+		# Split the file items by XML tag.
+		for item in projectFileItems:
+			if item.tag not in groupedFileItems:
+				groupedFileItems.update({ item.tag: [] })
+
+			groupedFileItems[item.tag].append(item)
+
+		if projectFolderItems:
+			itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+
+			# Write out the filter nodes.
+			for item in projectFolderItems:
+				filterXmlNode = _addXmlNode(itemGroupXmlNode, "Filter")
+				filterXmlNode.set("Include", os.path.join(item.dirPath, item.name))
+
+				uniqueIdXmlNode = _addXmlNode(filterXmlNode, "UniqueIdentifier")
+				uniqueIdXmlNode.text = item.guid
+
+		# Go through each item tag.
+		for itemTag in sorted(groupedFileItems.keys()):
+			fileItems = groupedFileItems[itemTag]
+
+			itemGroupXmlNode = _addXmlNode(rootXmlNode, "ItemGroup")
+
+			# Write out the project file items for the current tag.
+			for item in fileItems:
+				sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, item.tag)
+				sourceFileXmlNode.set("Include", _constructRelPath(os.path.join(item.dirPath, item.name), outputDirPath))
+
+				filterXmlNode = _addXmlNode(sourceFileXmlNode, "Filter")
+				filterXmlNode.text = item.GetSegmentPath()
 
 	# Write out the XML file.
 	_saveXmlFile(outputFilePath, rootXmlNode)
@@ -925,6 +1044,10 @@ def _writeUserVcxProj(outputRootPath, project):
 	# Write out the user debug settings
 	if project.subType == VsProjectSubType.Normal:
 		for buildSpec in BUILD_SPECS:
+			# Skip build specs that are not supported by the project.
+			if buildSpec not in project.supportedBuildSpecs:
+				continue
+
 			platformHandler = PLATFORM_HANDLERS[buildSpec]
 			platformHandler.WriteUserDebugPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
 
