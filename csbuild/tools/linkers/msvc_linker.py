@@ -205,7 +205,8 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.append("/IMPLIB:{}.lib".format(outputPath))
-		if self._debugLevel != DebugLevel.Disabled:
+
+		if project.projectType != csbuild.ProjectType.StaticLibrary and self._debugLevel != DebugLevel.Disabled:
 			args.append("/PDB:{}.pdb".format(outputPath))
 
 		return args
