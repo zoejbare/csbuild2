@@ -1,0 +1,2 @@
+include csbuild/version
+recursive-include csbuild *.py
