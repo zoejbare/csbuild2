@@ -158,7 +158,7 @@ class HasIncludeDirectories(Tool):
 		:param dirs: list of directories
 		:type dirs: str
 		"""
-		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
+		csbuild.currentPlan.UnionSet("includeDirectories", [d for d in dirs])
 
 	def GetIncludeDirectories(self):
 		"""
@@ -169,6 +169,10 @@ class HasIncludeDirectories(Tool):
 		"""
 		return self._includeDirectories
 
+	def SetupForProject(self, project):
+		self._includeDirectories = ordered_set.OrderedSet(
+			[os.path.abspath(directory) for directory in self._includeDirectories]
+		)
 
 class HasDefines(Tool):
 	"""

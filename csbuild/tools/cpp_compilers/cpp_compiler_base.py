@@ -125,12 +125,15 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 	################################################################################
 
 	def SetupForProject(self, project):
+		HasIncludeDirectories.SetupForProject(self, project)
+
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			self._defines.add("CSB_SHARED_LIBRARY=1")
 		elif project.projectType == csbuild.ProjectType.StaticLibrary:
 			self._defines.add("CSB_STATIC_LIBRARY=1")
 		else:
 			self._defines.add("CSB_APPLICATION=1")
+
 		self._defines.add("CSB_TARGET_{}=1".format(project.targetName.upper()))
 
 	def Run(self, inputProject, inputFile):

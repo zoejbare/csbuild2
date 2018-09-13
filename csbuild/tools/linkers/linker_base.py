@@ -88,6 +88,12 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:raises LibraryError: If a library is not found
 		"""
 		log.Linker("Verifying libraries for {}...", project)
+
+		# Make all the library directory paths are absolute after the macro formatter has been run on them.
+		self._libraryDirectories = ordered_set.OrderedSet(
+			[os.path.abspath(directory) for directory in self._libraryDirectories]
+		)
+
 		if self._libraries:
 			self._actualLibraryLocations = self._findLibraries(project, self._libraries)
 
@@ -100,7 +106,8 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 					dependProject.outputDir,
 					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
 				)
-				for dependProject in project.dependencies if dependProject.projectType != csbuild.ProjectType.Application
+				for dependProject in project.dependencies
+					if dependProject.projectType != csbuild.ProjectType.Application
 			}
 		)
 
@@ -112,7 +119,8 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 	@staticmethod
 	def AddLibraries(*libs):
 		"""
-		Add libraries to be linked against. These can be provided as either 'foo' or 'libfoo.a'/'libfoo.lib' as is appropriate for the platform.
+		Add libraries to be linked against. These can be provided as either 'foo' or 'libfoo.a'/'libfoo.lib'
+		as is appropriate for the platform.
 
 		:param libs: List of libraries
 		:type libs: str
@@ -127,7 +135,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:param dirs: Directories to scan
 		:type dirs: str
 		"""
-		csbuild.currentPlan.UnionSet("libraryDirectories", [os.path.abspath(directory) for directory in dirs])
+		csbuild.currentPlan.UnionSet("libraryDirectories", [d for d in dirs])
 
 	@staticmethod
 	def AddLinkerFlags(*flags):
