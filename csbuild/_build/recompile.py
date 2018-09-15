@@ -170,7 +170,8 @@ def CheckCompilabilityForFile(buildProject, checker, inputFile, valueMemo, allDe
 		values = [Completed(checker.GetRecompileValue(buildProject, inputFile))]
 
 		# Now walk the dependencies
-		deps = [input_file.InputFile(dep) for dep in checker.GetDependencies(buildProject, inputFile) if dep not in allDeps]
+		deps = [input_file.InputFile(dep) for dep in checker.GetDependencies(buildProject, inputFile)]
+		deps = [dep for dep in deps if dep.filename not in allDeps]
 		if not deps:
 			return values[0]
 
