@@ -305,9 +305,10 @@ class MsvcToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-		self._vsVersion = None
-		self._winSdkVersion = None
-		self._universalApp = False
+		self._vsVersion = projectSettings.get("vsVersion", None)
+		self._winSdkVersion = projectSettings.get("winSdkVersion", None)
+		self._universalApp = projectSettings.get("universalApp", False)
+
 		self._vcvarsall = None
 		self._selectedInstall = None
 		self._allInstalls = []
@@ -349,35 +350,38 @@ class MsvcToolBase(Tool):
 		return self._vcvarsall
 
 
-	def SetVisualStudioVersion(self, version):
+	@staticmethod
+	def SetVisualStudioVersion(version):
 		"""
 		Set the version of Visual Studio to use.
 
 		:param version: Visual studio version (e.g., "11.0", "12.0", "14.0", etc)
 		:type version: str
 		"""
-		self._vsVersion = version
+		csbuild.currentPlan.SetValue("vsVersion", version)
 
 
-	def SetWindowsSdkVersion(self, version):
+	@staticmethod
+	def SetWindowsSdkVersion(version):
 		"""
 		Set the Windows SDK version to build against (only applies to Visual Studio "14.0" and up).
 
 		:param version: Windows SDK version (e.g., "8.1", "10.0.15063.0", etc)
 		:type version: str
 		"""
-		self._winSdkVersion = version
+		csbuild.currentPlan.SetValue("winSdkVersion", version)
 
 
-	def SetUniversalAppBuild(self, universalApp):
+	@staticmethod
+	def SetUniversalAppBuild(isUniversalApp):
 		"""
 		Set the boolean to determine if the enviroment is setup to build Universal Windows Apps for the Windows Store
 		(only applies to Visual Studio "14.0" and up).
 
-		:param universalApp: Build for universal apps.
-		:type universalApp: bool
+		:param isUniversalApp: Build for universal apps.
+		:type isUniversalApp: bool
 		"""
-		self._universalApp = universalApp
+		csbuild.currentPlan.SetValue("universalApp", isUniversalApp)
 
 
 	def SetupForProject(self, project):
