@@ -62,6 +62,7 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 	################################################################################
 
 	def __init__(self, projectSettings):
+		self._globalFlags = projectSettings.get("globalFlags", [])
 		self._cFlags = projectSettings.get("cFlags", [])
 		self._cxxFlags = projectSettings.get("cxxFlags", [])
 
@@ -78,14 +79,14 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 	################################################################################
 
 	@staticmethod
-	def AddCompilerCFlags(*flags):
+	def AddCompilerFlags(*flags):
 		"""
-		Add compiler c flags.
+		Add compiler flags that are applid to both C and C++ files.
 
-		:param flags: List of c flags
+		:param flags: List of flags
 		:type flags: str
 		"""
-		csbuild.currentPlan.ExtendList("cFlags", flags)
+		csbuild.currentPlan.ExtendList("globalFlags", flags)
 
 	@staticmethod
 	def AddCompilerCxxFlags(*flags):
