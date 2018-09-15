@@ -582,8 +582,14 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type scopeTypes: ScopeDef
 		"""
 		def __init__(self, *scopeTypes):
+			allScopes = (
+				ScopeDef.Intermediate,
+				ScopeDef.Final,
+				ScopeDef.Children,
+				ScopeDef.All
+			)
 			for scopeType in scopeTypes:
-				assert scopeType in (Csbuild.ScopeDef.Intermediate, Csbuild.ScopeDef.Final), "Invalid scope type"
+				assert scopeType in allScopes, "Invalid scope type"
 			ContextManager.__init__(self, (("scope", scopeTypes),))
 
 	class Toolchain(ContextManager):
