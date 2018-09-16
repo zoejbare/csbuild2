@@ -200,7 +200,7 @@ class _InstallDataPost2017(_BaseInstallData):
 
 		# Parse the install information.
 		for install in foundInstallations:
-			version = ".".join(install["installationVersion"].split(".")[:2])
+			version = install["installationVersion"].split(".")[0]
 			displayName = install["displayName"]
 			path = install["installationPath"]
 
@@ -239,10 +239,10 @@ class _InstallDataPre2017(_BaseInstallData):
 	@staticmethod
 	def FindInstallations():
 		vsVersionMacros = [
-			("14.0", "VS140COMNTOOLS", "Visual Studio 2015"),
-			("12.0", "VS120COMNTOOLS", "Visual Studio 2013"),
-			("11.0", "VS110COMNTOOLS", "Visual Studio 2012"),
-			("10.0", "VS100COMNTOOLS", "Visual Studio 2010"),
+			("14", "VS140COMNTOOLS", "Visual Studio 2015"),
+			("12", "VS120COMNTOOLS", "Visual Studio 2013"),
+			("11", "VS110COMNTOOLS", "Visual Studio 2012"),
+			("10", "VS100COMNTOOLS", "Visual Studio 2010"),
 		]
 
 		installDataList = []
@@ -264,14 +264,14 @@ class _InstallDataPre2017(_BaseInstallData):
 		storeArg = ""
 		winSdkArg = ""
 
-		if self.version == "14.0":
+		if self.version == "14":
 			# Only Visual Studio 2015 supports the specifying the Windows SDK version and the "store" argument.
 			winSdkArg = archInfo.winSdkVersion or ""
 
 			if archInfo.universalApp:
 				storeArg = "store"
 
-		elif self.version != "12.0":
+		elif self.version != "12":
 			# Visual Studio versions prior to 2013 did not have x64-specific tools for x86 and arm.
 			vcvarsArch = {
 				"amd64_x86": "x86",
@@ -355,7 +355,12 @@ class MsvcToolBase(Tool):
 		"""
 		Set the version of Visual Studio to use.
 
-		:param version: Visual studio version (e.g., "11.0", "12.0", "14.0", etc)
+		:param version: Visual studio version
+			"10" => Visual Studio 2010
+			"11" => Visual Studio 2012
+			"12" => Visual Studio 2013
+			"14" => Visual Studio 2015
+			"15" => Visual Studio 2017
 		:type version: str
 		"""
 		csbuild.currentPlan.SetValue("vsVersion", version)
