@@ -50,6 +50,9 @@ class UserData(object):
 	def __getattr__(self, item):
 		return object.__getattribute__(self, "dataDict")[item]
 
+	def __contains__(self, item):
+		return item in self.dataDict
+
 class Project(object):
 	"""
 	A finalized, concrete project
