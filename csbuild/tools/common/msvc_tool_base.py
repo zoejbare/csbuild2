@@ -34,7 +34,7 @@ import os
 from abc import ABCMeta, abstractmethod
 
 from csbuild import log
-from ..._utils.decorators import MetaClass
+from ..._utils.decorators import MetaClass, TypeChecked
 from ..._utils import PlatformString
 from ...toolchain import Tool
 from ... import commands
@@ -370,6 +370,7 @@ class MsvcToolBase(Tool):
 
 
 	@staticmethod
+	@TypeChecked(version=str)
 	def SetVisualStudioVersion(version):
 		"""
 		Set the version of Visual Studio to use.
@@ -386,6 +387,7 @@ class MsvcToolBase(Tool):
 
 
 	@staticmethod
+	@TypeChecked(version=str)
 	def SetWindowsSdkVersion(version):
 		"""
 		Set the Windows SDK version to build against (only applies to Visual Studio "14.0" and up).
@@ -397,6 +399,7 @@ class MsvcToolBase(Tool):
 
 
 	@staticmethod
+	@TypeChecked(isUniversalApp=bool)
 	def SetMsvcUniversalAppBuild(isUniversalApp):
 		"""
 		Set the boolean to determine if the enviroment is setup to build Universal Windows Apps for the Windows Store
@@ -409,6 +412,7 @@ class MsvcToolBase(Tool):
 
 
 	@staticmethod
+	@TypeChecked(subsystem=str)
 	def SetMsvcSubsystem(subsystem):
 		"""
 		Set the MSVC linker subsystem argument.
@@ -420,6 +424,7 @@ class MsvcToolBase(Tool):
 
 
 	@staticmethod
+	@TypeChecked(major=int, minor=int)
 	def SetMsvcSubsystemVersion(major, minor):
 		"""
 		Set the version number to use with the subsystem argument.
