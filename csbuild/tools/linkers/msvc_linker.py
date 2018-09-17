@@ -159,11 +159,21 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 	def _getDefaultArgs(self, project):
 		args = [
-			"/SUBSYSTEM:CONSOLE", # TODO: The subsystem needs to be configurable.
 			"/ERRORREPORT:NONE",
 			"/NOLOGO",
 			"/MACHINE:{}".format(project.architectureName.upper()),
 		]
+
+		# Add the subsystem argument if specified.
+		if self.msvcSubsystem:
+			subsystemArg = ["/SUBSYSTEM:{}".format(self.msvcSubsystem)]
+
+			# The subsystem version is optional.
+			if self.msvcSubsystemVersion:
+				subsystemArg.append(",{}.{}".format(self.msvcSubsystemVersion[0], self.msvcSubsystemVersion[1]))
+
+			args.append("".join(subsystemArg))
+
 		# Arguments for any project that is not a static library.
 		if project.projectType != csbuild.ProjectType.StaticLibrary:
 			args.extend([

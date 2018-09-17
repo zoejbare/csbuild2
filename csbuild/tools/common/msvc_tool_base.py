@@ -307,7 +307,9 @@ class MsvcToolBase(Tool):
 
 		self._vsVersion = projectSettings.get("vsVersion", None)
 		self._winSdkVersion = projectSettings.get("winSdkVersion", None)
-		self._universalApp = projectSettings.get("universalApp", False)
+		self._msvcUniversalApp = projectSettings.get("msvcUniversalApp", False)
+		self._msvcSubsystem = projectSettings.get("msvcSubsystem", None)
+		self._msvcSubsystemVersion = projectSettings.get("msvcSubsystemVersion", None)
 
 		self._vcvarsall = None
 		self._selectedInstall = None
@@ -333,12 +335,29 @@ class MsvcToolBase(Tool):
 
 
 	@property
-	def universalApp(self):
+	def msvcUniversalApp(self):
 		"""
 		:return: Returns the universal app build flag.
 		:rtype: bool
 		"""
-		return self._universalApp
+		return self._msvcUniversalApp
+
+	@property
+	def msvcSubsystem(self):
+		"""
+		:return: Returns the MSVC linker subsystem argument.
+		:rtype: str
+		"""
+		return self._msvcSubsystem
+
+
+	@property
+	def msvcSubsystemVersion(self):
+		"""
+		:return: Returns the version number to use with the subsystem argument.
+		:rtype: tuple[int, int]
+		"""
+		return self._msvcSubsystemVersion
 
 
 	@property
@@ -378,7 +397,7 @@ class MsvcToolBase(Tool):
 
 
 	@staticmethod
-	def SetUniversalAppBuild(isUniversalApp):
+	def SetMsvcUniversalAppBuild(isUniversalApp):
 		"""
 		Set the boolean to determine if the enviroment is setup to build Universal Windows Apps for the Windows Store
 		(only applies to Visual Studio "14.0" and up).
@@ -386,7 +405,33 @@ class MsvcToolBase(Tool):
 		:param isUniversalApp: Build for universal apps.
 		:type isUniversalApp: bool
 		"""
-		csbuild.currentPlan.SetValue("universalApp", isUniversalApp)
+		csbuild.currentPlan.SetValue("msvcUniversalApp", isUniversalApp)
+
+
+	@staticmethod
+	def SetMsvcSubsystem(subsystem):
+		"""
+		Set the MSVC linker subsystem argument.
+
+		:param subsystem: MSVC linker subsystem argument.
+		:type subsystem: str
+		"""
+		csbuild.currentPlan.SetValue("msvcSubsystem", subsystem)
+
+
+	@staticmethod
+	def SetMsvcSubsystemVersion(major, minor):
+		"""
+		Set the version number to use with the subsystem argument.
+
+		:param major: Subsystem major version.
+		:type major: int
+
+		:param minor: Subsystem minor version.
+		:type minor: int
+		"""
+		if isinstance(major, int) and isinstance(minor, int):
+			csbuild.currentPlan.SetValue("msvcSubsystemVersion", (major, minor))
 
 
 	def SetupForProject(self, project):
@@ -429,7 +474,7 @@ class MsvcToolBase(Tool):
 
 		# Only run vcvarsall.bat if we haven't already for the selected architecture.
 		if vcvarsArch not in Vcvarsall.Instances:
-			archInfo = _ArchitectureInfo(currentArch, project.architectureName, vcvarsArch, self._winSdkVersion, self._universalApp)
+			archInfo = _ArchitectureInfo(currentArch, project.architectureName, vcvarsArch, self._winSdkVersion, self._msvcUniversalApp)
 
 			self._findInstallations()
 			self._setupEnvironment(archInfo)
