@@ -39,9 +39,12 @@ from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories
 
 
 def _writeProjectFiles(outputDir, solutionName, projects, version):
-	projects = [x.toolchain.Tool(VsProjectGenerator) for x in projects]
+	generators = [x.toolchain.Tool(VsProjectGenerator) for x in projects]
 
-	internal.WriteProjectFiles(outputDir, solutionName, projects, version)
+	# Remove all generators that have no project data.
+	generators = [gen for gen in generators if gen.projectData]
+
+	internal.WriteProjectFiles(outputDir, solutionName, generators, version)
 
 
 @TypeChecked(handlers=dict)
