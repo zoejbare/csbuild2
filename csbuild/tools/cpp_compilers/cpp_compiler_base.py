@@ -114,7 +114,7 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 
 	@abstractmethod
 	def _getOutputFiles(self, project, inputFile):
-		return ""
+		return ("", )
 
 	@abstractmethod
 	def _getCommand(self, project, inputFile, isCpp):

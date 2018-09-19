@@ -56,8 +56,9 @@ class GccCppCompiler(CppCompilerBase):
 	####################################################################################################################
 
 	def _getOutputFiles(self, project, inputFile):
+		intDirPath = project.GetIntermediateDirectory(inputFile)
 		filename = os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o"
-		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
+		return tuple({ os.path.join(intDirPath, filename) })
 
 	def _getCommand(self, project, inputFile, isCpp):
 		cmdExe = self._getComplierName(isCpp)
@@ -103,10 +104,7 @@ class GccCppCompiler(CppCompilerBase):
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputFiles = self._getOutputFiles(project, inputFile)
-		if isinstance(outputFiles, str):
-			outputFiles = [outputFiles]
-		outputFiles = ["\"{}\"".format(outFile) for outFile in outputFiles]
-		return ["-o"] + outputFiles
+		return ["-o", "\"{}\"".format(outputFiles[0])]
 
 	def _getPreprocessorArgs(self):
 		return ["-D{}".format(d) for d in self._defines] + ["-U{}".format(u) for u in self._undefines]

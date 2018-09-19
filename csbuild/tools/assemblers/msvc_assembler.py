@@ -55,9 +55,8 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 
 	def _getOutputFiles(self, project, inputFile):
 		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
-		outputFiles = ["{}.obj".format(outputPath)]
 
-		return tuple(outputFiles)
+		return tuple({ "{}.obj".format(outputPath) })
 
 	def _getCommand(self, project, inputFile):
 		assemblerPath = self._getExecutablePath(project)
@@ -91,11 +90,9 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 		return defineArgs
 
 	def _getIncludeDirectoryArgs(self):
-		args = ["/I{}".format(directory) for directory in self._includeDirectories]
+		args = ["/I\"{}\"".format(directory) for directory in self._includeDirectories]
 		return args
 
 	def _getOutputFileArgs(self, project, inputFile):
-		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
-		args = ["/Fo", "{}.obj".format(outputPath)]
-
-		return args
+		outputFiles = self._getOutputFiles(project, inputFile)
+		return ["/Fo", "\"{}\"".format(outputFiles[0])]

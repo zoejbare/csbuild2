@@ -36,7 +36,7 @@ import glob
 import traceback
 
 from . import perf_timer
-from ._utils import StrType
+from ._utils import PlatformUnicode, StrType
 
 with perf_timer.PerfTimer("csbuild module init"):
 	import sys
@@ -252,7 +252,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		return shared_globals.runMode
 
-	@TypeChecked(_return=str)
+	@TypeChecked(_return=StrType)
 	def GetSolutionArgs():
 		"""
 		Get the value passed to the --solution-args option.
@@ -262,7 +262,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		return shared_globals.solutionArgs
 
-	@TypeChecked(_return=str)
+	@TypeChecked(_return=StrType)
 	def GetSolutionPath():
 		"""
 		Get the root path when generating projects.
@@ -314,7 +314,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				# Architecture type is unknown, so use whatever was returned by platform.machine().
 				_standardArchName = machine
 
-		return _standardArchName
+		return PlatformUnicode(_standardArchName)
 
 	@TypeChecked(name=String, projectType=int)
 	def SetOutput(name, projectType=ProjectType.Application):

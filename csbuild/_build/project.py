@@ -32,7 +32,7 @@ import threading
 
 import csbuild
 from .. import log, perf_timer
-from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString
+from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString, PlatformUnicode
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._build import input_file
@@ -302,7 +302,7 @@ class Project(object):
 		"""Remove the artifacts for this project from the settings"""
 		shared_globals.settings.Delete(repr(self)+".artifacts")
 
-	@TypeChecked(inputFile=input_file.InputFile, _return=str)
+	@TypeChecked(inputFile=input_file.InputFile, _return=StrType)
 	def GetIntermediateDirectory(self, inputFile):
 		"""
 		Get the unique, intermediate directory path for an input file.  The directory will be created if it does not exist.
@@ -322,7 +322,7 @@ class Project(object):
 				# If the directory still does not exist, create it.
 				if not os.access(directory, os.F_OK):
 					os.makedirs(directory)
-		return directory
+		return PlatformUnicode(directory)
 
 	def RediscoverFiles(self):
 		"""

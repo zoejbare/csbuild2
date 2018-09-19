@@ -137,10 +137,10 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		return args
 
 	def _getOutputFileArgs(self, project, inputFile):
-		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
-		args = ["/Fo{}".format("{}.obj".format(outputPath))]
+		outputFiles = self._getOutputFiles(project, inputFile)
+		args = ["/Fo\"{}\"".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".obj"]]
 
 		if self._debugLevel in [DebugLevel.ExternalSymbols, DebugLevel.ExternalSymbolsPlus]:
-			args.append("/Fd{}".format("{}.pdb".format(outputPath)))
+			args.extend(["/Fd\"{}\"".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".pdb"]])
 
 		return args

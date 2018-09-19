@@ -216,15 +216,15 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			csbuild.ProjectType.StaticLibrary: ".lib",
 		}
 		outputPath = os.path.join(project.outputDir, project.outputName)
-		args = ["/OUT:{}{}".format(outputPath, outExt.get(project.projectType, ".exe"))]
+		args = ["/OUT:\"{}{}\"".format(outputPath, outExt.get(project.projectType, ".exe"))]
 
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("/IMPLIB:{}.lib".format(outputPath))
+			args.append("/IMPLIB:\"{}.lib\"".format(outputPath))
 
 		if project.projectType != csbuild.ProjectType.StaticLibrary and self._debugLevel != DebugLevel.Disabled:
-			args.append("/PDB:{}.pdb".format(outputPath))
+			args.append("/PDB:\"{}.pdb\"".format(outputPath))
 
 		return args
 
 	def _getInputFileArgs(self, inputFiles):
-		return [f.filename for f in inputFiles]
+		return ["\"{}\"".format(f.filename) for f in inputFiles]

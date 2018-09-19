@@ -87,7 +87,7 @@ class VsBasePlatformHandler(object):
 		pass
 
 	@staticmethod
-	def GetApplicationExtension():
+	def GetApplicationExtension(): # pylint: disable=redundant-returns-doc
 		"""
 		Get the extension that represents executables for the current platform.
 

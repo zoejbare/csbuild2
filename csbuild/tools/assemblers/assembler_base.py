@@ -123,7 +123,7 @@ class AssemblerBase(Tool):
 
 	@abstractmethod
 	def _getOutputFiles(self, project, inputFile):
-		return ""
+		return ("", )
 
 	@abstractmethod
 	def _getCommand(self, project, inputFile):

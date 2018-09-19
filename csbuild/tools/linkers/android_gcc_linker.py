@@ -60,7 +60,6 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 	def _getOutputExtension(self, projectType):
 		# Android doesn't have a native application type.  Applications are linked as shared libraries.
 		outputExt = {
-			csbuild.ProjectType.SharedLibrary: ".so",
 			csbuild.ProjectType.StaticLibrary: ".a",
 		}.get(projectType, ".so")
 
@@ -87,7 +86,7 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 			AndroidStlLibType.StlPort: self._androidInfo.stlPortLibPath,
 		}.get(self._androidStlLibType, None)
 
-		args = ["-L{}".format(stlLibPath)]
+		args = ["-L\"{}\"".format(stlLibPath)]
 		paths = set()
 
 		# Extract all of the library paths.
@@ -95,7 +94,7 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 			paths.add(os.path.dirname(lib))
 
 		for libPath in sorted(paths):
-			args.append("-L{}".format(libPath))
+			args.append("-L\"{}\"".format(libPath))
 
 		return args
 
@@ -125,8 +124,8 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 	def _getSystemArgs(self, project):
 		return [
 			"--sysroot",
-			self._androidInfo.sysRootPath,
-			"-Wl,--rpath-link={}".format(self._androidInfo.systemLibPath)
+			"\"{}\"".format(self._androidInfo.sysRootPath),
+			"-Wl,--rpath-link={}".format(self._androidInfo.systemLibPath),
 		]
 
 	def _getLibrarySearchDirectories(self):

@@ -46,8 +46,9 @@ class GccAssembler(AssemblerBase):
 	####################################################################################################################
 
 	def _getOutputFiles(self, project, inputFile):
+		intDirPath = project.GetIntermediateDirectory(inputFile)
 		filename = os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o"
-		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
+		return tuple({ os.path.join(intDirPath, filename) })
 
 	def _getCommand(self, project, inputFile):
 		cmd = [self._getComplierName()] \
@@ -75,16 +76,17 @@ class GccAssembler(AssemblerBase):
 		return args
 
 	def _getInputFileArgs(self, inputFile):
-		return ["-c", inputFile.filename]
+		return ["-c", "{}".format(inputFile.filename)]
 
 	def _getOutputFileArgs(self, project, inputFile):
-		return ["-o", self._getOutputFiles(project, inputFile)]
+		outputFiles = self._getOutputFiles(project, inputFile)
+		return ["-o", "{}".format(outputFiles[0])]
 
 	def _getPreprocessorArgs(self):
 		return ["-D{}".format(d) for d in self._defines]
 
 	def _getIncludeDirectoryArgs(self):
-		return ["-I" + d for d in self._includeDirectories]
+		return ["-I{}".format(d) for d in self._includeDirectories]
 
 	def _getArchitectureArgs(self, project):
 		arg = "-m64" if project.architectureName == "x64" else "-m32"

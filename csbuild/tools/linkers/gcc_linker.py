@@ -58,7 +58,7 @@ class GccLinker(LinkerBase):
 	####################################################################################################################
 
 	def _getOutputFiles(self, project):
-		return tuple({os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType))})
+		return tuple({ os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType)) })
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
@@ -222,13 +222,11 @@ class GccLinker(LinkerBase):
 
 	def _getDefaultArgs(self, project):
 		args = ["-L/"]
-		args.extend(
-			[
-				"-shared",
-				"-fPIC"
-			] if project.projectType == csbuild.ProjectType.SharedLibrary
-				else []
-		)
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			args.extend([
+					"-shared",
+					"-fPIC"
+			])
 		return args
 
 	def _getOutputFileArgs(self, project):
