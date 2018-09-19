@@ -99,16 +99,20 @@ class GccCppCompiler(CppCompilerBase):
 		return list(OrderedSet(self._globalFlags) | OrderedSet(self._cxxFlags if isCpp else self._cFlags))
 
 	def _getInputFileArgs(self, inputFile):
-		return ["-c", inputFile.filename]
+		return ["-c", "\"{}\"".format(inputFile.filename)]
 
 	def _getOutputFileArgs(self, project, inputFile):
-		return ["-o", self._getOutputFiles(project, inputFile)]
+		outputFiles = self._getOutputFiles(project, inputFile)
+		if isinstance(outputFiles, str):
+			outputFiles = [outputFiles]
+		outputFiles = ["\"{}\"".format(outFile) for outFile in outputFiles]
+		return ["-o"] + outputFiles
 
 	def _getPreprocessorArgs(self):
 		return ["-D{}".format(d) for d in self._defines] + ["-U{}".format(u) for u in self._undefines]
 
 	def _getIncludeDirectoryArgs(self):
-		return ["-I" + d for d in self._includeDirectories]
+		return ["-I\"{}\"".format(d) for d in self._includeDirectories]
 
 	def _getDebugArgs(self):
 		if self._debugLevel != DebugLevel.Disabled:

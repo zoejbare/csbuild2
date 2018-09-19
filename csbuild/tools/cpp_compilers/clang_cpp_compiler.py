@@ -44,9 +44,7 @@ class ClangCppCompiler(GccCppCompiler):
 		return "clang++" if isCpp else "clang"
 
 	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("-fPIC")
+		args = ["-fPIC"] if project.projectType == csbuild.ProjectType.SharedLibrary else []
 		return args
 
 	def _getArchitectureArgs(self, project):

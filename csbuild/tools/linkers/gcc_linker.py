@@ -70,8 +70,7 @@ class GccLinker(LinkerBase):
 			useResponseFile = self._useResponseFileWithArchiver()
 		else:
 			cmdExe = self._getBinaryLinkerName()
-			cmd = ["-L/"] \
-				+ self._getDefaultArgs(project) \
+			cmd = self._getDefaultArgs(project) \
 				+ self._getArchitectureArgs(project) \
 				+ self._getSystemArgs(project) \
 				+ self._getOutputFileArgs(project) \
@@ -222,25 +221,31 @@ class GccLinker(LinkerBase):
 		return True
 
 	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args += ["-shared", "-fPIC"]
+		args = ["-L/"]
+		args.extend(
+			[
+				"-shared",
+				"-fPIC"
+			] if project.projectType == csbuild.ProjectType.SharedLibrary
+				else []
+		)
 		return args
 
 	def _getOutputFileArgs(self, project):
+		outFile = "\"{}\"".format(self._getOutputFiles(project)[0])
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			return [self._getOutputFiles(project)[0]]
-		return ["-o", self._getOutputFiles(project)[0]]
+			return [outFile]
+		return ["-o", outFile]
 
 	def _getInputFileArgs(self, inputFiles):
-		return [f.filename for f in inputFiles]
+		return ["\"{}\"".format(f.filename) for f in inputFiles]
 
 	def _getLibraryPathArgs(self, project):
 		_ignore(project)
 		return []
 
 	def _getLibraryArgs(self):
-		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]
+		return ["-l:\"{}\"".format(lib) for lib in self._actualLibraryLocations.values()]
 
 	def _getStartGroupArgs(self):
 		return ["-Wl,--no-as-needed", "-Wl,--start-group"]
