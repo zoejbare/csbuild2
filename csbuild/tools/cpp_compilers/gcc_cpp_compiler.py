@@ -100,7 +100,7 @@ class GccCppCompiler(CppCompilerBase):
 		return list(OrderedSet(self._globalFlags) | OrderedSet(self._cxxFlags if isCpp else self._cFlags))
 
 	def _getInputFileArgs(self, inputFile):
-		return ["-c", "\"{}\"".format(inputFile.filename)]
+		return ["-c", inputFile.filename]
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputFiles = self._getOutputFiles(project, inputFile)
