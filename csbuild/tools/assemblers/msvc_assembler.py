@@ -90,9 +90,9 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 		return defineArgs
 
 	def _getIncludeDirectoryArgs(self):
-		args = ["/I\"{}\"".format(directory) for directory in self._includeDirectories]
+		args = ["/I{}".format(directory) for directory in self._includeDirectories]
 		return args
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputFiles = self._getOutputFiles(project, inputFile)
-		return ["/Fo", "\"{}\"".format(outputFiles[0])]
+		return ["/Fo", outputFiles[0]]

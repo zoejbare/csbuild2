@@ -138,9 +138,9 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputFiles = self._getOutputFiles(project, inputFile)
-		args = ["/Fo\"{}\"".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".obj"]]
+		args = ["/Fo{}".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".obj"]]
 
 		if self._debugLevel in [DebugLevel.ExternalSymbols, DebugLevel.ExternalSymbolsPlus]:
-			args.extend(["/Fd\"{}\"".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".pdb"]])
+			args.extend(["/Fd{}".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".pdb"]])
 
 		return args
