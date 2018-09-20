@@ -236,14 +236,14 @@ class GccLinker(LinkerBase):
 		return ["-o", outFile]
 
 	def _getInputFileArgs(self, inputFiles):
-		return ["\"{}\"".format(f.filename) for f in inputFiles]
+		return [f.filename for f in inputFiles]
 
 	def _getLibraryPathArgs(self, project):
 		_ignore(project)
 		return []
 
 	def _getLibraryArgs(self):
-		return ["-l:\"{}\"".format(lib) for lib in self._actualLibraryLocations.values()]
+		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]
 
 	def _getStartGroupArgs(self):
 		return ["-Wl,--no-as-needed", "-Wl,--start-group"]

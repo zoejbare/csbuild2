@@ -104,13 +104,13 @@ class GccCppCompiler(CppCompilerBase):
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputFiles = self._getOutputFiles(project, inputFile)
-		return ["-o", "\"{}\"".format(outputFiles[0])]
+		return ["-o", outputFiles[0]]
 
 	def _getPreprocessorArgs(self):
 		return ["-D{}".format(d) for d in self._defines] + ["-U{}".format(u) for u in self._undefines]
 
 	def _getIncludeDirectoryArgs(self):
-		return ["-I\"{}\"".format(d) for d in self._includeDirectories]
+		return ["-I{}".format(d) for d in self._includeDirectories]
 
 	def _getDebugArgs(self):
 		if self._debugLevel != DebugLevel.Disabled:

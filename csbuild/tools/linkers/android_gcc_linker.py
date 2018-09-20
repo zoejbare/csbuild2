@@ -86,7 +86,7 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 			AndroidStlLibType.StlPort: self._androidInfo.stlPortLibPath,
 		}.get(self._androidStlLibType, None)
 
-		args = ["-L\"{}\"".format(stlLibPath)]
+		args = ["-L{}".format(stlLibPath)]
 		paths = set()
 
 		# Extract all of the library paths.
@@ -124,7 +124,7 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 	def _getSystemArgs(self, project):
 		return [
 			"--sysroot",
-			"\"{}\"".format(self._androidInfo.sysRootPath),
+			self._androidInfo.sysRootPath,
 			"-Wl,--rpath-link={}".format(self._androidInfo.systemLibPath),
 		]
 

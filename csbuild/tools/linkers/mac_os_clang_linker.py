@@ -67,7 +67,7 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 
 	def _getLibraryArgs(self):
 		libArgs = [lib for lib in self._actualLibraryLocations.values()]
-		frameworkDirArgs = ["-F\"{}\"".format(path) for path in self._frameworkDirectories]
+		frameworkDirArgs = ["-F{}".format(path) for path in self._frameworkDirectories]
 		frameworkArgs = []
 		for framework in self._frameworks:
 			frameworkArgs.extend(["-framework", framework])
