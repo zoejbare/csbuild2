@@ -32,16 +32,19 @@ import csbuild
 
 from abc import ABCMeta, abstractmethod
 
+from ..common.tool_traits import HasDefines, HasIncludeDirectories
+
 from ... import commands, log
+
 from ...toolchain import Tool
-from ..._utils import ordered_set
+
 from ..._utils.decorators import MetaClass
 
 def _ignore(_):
 	pass
 
 @MetaClass(ABCMeta)
-class AssemblerBase(Tool):
+class AssemblerBase(HasDefines, HasIncludeDirectories):
 	"""
 	Base class for assemblers
 
@@ -53,35 +56,15 @@ class AssemblerBase(Tool):
 	################################################################################
 
 	def __init__(self, projectSettings):
-		Tool.__init__(self, projectSettings)
-		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
-		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
+		HasDefines.__init__(self, projectSettings)
+		HasIncludeDirectories.__init__(self, projectSettings)
+
 		self._asmFlags = projectSettings.get("asmFlags", [])
 
 
 	################################################################################
 	### Static makefile methods
 	################################################################################
-
-	@staticmethod
-	def AddIncludeDirectories(*dirs):
-		"""
-		Add directories to search for headers in
-
-		:param dirs: list of directories
-		:type dirs: str
-		"""
-		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
-
-	@staticmethod
-	def AddDefines(*defines):
-		"""
-		Add preprocessor defines to the current project.
-
-		:param defines: List of defines.
-		:type defines: str
-		"""
-		csbuild.currentPlan.UnionSet("defines", defines)
 
 	@staticmethod
 	def AddAssemblerFlags(*flags):
@@ -92,20 +75,6 @@ class AssemblerBase(Tool):
 		:type flags: str
 		"""
 		csbuild.currentPlan.ExtendList("asmFlags", flags)
-
-
-	################################################################################
-	### Public API
-	################################################################################
-
-	def GetIncludeDirectories(self):
-		"""
-		Get the list of include directories
-
-		:return: include dirs
-		:rtype: ordered_set.OrderedSet[str]
-		"""
-		return self._includeDirectories
 
 
 	################################################################################
