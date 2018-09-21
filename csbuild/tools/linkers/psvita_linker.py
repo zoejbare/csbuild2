@@ -22,7 +22,7 @@
 .. module:: psvita_linker
 	:synopsis: Implementation of the PSVita linker tool.
 
-.. moduleauthor:: Zoe Bare
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function

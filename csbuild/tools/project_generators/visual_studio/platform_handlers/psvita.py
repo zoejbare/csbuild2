@@ -22,7 +22,7 @@
 .. module:: windows
 	:synopsis: Built-in Visual Studio platform handler for outputing PSVita project files.
 
-.. moduleauthor:: Zoe Bare
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function

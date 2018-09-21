@@ -22,7 +22,7 @@
 .. module:: setup
 	:synopsis: Setup script for csbuild.
 
-.. moduleauthor:: Zoe Bare
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function

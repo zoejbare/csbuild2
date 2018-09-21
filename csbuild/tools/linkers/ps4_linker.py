@@ -22,7 +22,7 @@
 .. module:: ps4_linker
 	:synopsis: Implementation of the PS4 linker tool.
 
-.. moduleauthor:: Zoe Bare
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function

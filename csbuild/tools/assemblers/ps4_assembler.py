@@ -22,7 +22,7 @@
 .. module:: ps4_cpp_compiler
 	:synopsis: Implementation of the PS4 assembler tool.
 
-.. moduleauthor:: Zoe Bare
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
