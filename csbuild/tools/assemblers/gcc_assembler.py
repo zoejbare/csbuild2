@@ -32,6 +32,8 @@ import csbuild
 
 from .assembler_base import AssemblerBase
 
+from ..._utils.ordered_set import OrderedSet
+
 class GccAssembler(AssemblerBase):
 	"""
 	GCC assembler implementation
@@ -54,11 +56,11 @@ class GccAssembler(AssemblerBase):
 		cmd = [self._getComplierName()] \
 			+ self._getInputFileArgs(inputFile) \
 			+ self._getDefaultArgs(project) \
+			+ self._getCustomArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ self._getArchitectureArgs(project) \
-			+ self._asmFlags
+			+ self._getArchitectureArgs(project)
 		return [arg for arg in cmd if arg]
 
 
@@ -74,6 +76,9 @@ class GccAssembler(AssemblerBase):
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.append("-fPIC")
 		return args
+
+	def _getCustomArgs(self):
+		return sorted(OrderedSet(self._asmFlags))
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", "{}".format(inputFile.filename)]
