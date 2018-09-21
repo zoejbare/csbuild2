@@ -43,6 +43,8 @@ from xml.etree import ElementTree as ET
 from xml.dom import minidom
 
 from ..platform_handlers import VsInstallInfo
+from ..platform_handlers.ps4 import VsPs4PlatformHandler
+from ..platform_handlers.psvita import VsPsVitaPlatformHandler
 from ..platform_handlers.windows import VsWindowsX86PlatformHandler, VsWindowsX64PlatformHandler
 
 from ....assemblers.gcc_assembler import GccAssembler
@@ -477,6 +479,8 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 		PLATFORM_HANDLERS.update({
 			("msvc", "x86", ()): VsWindowsX86PlatformHandler,
 			("msvc", "x64", ()): VsWindowsX64PlatformHandler,
+			("ps4", "x64", ()): VsPs4PlatformHandler,
+			("psvita", "arm", ()): VsPsVitaPlatformHandler,
 		})
 
 	# Find all specs used by the generators.

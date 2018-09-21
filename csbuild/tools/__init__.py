@@ -38,6 +38,8 @@ from .assemblers.android_gcc_assembler import AndroidGccAssembler
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
+from .assemblers.ps4_assembler import Ps4Assembler
+from .assemblers.psvita_assembler import PsVitaAssembler
 
 from .cpp_compilers.android_clang_cpp_compiler import AndroidClangCppCompiler
 from .cpp_compilers.android_gcc_cpp_compiler import AndroidGccCppCompiler
@@ -45,6 +47,8 @@ from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
+from .cpp_compilers.ps4_cpp_compiler import Ps4CppCompiler
+from .cpp_compilers.psvita_cpp_compiler import PsVitaCppCompiler
 
 from .java_archivers.oracle_java_archiver import OracleJavaArchiver
 
@@ -56,6 +60,8 @@ from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
+from .linkers.ps4_linker import Ps4Linker
+from .linkers.psvita_linker import PsVitaLinker
 
 from .project_generators.visual_studio import \
 	VsProjectGenerator, \
@@ -66,6 +72,15 @@ from .project_generators.visual_studio import \
 	VsSolutionGenerator2017
 
 from ..toolchain import CompileChecker
+
+def _createCheckers(inputMappings):
+	checkers = {}
+
+	for checkerObj, extensions in inputMappings.items():
+		for ext in extensions:
+			checkers[ext] = checkerObj
+
+	return checkers
 
 def InitTools():
 	"""
@@ -87,15 +102,10 @@ def InitTools():
 		( "android-gcc", AndroidGccCppCompiler, AndroidGccLinker, AndroidGccAssembler ),
 		( "android-clang", AndroidClangCppCompiler, AndroidClangLinker, AndroidClangAssembler ),
 	]:
-		checkers = {}
-		cppChecker = CppCompileChecker(compiler)
-		asmChecker = AsmCompileChecker(assembler)
-
-		for inputExtension in compiler.inputFiles:
-			checkers[inputExtension] = cppChecker
-
-		for inputExtension in assembler.inputFiles:
-			checkers[inputExtension] = asmChecker
+		checkers = _createCheckers({
+			CppCompileChecker(compiler): compiler.inputFiles,
+			AsmCompileChecker(assembler): assembler.inputFiles,
+		})
 
 		csbuild.RegisterToolchain(name, systemArchitecture, compiler, linker, assembler, checkers=checkers)
 
@@ -103,17 +113,30 @@ def InitTools():
 	for name, compiler, archiver in [
 		( "oracle-java", OracleJavaCompiler, OracleJavaArchiver ),
 	]:
-		checkers = {}
-		javaChecker = CompileChecker()
-
-		for inputExtension in compiler.inputFiles:
-			checkers[inputExtension] = javaChecker
+		checkers = _createCheckers({
+			CompileChecker(): compiler.inputFiles,
+		})
 
 		csbuild.RegisterToolchain(name, systemArchitecture, compiler, archiver, checkers=checkers)
+
+	ps4Checkers = _createCheckers({
+		CppCompileChecker(Ps4CppCompiler): Ps4CppCompiler.inputFiles,
+		AsmCompileChecker(Ps4Assembler): Ps4Assembler.inputFiles,
+	})
+
+	psVitaCheckers = _createCheckers({
+		CppCompileChecker(PsVitaCppCompiler): PsVitaCppCompiler.inputFiles,
+		AsmCompileChecker(PsVitaAssembler): PsVitaAssembler.inputFiles,
+	})
+
+	# Register the Sony platform toolchains.
+	csbuild.RegisterToolchain("ps4", "x64", Ps4CppCompiler, Ps4Linker, Ps4Assembler, checkers=ps4Checkers)
+	csbuild.RegisterToolchain("psvita", "arm", PsVitaCppCompiler, PsVitaLinker, PsVitaAssembler, checkers=psVitaCheckers)
 
 	# Register toolchain groups.
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
 	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")
+	csbuild.RegisterToolchainGroup("sony", "ps4", "psvita")
 
 	# Register default project generators.
 	csbuild.RegisterProjectGenerator("visual-studio-2010", [VsProjectGenerator], VsSolutionGenerator2010)
