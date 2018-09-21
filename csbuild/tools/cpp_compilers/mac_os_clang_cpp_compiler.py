@@ -35,22 +35,30 @@ class MacOsClangCppCompiler(MacOsToolBase, ClangCppCompiler):
 	"""
 	Clang compiler for macOS implementation
 	"""
-	inputFiles={".cpp", ".c", ".cc", ".cxx", ".m", ".mm"}
-
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
+	supportedPlatforms = { "Darwin" }
+	inputFiles={ ".cpp", ".c", ".cc", ".cxx", ".m", ".mm" }
 
 	def __init__(self, projectSettings):
 		MacOsToolBase.__init__(self, projectSettings)
 		ClangCppCompiler.__init__(self, projectSettings)
+
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
 
 	def SetupForProject(self, project):
 		MacOsToolBase.SetupForProject(self, project)
 		ClangCppCompiler.SetupForProject(self, project)
 
 	def _getDefaultArgs(self, project):
-		baseArgs = ClangCppCompiler._getDefaultArgs(self, project)
-		return baseArgs + [
-			"-mmacosx-version-min={}".format(self.macOsVersionMin)
-		]
+		args = ClangCppCompiler._getDefaultArgs(self, project)
+
+		if self._macOsVersionMin:
+			args.append("-mmacosx-version-min={}".format(self._macOsVersionMin))
+
+		return args
+
+	def _getArchTarget(self, project):
+		# Mac doesn't need the architecture target.
+		return None

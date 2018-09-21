@@ -83,6 +83,7 @@ def InitTools():
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
 		( "clang", clangCompiler, clangLinker, ClangAssembler ),
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler ),
+		( "mac-clang", MacOsClangCppCompiler, MacOsClangLinker, ClangAssembler ),
 		( "android-gcc", AndroidGccCppCompiler, AndroidGccLinker, AndroidGccAssembler ),
 		( "android-clang", AndroidClangCppCompiler, AndroidClangLinker, AndroidClangAssembler ),
 	]:

@@ -36,6 +36,10 @@ class ClangCppCompiler(GccCppCompiler):
 	Clang compiler implementation
 	"""
 
+	def __init__(self, projectSettings):
+		GccCppCompiler.__init__(self, projectSettings)
+
+
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
@@ -48,14 +52,25 @@ class ClangCppCompiler(GccCppCompiler):
 		return args
 
 	def _getArchitectureArgs(self, project):
-		baseArgs = GccCppCompiler._getArchitectureArgs(self, project)
+		args = GccCppCompiler._getArchitectureArgs(self, project)
+		target = self._getArchTarget(project)
 
+		if target:
+			args.extend([
+				"-target", target,
+			])
+
+		return args
+
+
+	####################################################################################################################
+	### Internal methods
+	####################################################################################################################
+
+	def _getArchTarget(self, project):
 		# When necessary fill in the architecture name with something clang expects.
 		architecture = {
 			"x86": "i386",
 			"x64": "x86_64",
 		}.get(project.architectureName, project.architectureName)
-
-		return baseArgs + [
-			"-target", "{}-unknown-linux-unknown".format(architecture),
-		]
+		return "{}-unknown-linux-unknown".format(architecture)

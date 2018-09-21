@@ -230,7 +230,7 @@ class GccLinker(LinkerBase):
 		return args
 
 	def _getOutputFileArgs(self, project):
-		outFile = "\"{}\"".format(self._getOutputFiles(project)[0])
+		outFile = self._getOutputFiles(project)[0]
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
 			return [outFile]
 		return ["-o", outFile]

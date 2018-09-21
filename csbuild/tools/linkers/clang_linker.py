@@ -34,6 +34,10 @@ class ClangLinker(GccLinker):
 	Clang linker implementation
 	"""
 
+	def __init__(self, projectSettings):
+		GccLinker.__init__(self, projectSettings)
+
+
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################

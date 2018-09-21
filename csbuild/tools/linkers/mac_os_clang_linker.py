@@ -37,17 +37,18 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 	"""
 	Clang compiler implementation
 	"""
-
-	outputFiles = {"", ".a", ".dylib"}
-	crossProjectDependencies = {".a", ".dylib"}
-
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
+	supportedPlatforms = { "Darwin" }
+	outputFiles = { "", ".a", ".dylib" }
+	crossProjectDependencies = { ".a", ".dylib" }
 
 	def __init__(self, projectSettings):
 		MacOsToolBase.__init__(self, projectSettings)
 		ClangLinker.__init__(self, projectSettings)
+
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
 
 	def SetupForProject(self, project):
 		MacOsToolBase.SetupForProject(self, project)
