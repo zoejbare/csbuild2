@@ -36,8 +36,6 @@ from ..common.tool_traits import HasDefines, HasIncludeDirectories
 
 from ... import commands, log
 
-from ...toolchain import Tool
-
 from ..._utils.decorators import MetaClass
 
 def _ignore(_):

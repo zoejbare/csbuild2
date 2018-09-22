@@ -34,7 +34,6 @@ from abc import ABCMeta
 
 from csbuild import log
 
-from ..._utils import PlatformString
 from ..._utils.decorators import MetaClass
 
 from ...toolchain import Tool

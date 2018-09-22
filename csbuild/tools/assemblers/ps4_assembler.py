@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. module:: ps4_cpp_compiler
+.. module:: ps4_assembler
 	:synopsis: Implementation of the PS4 assembler tool.
 
 .. moduleauthor:: Brandon Bare

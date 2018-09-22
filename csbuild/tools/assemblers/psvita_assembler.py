@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. module:: psvita_cpp_compiler
+.. module:: psvita_assembler
 	:synopsis: Implementation of the PSVita assembler tool.
 
 .. moduleauthor:: Brandon Bare

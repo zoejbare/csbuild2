@@ -93,7 +93,7 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 		return cmd
 
 	def _findLibraries(self, project, libs):
-		targetLibPath = os.path.join(self.psVitaSdkPath, "target", "lib")
+		targetLibPath = os.path.join(self._psVitaSdkPath, "target", "lib")
 		allLibraryDirectories = [x for x in self._libraryDirectories] + [targetLibPath]
 
 		return SonyBaseTool._commonFindLibraries(allLibraryDirectories, libs)

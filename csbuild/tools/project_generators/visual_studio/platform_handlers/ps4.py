@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. module:: windows
+.. module:: ps4
 	:synopsis: Built-in Visual Studio platform handler for outputing PS4 project files.
 
 .. moduleauthor:: Brandon Bare

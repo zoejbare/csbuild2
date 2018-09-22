@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. module:: windows
+.. module:: psvita
 	:synopsis: Built-in Visual Studio platform handler for outputing PSVita project files.
 
 .. moduleauthor:: Brandon Bare
