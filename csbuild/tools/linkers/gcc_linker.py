@@ -64,13 +64,13 @@ class GccLinker(LinkerBase):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
 			cmdExe = self._getArchiverName()
 			cmd = ["rcs"] \
-				+ self._linkerFlags \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
 			useResponseFile = self._useResponseFileWithArchiver()
 		else:
 			cmdExe = self._getBinaryLinkerName()
 			cmd = self._getDefaultArgs(project) \
+				+ self._getCustomArgs() \
 				+ self._getArchitectureArgs(project) \
 				+ self._getSystemArgs(project) \
 				+ self._getOutputFileArgs(project) \
@@ -78,8 +78,7 @@ class GccLinker(LinkerBase):
 				+ self._getLibraryPathArgs(project) \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
-				+ self._getEndGroupArgs() \
-				+ self._linkerFlags
+				+ self._getEndGroupArgs()
 			useResponseFile = self._useResponseFileWithArchiver()
 
 		if useResponseFile:
@@ -228,6 +227,9 @@ class GccLinker(LinkerBase):
 					"-fPIC"
 			])
 		return args
+
+	def _getCustomArgs(self):
+		return sorted(ordered_set.OrderedSet(self._linkerFlags))
 
 	def _getOutputFileArgs(self, project):
 		outFile = self._getOutputFiles(project)[0]
