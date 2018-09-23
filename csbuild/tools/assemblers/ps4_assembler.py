@@ -74,7 +74,7 @@ class Ps4Assembler(Ps4BaseTool, AssemblerBase):
 			+ self._getInputFileArgs(inputFile)
 
 		inputFileBasename = os.path.basename(inputFile.filename)
-		responseFile = response_file.ResponseFile(project, inputFileBasename, cmd)
+		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
 
 		if shared_globals.showCommands:
 			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))

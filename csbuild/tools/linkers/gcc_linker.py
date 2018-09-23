@@ -82,7 +82,7 @@ class GccLinker(LinkerBase):
 			useResponseFile = self._useResponseFileWithArchiver()
 
 		if useResponseFile:
-			responseFile = response_file.ResponseFile(project, project.outputName, cmd)
+			responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
 
 			if shared_globals.showCommands:
 				log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))

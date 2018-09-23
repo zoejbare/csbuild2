@@ -34,6 +34,7 @@ from .linker_base import LinkerBase
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel
 from ... import log
+from ..._utils import ordered_set, response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 
@@ -83,16 +84,25 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			linkerPath = os.path.join(self.vcvarsall.binPath, "lib.exe")
+			cmdExe = os.path.join(self.vcvarsall.binPath, "lib.exe")
+			cmd = self._getDefaultArgs(project) \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles)
+
 		else:
-			linkerPath = os.path.join(self.vcvarsall.binPath, "link.exe")
-		cmd = [linkerPath] \
-			+ self._getOutputFileArgs(project) \
-			+ self._getDefaultArgs(project) \
-			+ self._linkerFlags \
-			+ self._getLibraryArgs(project) \
-			+ self._getInputFileArgs(inputFiles)
-		return [arg for arg in cmd if arg]
+			cmdExe = os.path.join(self.vcvarsall.binPath, "link.exe")
+			cmd = self._getDefaultArgs(project) \
+				+ self._getCustomArgs() \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles) \
+				+ self._getLibraryArgs(project)
+
+		responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
+
+		if shared_globals.showCommands:
+			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
+
+		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def _findLibraries(self, project, libs):
 		notFound = set()
@@ -143,7 +153,6 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 		return None if notFound else found
 
-
 	def _getOutputExtension(self, projectType):
 		# These are extensions of the files that can be output from the linker or librarian.
 		# The library extensions should represent the file types that can actually linked against.
@@ -190,6 +199,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			if project.projectType == csbuild.ProjectType.SharedLibrary:
 				args.append("/DLL")
 		return args
+
+	def _getCustomArgs(self):
+		return sorted(ordered_set.OrderedSet(self._linkerFlags))
 
 	def _getLibraryArgs(self, project):
 		# Static libraries don't require the default libraries to be linked, so only add them when building an application or shared library.

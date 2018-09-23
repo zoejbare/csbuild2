@@ -53,7 +53,7 @@ class Ps4CppCompiler(Ps4BaseTool, GccCppCompiler):
 
 	def _getComplierName(self, isCpp):
 		binPath = os.path.join(self._ps4SdkPath, "host_tools", "bin")
-		exeName = "orbis-clang++.exe" if isCpp else "orbis-clang.exe"
+		exeName = "orbis-clang++.exe" if True or isCpp else "orbis-clang.exe"
 
 		return os.path.join(binPath, exeName)
 
@@ -66,8 +66,8 @@ class Ps4CppCompiler(Ps4BaseTool, GccCppCompiler):
 
 		# Add the PS4 system include directories.
 		args.extend([
-			"-I", os.path.join(self._ps4SdkPath, "target", "include"),
-			"-I", os.path.join(self._ps4SdkPath, "target", "include_common"),
+			"-I{}".format(os.path.join(self._ps4SdkPath, "target", "include")),
+			"-I{}".format(os.path.join(self._ps4SdkPath, "target", "include_common")),
 		])
 
 		return args

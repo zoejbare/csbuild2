@@ -32,7 +32,8 @@ import os
 from .cpp_compiler_base import CppCompilerBase
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
-from ..._utils.ordered_set import OrderedSet
+from ... import log
+from ..._utils import ordered_set, response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
@@ -72,9 +73,8 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		return tuple(outputFiles)
 
 	def _getCommand(self, project, inputFile, isCpp):
-		compilerPath = os.path.join(self.vcvarsall.binPath, "cl.exe")
-		cmd = [compilerPath]  \
-			+ self._getDefaultArgs() \
+		cmdExe = os.path.join(self.vcvarsall.binPath, "cl.exe")
+		cmd = self._getDefaultArgs() \
 			+ self._getCustomArgs(project, isCpp) \
 			+ self._getPreprocessorArgs() \
 			+ self._getDebugArgs() \
@@ -83,7 +83,14 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
-		return [arg for arg in cmd if arg]
+
+		inputFileBasename = os.path.basename(inputFile.filename)
+		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
+
+		if shared_globals.showCommands:
+			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
+
+		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def SetupForProject(self, project):
 		MsvcToolBase.SetupForProject(self, project)
@@ -102,7 +109,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 
 	def _getCustomArgs(self, project, isCpp):
 		_ignore(project)
-		return list(OrderedSet(self._globalFlags) | OrderedSet(self._cxxFlags if isCpp else self._cFlags))
+		return list(ordered_set.OrderedSet(self._globalFlags) | ordered_set.OrderedSet(self._cxxFlags if isCpp else self._cFlags))
 
 	def _getDebugArgs(self):
 		arg = {

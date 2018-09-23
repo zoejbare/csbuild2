@@ -55,7 +55,7 @@ class ResponseFile(object):
 	_lock = threading.Lock()
 
 	def __init__(self, project, name, cmd):
-		dirPath = os.path.join(project.csbuildDir, "cmd", project.outputName, project.architectureName, project.targetName)
+		dirPath = os.path.join(project.csbuildDir, "cmd", project.outputName, project.toolchainName, project.architectureName, project.targetName)
 		fileMode = 438 # Octal 0666
 		flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
 
@@ -104,8 +104,8 @@ class ResponseFile(object):
 
 	def AsString(self):
 		"""
-		Get the full string of the command arguments, quoted as necessary.
+		Get the full string of the command arguments.
 		:return: Original command list as string.
 		:rtype: str
 		"""
-		return " ".join([quote(arg) for arg in self._commandList])
+		return " ".join(self._commandList)

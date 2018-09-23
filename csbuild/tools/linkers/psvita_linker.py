@@ -80,7 +80,7 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 				+ self._getEndGroupArgs()
 
 		if useResponseFile:
-			responseFile = response_file.ResponseFile(project, project.outputName, cmd)
+			responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
 
 			if shared_globals.showCommands:
 				log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))

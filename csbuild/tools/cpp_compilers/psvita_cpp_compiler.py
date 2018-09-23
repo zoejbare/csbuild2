@@ -79,7 +79,7 @@ class PsVitaCppCompiler(PsVitaBaseTool, CppCompilerBase):
 			+ self._getInputFileArgs(inputFile)
 
 		inputFileBasename = os.path.basename(inputFile.filename)
-		responseFile = response_file.ResponseFile(project, inputFileBasename, cmd)
+		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
 
 		if shared_globals.showCommands:
 			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
@@ -115,14 +115,13 @@ class PsVitaCppCompiler(PsVitaBaseTool, CppCompilerBase):
 
 		for dirPath in self._includeDirectories:
 			args.extend([
-				"-I",
-				os.path.abspath(dirPath),
+				"-I{}".format(os.path.abspath(dirPath)),
 			])
 
 		# Add the PSVita system include directories.
 		args.extend([
-			"-I", os.path.join(self._psVitaSdkPath, "target", "include"),
-			"-I", os.path.join(self._psVitaSdkPath, "target", "include_common"),
+			"-I{}".format(os.path.join(self._psVitaSdkPath, "target", "include")),
+			"-I{}".format(os.path.join(self._psVitaSdkPath, "target", "include_common")),
 		])
 
 		return args
