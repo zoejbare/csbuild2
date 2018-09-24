@@ -32,12 +32,6 @@ from . import PlatformBytes
 import os
 import platform
 import threading
-import sys
-
-if sys.version_info >= (3,3,0):
-	from shlex import quote
-else:
-	from pipes import quote
 
 class ResponseFile(object):
 	"""
