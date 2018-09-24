@@ -121,6 +121,9 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		propertyGroupXmlNode.set("Label", "Configuration")
 		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
+		platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
+		platformToolsetXmlNode.text = "SNC"
+
 		configTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
 		configTypeXmlNode.text = "Makefile"
 

@@ -145,6 +145,9 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		propertyGroupXmlNode.set("Label", "Configuration")
 		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
+		platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
+		platformToolsetXmlNode.text = "Clang"
+
 		configTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
 		configTypeXmlNode.text = "Makefile"
 

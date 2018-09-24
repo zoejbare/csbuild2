@@ -642,7 +642,7 @@ def _buildFlatProjectList(rootProject):
 		project = projectStack.pop(0)
 
 		# Add each child project to the stack.
-		for projKey in sorted(list(project.children)):
+		for projKey in sorted(list(project.children), key=lambda x: x.lower()):
 			childProject = project.children[projKey]
 
 			flatProjects.append(childProject)
@@ -730,10 +730,15 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 
 			# Write out the build specs supported by this solution.
 			with writer.Section("GlobalSection", "(SolutionConfigurationPlatforms) = preSolution"):
+				vsPlatforms = set()
 				for buildSpec in BUILD_SPECS:
 					handler = PLATFORM_HANDLERS[buildSpec]
 					vsPlatform = _createVsPlatform(buildSpec, handler)
 
+					vsPlatforms.add(vsPlatform)
+
+				# Output the platforms sorted case-insensitive as Visual Studio expects.
+				for vsPlatform in sorted(vsPlatforms, key=lambda x: x.lower()):
 					writer.Line("{0} = {0}".format(vsPlatform))
 
 			# Write out the supported project-to-spec mappings.
@@ -741,27 +746,36 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 				for project in flatProjectList:
 					# Only standard projects should be listed here.
 					if project.projType == VsProjectType.Standard:
-						for buildSpec in sorted(project.supportedBuildSpecs):
-							# Only write out for the current build spec if it's a supported build spec.
-							if buildSpec in BUILD_SPECS:
-								handler = PLATFORM_HANDLERS[buildSpec]
-								vsPlatform = _createVsPlatform(buildSpec, handler)
-								writer.Line("{0}.{1}.ActiveCfg = {1}".format(project.guid, vsPlatform))
+						vsPlatforms = set()
+						for buildSpec in BUILD_SPECS:
+							handler = PLATFORM_HANDLERS[buildSpec]
+							vsPlatform = _createVsPlatform(buildSpec, handler)
 
-								# Only enable the BuildAll project.  This will make sure the global build command only
-								# builds this project and none of the others (which can still be selectively built).
-								if project.subType == VsProjectSubType.BuildAll:
-									writer.Line("{0}.{1}.Build.0 = {1}".format(project.guid, vsPlatform))
+							vsPlatforms.add(vsPlatform)
+
+						# Output the platforms sorted case-insensitive as Visual Studio expects.
+						for vsPlatform in sorted(vsPlatforms, key=lambda x: x.lower()):
+							writer.Line("{0}.{1}.ActiveCfg = {1}".format(project.guid, vsPlatform))
+
+							# Only enable the BuildAll project.  This will make sure the global build command only
+							# builds this project and none of the others (which can still be selectively built).
+							if project.subType == VsProjectSubType.BuildAll:
+								writer.Line("{0}.{1}.Build.0 = {1}".format(project.guid, vsPlatform))
 
 			# Write out any standalone solution properties.
 			with writer.Section("GlobalSection", "(SolutionProperties) = preSolution"):
 				writer.Line("HideSolutionNode = FALSE")
 
+			nestedProjectsMappings = set()
+			for parentProject in flatProjectList:
+				for childProject in parentProject.children:
+					nestedProjectsMappings.add("{} = {}".format(childProject.guid, parentProject.guid))
+
 			# Write out the mapping that describe the solution hierarchy.
-			with writer.Section("GlobalSection", "(NestedProjects) = preSolution"):
-				for parentProject in flatProjectList:
-					for childProject in parentProject.children:
-						writer.Line("{} = {}".format(childProject.guid, parentProject.guid))
+			if nestedProjectsMappings:
+				with writer.Section("GlobalSection", "(NestedProjects) = preSolution"):
+					for mapping in sorted(nestedProjectsMappings):
+						writer.Line(mapping)
 
 		f.flush()
 		os.fsync(f.fileno())
@@ -811,10 +825,6 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 
 	# Write the project configurations.
 	for buildSpec in BUILD_SPECS:
-		# Skip build specs that are not supported by the project.
-		if buildSpec not in project.supportedBuildSpecs:
-			continue
-
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
 		platformHandler.WriteProjectConfiguration(itemGroupXmlNode, project, _getVsConfigName(buildSpec))
 
@@ -866,10 +876,6 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 
 	# Write the config property groups for each platform.
 	for buildSpec in BUILD_SPECS:
-		# Skip build specs that are not supported by the project.
-		if buildSpec not in project.supportedBuildSpecs:
-			continue
-
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
 		platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
 
