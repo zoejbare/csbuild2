@@ -32,7 +32,7 @@ import os
 import csbuild
 
 from .gcc_linker import GccLinker
-from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
+from ..common.android_tool_base import AndroidToolBase
 
 class AndroidGccLinker(GccLinker, AndroidToolBase):
 	"""
@@ -79,15 +79,17 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 		defaultAndroidArgs = self._getDefaultLinkerArgs()
 		return baseArgs + defaultAndroidArgs
 
-	def _getLibraryPathArgs(self, project):
-		stlLibPath = {
-			AndroidStlLibType.Gnu: self._androidInfo.libStdCppLibPath,
-			AndroidStlLibType.LibCpp: self._androidInfo.libCppLibPath,
-			AndroidStlLibType.StlPort: self._androidInfo.stlPortLibPath,
-		}.get(self._androidStlLibType, None)
+	def _getStdLibArgs(self):
+		# Android handles this manually through library arguments.
+		return []
 
-		args = ["-L{}".format(stlLibPath)]
+	def _getLibraryPathArgs(self, project):
+		args = []
 		paths = set()
+
+		# Add the STL lib path first since it's technically a system path.
+		if self._androidInfo.stlLibPath:
+			args.append("-L{}".format(self._androidInfo.stlLibPath))
 
 		# Extract all of the library paths.
 		for lib in self._actualLibraryLocations.values():
@@ -99,17 +101,11 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 		return args
 
 	def _getLibraryArgs(self):
-		stlLibName = {
-			AndroidStlLibType.Gnu: "libgnustl",
-			AndroidStlLibType.LibCpp: "libc++",
-			AndroidStlLibType.StlPort: "libstlport",
-		}.get(self._androidStlLibType, None)
-
 		args = ["-lc", "-lm", "-lgcc", "-llog", "-landroid"]
 
-		if stlLibName:
+		if self._androidInfo.stlLibName:
 			ext = "_static.a" if self._staticRuntime else "_shared.so"
-			args.append("-l:{}".format("{}{}".format(stlLibName, ext)))
+			args.append("-l:{}".format("{}{}".format(self._androidInfo.stlLibName, ext)))
 
 		# Add only the basename for each library.
 		for lib in self._actualLibraryLocations.values():

@@ -42,12 +42,9 @@ class AndroidStlLibType(object):
 	"""
 	Enum values for selecting the type of STL library linked into Android projects.
 	"""
-	Gnu = 0
-	LibCpp = 1
-	StlPort = 2
-
-	MinValue = Gnu
-	MaxValue = StlPort
+	Gnu = "gnu-libstdc++"
+	LibCpp = "libc++"
+	StlPort = "stlport"
 
 class AndroidInfo(object):
 	"""
@@ -92,47 +89,35 @@ class AndroidInfo(object):
 	:param nativeAppGluPath: Full path to the Android native glue source and header files.
 	:type nativeAppGluPath: str
 
-	:param libStdCppLibPath: Full path to the libstdc++ libraries.
-	:type libStdCppLibPath: str
+	:param stlLibName: Basename of the STL library to link against.
+	:type stlLibName: str
 
-	:param libStdCppIncludePaths: List of full paths to the libstdc++ headers.
-	:type libStdCppIncludePaths: list[str]
+	:param stlLibPath: Full path to the STL libraries.
+	:type stlLibPath: str
 
-	:param libCppLibPath: Full path to the libc++ libraries.
-	:type libCppLibPath: str
-
-	:param libCppIncludePaths: List of full paths to the libc++ headers.
-	:type libCppIncludePaths: list[str]
-
-	:param stlPortLibPath: Full path to the stlport libraries.
-	:type stlPortLibPath: str
-
-	:param stlPortIncludePaths: List of full paths to the stlport headers.
-	:type stlPortIncludePaths: list[str]
+	:param stlIncludePaths: List of full paths to the STL headers.
+	:type stlIncludePaths: list[str]
 	"""
 	Instances = {}
 
 	def __init__(
-			self,
-			gccToolchainRootPath,
-			gccPath,
-			gppPath,
-			asPath,
-			ldPath,
-			arPath,
-			clangPath,
-			clangppPath,
-			zipAlignPath,
-			sysRootPath,
-			systemLibPath,
-			systemIncludePaths,
-			nativeAppGluPath,
-			libStdCppLibPath,
-			libStdCppIncludePaths,
-			libCppLibPath,
-			libCppIncludePaths,
-			stlPortLibPath,
-			stlPortIncludePaths,
+		self,
+		gccToolchainRootPath,
+		gccPath,
+		gppPath,
+		asPath,
+		ldPath,
+		arPath,
+		clangPath,
+		clangppPath,
+		zipAlignPath,
+		sysRootPath,
+		systemLibPath,
+		systemIncludePaths,
+		nativeAppGluPath,
+		stlLibName,
+		stlLibPath,
+		stlIncludePaths,
 	):
 		self.gccToolchainRootPath = gccToolchainRootPath
 		self.gccPath = gccPath
@@ -147,12 +132,9 @@ class AndroidInfo(object):
 		self.systemLibPath = systemLibPath
 		self.systemIncludePaths = [path for path in systemIncludePaths if path]
 		self.nativeAppGluPath = nativeAppGluPath
-		self.libStdCppLibPath = libStdCppLibPath
-		self.libStdCppIncludePaths = [path for path in libStdCppIncludePaths if path]
-		self.libCppLibPath = libCppLibPath
-		self.libCppIncludePaths = [path for path in libCppIncludePaths if path]
-		self.stlPortLibPath = stlPortLibPath
-		self.stlPortIncludePaths = [path for path in stlPortIncludePaths if path]
+		self.stlLibName = stlLibName
+		self.stlLibPath = stlLibPath
+		self.stlIncludePaths = [path for path in stlIncludePaths if path]
 
 
 @MetaClass(ABCMeta)
@@ -172,7 +154,7 @@ class AndroidToolBase(Tool):
 		self._androidSdkRootPath = projectSettings.get("androidSdkRootPath", "")
 		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
 		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", None)
-		self._androidStlLibType = projectSettings.get("androidStlLibType", AndroidStlLibType.Gnu)
+		self._androidStlLibType = projectSettings.get("androidStlLibType", None)
 		self._androidNativeAppGlue = projectSettings.get("androidNativeAppGlue", False)
 
 		# If no NDK root path is specified, try to get it from the environment.
@@ -187,7 +169,6 @@ class AndroidToolBase(Tool):
 		assert self._androidSdkRootPath, "No Android SDK root path provided"
 		assert self._androidManifestFilePath, "No Android manifest file path provided"
 		assert self._androidTargetSdkVersion, "No Android target SDK version provided"
-		assert AndroidStlLibType.MinValue <= self._androidStlLibType <= AndroidStlLibType.MaxValue, "Invalid value for Android STL lib type: {}".format(self._androidStlLibType)
 
 		assert os.access(self._androidNdkRootPath, os.F_OK), "Android NDK root path does not exist: {}".format(self._androidNdkRootPath)
 		assert os.access(self._androidSdkRootPath, os.F_OK), "Android SDK root path does not exist: {}".format(self._androidSdkRootPath)
@@ -325,29 +306,46 @@ class AndroidToolBase(Tool):
 
 			assert os.access(zipAlignPath, os.F_OK), "ZipAlign not found in Android build tools path: {}".format(buildToolsPath)
 
-			# Get the root paths to each STL flavor.
-			libStdCppRootPath = os.path.join(stlRootPath, "gnu-libstdc++", gccVersion)
-			libCppRootPath = os.path.join(stlRootPath, "llvm-libc++")
-			stlPortRootPath = os.path.join(stlRootPath, "stlport")
+			# If an STL flavor has been specified, attempt to get its include & lib paths.
+			if self._androidStlLibType:
+				stlLibName = {
+					AndroidStlLibType.Gnu: "libgnustl",
+					AndroidStlLibType.LibCpp: "libc++",
+					AndroidStlLibType.StlPort: "libstlport",
+				}.get(self._androidStlLibType, None)
+				assert stlLibName, "Invalid Android STL type: {}".format(self._androidStlLibType)
 
-			assert os.access(libStdCppRootPath, os.F_OK), "Android libstdc++ not found at path: {}".format(libStdCppRootPath)
-			assert os.access(libCppRootPath, os.F_OK), "Android libc++ not found at path: {}".format(libCppRootPath)
-			assert os.access(stlPortRootPath, os.F_OK), "Android stlport not found at path: {}".format(stlPortRootPath)
+				stlLibDirName = {
+					AndroidStlLibType.Gnu: "gnu-libstdc++",
+					AndroidStlLibType.LibCpp: "llvm-libc++",
+					AndroidStlLibType.StlPort: "stlport",
+				}.get(self._androidStlLibType, None)
+				assert stlLibName, "Invalid Android STL type: {}".format(self._androidStlLibType)
 
-			libStdCppLibPath = os.path.join(libStdCppRootPath, "libs", stlArchName)
-			libCppLibPath = os.path.join(libCppRootPath, "libs", stlArchName)
-			stlPortLibPath = os.path.join(stlPortRootPath, "libs", stlArchName)
+				stlRootPath = os.path.join(stlRootPath, stlLibDirName)
 
-			libStdCppIncludePaths = [
-				os.path.join(libStdCppRootPath, "include"),
-				os.path.join(libStdCppLibPath, "include"),
-			]
-			libCppIncludePaths = [
-				os.path.join(libCppRootPath, "include"),
-			]
-			stlPortIncludePaths = [
-				os.path.join(stlPortRootPath, "stlport"),
-			]
+				# libstdc++ exists in a sub-directory indicating its version.
+				if self._androidStlLibType == AndroidStlLibType.Gnu:
+					stlRootPath = os.path.join(stlRootPath, gccVersion)
+
+				assert os.access(stlRootPath, os.F_OK), "Android STL \"{}\" not found at path: {}".format(self._androidStlLibType, stlRootPath)
+
+				stlLibPath = os.path.join(stlRootPath, "libs", stlArchName)
+				stlIncludePaths = [
+					os.path.join(stlRootPath, "include"),
+				]
+
+				# For some reason "gnu-libstdc++" thought it was a good idea to put includes under its library directory.
+				if self._androidStlLibType == AndroidStlLibType.Gnu:
+					stlIncludePaths.append(
+						os.path.join(stlLibPath, "include"),
+					)
+
+			else:
+				# No STL, just use dummy values.
+				stlLibName = None
+				stlLibPath = None
+				stlIncludePaths = []
 
 			AndroidInfo.Instances[key] = \
 				AndroidInfo(
@@ -369,12 +367,9 @@ class AndroidToolBase(Tool):
 						androidSupportIncludePath,
 					],
 					nativeAppGluePath,
-					libStdCppLibPath,
-					libStdCppIncludePaths,
-					libCppLibPath,
-					libCppIncludePaths,
-					stlPortLibPath,
-					stlPortIncludePaths,
+					stlLibName,
+					stlLibPath,
+					stlIncludePaths,
 				)
 
 		return AndroidInfo.Instances[key]
@@ -463,7 +458,7 @@ class AndroidToolBase(Tool):
 		:param path: Android NDK home path.
 		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("androidNdkRootPath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("androidNdkRootPath", os.path.abspath(path) if path else None)
 
 	@staticmethod
 	def SetAndroidSdkRootPath(path):
@@ -473,7 +468,7 @@ class AndroidToolBase(Tool):
 		:param path: Android SDK root path.
 		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("androidSdkRootPath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("androidSdkRootPath", os.path.abspath(path) if path else None)
 
 	@staticmethod
 	def SetAndroidManifestFilePath(path):
@@ -496,7 +491,7 @@ class AndroidToolBase(Tool):
 		csbuild.currentPlan.SetValue("androidTargetSdkVersion", version)
 
 	@staticmethod
-	def SetAndroidStlLib(lib):
+	def SetAndroidStlLibType(lib):
 		"""
 		Sets the Android STL lib type.
 
