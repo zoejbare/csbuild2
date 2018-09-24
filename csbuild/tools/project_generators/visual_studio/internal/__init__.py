@@ -307,8 +307,10 @@ class VsProject(object):
 	"""
 	def __init__(self, name, relFilePath, projType):
 		global MAKEFILE_PATH
+		global BUILD_SPECS
 
 		makeFileItem = VsProjectItem("make.py", os.path.dirname(MAKEFILE_PATH), VsProjectItemType.File, [])
+		makeFileItem.supportedBuildSpecs = set(BUILD_SPECS)
 
 		self.name = name
 		self.relFilePath = relFilePath
@@ -850,6 +852,25 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 		for item in projectItems:
 			sourceFileXmlNode = _addXmlNode(itemGroupXmlNode, item.tag)
 			sourceFileXmlNode.set("Include", _constructRelPath(os.path.join(item.dirPath, item.name), outputDirPath))
+
+			excludeBuildSpecs = set(BUILD_SPECS).difference(item.supportedBuildSpecs)
+			vsExcludedBuildTargets = []
+
+			for buildSpec in excludeBuildSpecs:
+				platformHandler = PLATFORM_HANDLERS[buildSpec]
+				vsConfig = _getVsConfigName(buildSpec)
+				vsPlatformName = platformHandler.GetVisualStudioPlatformName()
+				vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
+
+				vsExcludedBuildTargets.append(vsBuildTarget)
+
+			vsExcludedBuildTargets = sorted(vsExcludedBuildTargets, key=lambda x: x.lower())
+
+			# Exclude the file item for each unsupported build spec.
+			for vsBuildTarget in vsExcludedBuildTargets:
+				excludeXmlNode = _addXmlNode(sourceFileXmlNode, "ExcludedFromBuild")
+				excludeXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
+				excludeXmlNode.text = "true"
 
 	_makeXmlCommentNode(rootXmlNode, "Project global properties")
 
