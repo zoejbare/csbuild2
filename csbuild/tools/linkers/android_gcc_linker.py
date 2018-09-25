@@ -69,7 +69,7 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 		return self._androidInfo.ldPath
 
 	def _getBinaryLinkerName(self):
-		return self._androidInfo.gccPath
+		return self._androidInfo.gppPath
 
 	def _getArchiverName(self):
 		return self._androidInfo.arPath

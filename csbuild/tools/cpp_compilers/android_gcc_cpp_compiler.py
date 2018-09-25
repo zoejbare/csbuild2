@@ -72,10 +72,12 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 		return self._androidInfo.gppPath if isCpp else self._androidInfo.gccPath
 
 	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType in (csbuild.ProjectType.Application, csbuild.ProjectType.SharedLibrary):
-			args.append("-fPIC")
-		return args
+		baseArgs = GccCppCompiler._getDefaultArgs(self, project)
+		defaultAndroidArgs = self._getDefaultCompilerArgs()
+		return baseArgs + defaultAndroidArgs + [
+			"-funswitch-loops",
+			"-finline-limit=100",
+		]
 
 	def _getPreprocessorArgs(self):
 		args = [

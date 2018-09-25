@@ -107,7 +107,7 @@ class GccLinker(LinkerBase):
 				shortLibs.remove(lib)
 
 		if platform.system() == "Windows":
-			nullOut = '"{}"'.format(os.path.join(project.csbuildDir, "null"))
+			nullOut = os.path.join(project.csbuildDir, "null")
 		else:
 			nullOut = "/dev/null"
 
@@ -173,7 +173,7 @@ class GccLinker(LinkerBase):
 			except AssertionError:
 				# Fallback to doing the traditional regex check when the link map check failes.
 				# All bfd- and gold-compatible linkers should have this.
-				succeedRegex = re.compile("(?:.*ld): Attempt to open (.*) succeeded")
+				succeedRegex = re.compile("(?:.*ld(?:.exe)?): Attempt to open (.*) succeeded")
 				for line in err.splitlines():
 					match = succeedRegex.match(line)
 					if match:
