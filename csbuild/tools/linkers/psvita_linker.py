@@ -156,7 +156,7 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 			if lib.startswith("lib"):
 				lib = lib[3:]
 
-			args.append("-l\"{}\"".format(lib))
+			args.append("-l{}".format(lib))
 
 		return args
 

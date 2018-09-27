@@ -108,7 +108,10 @@ class PsVitaCppCompiler(PsVitaBaseTool, CppCompilerBase):
 		return ["-o", outputFiles[0]]
 
 	def _getPreprocessorArgs(self):
-		return ["-D{}".format(d) for d in self._defines]
+		args = []
+		args.extend(["-D{}".format(d) for d in self._defines])
+		args.extend(["-U{}".format(u) for u in self._undefines])
+		return args
 
 	def _getIncludeDirectoryArgs(self):
 		args = []
