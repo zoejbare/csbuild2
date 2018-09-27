@@ -47,6 +47,7 @@ from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
+from .cpp_compilers.ps3_cpp_compiler import Ps3CppCompiler
 from .cpp_compilers.ps4_cpp_compiler import Ps4CppCompiler
 from .cpp_compilers.psvita_cpp_compiler import PsVitaCppCompiler
 
@@ -60,6 +61,7 @@ from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
+from .linkers.ps3_linker import Ps3Linker
 from .linkers.ps4_linker import Ps4Linker
 from .linkers.psvita_linker import PsVitaLinker
 
@@ -119,6 +121,11 @@ def InitTools():
 
 		csbuild.RegisterToolchain(name, systemArchitecture, compiler, archiver, checkers=checkers)
 
+	ps3Checkers = _createCheckers({
+		CppCompileChecker(Ps3CppCompiler): Ps3CppCompiler.inputFiles,
+		#AsmCompileChecker(Ps3Assembler): Ps3Assembler.inputFiles,
+	})
+
 	ps4Checkers = _createCheckers({
 		CppCompileChecker(Ps4CppCompiler): Ps4CppCompiler.inputFiles,
 		AsmCompileChecker(Ps4Assembler): Ps4Assembler.inputFiles,
@@ -130,6 +137,7 @@ def InitTools():
 	})
 
 	# Register the Sony platform toolchains.
+	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, checkers=ps3Checkers)
 	csbuild.RegisterToolchain("ps4", "x64", Ps4CppCompiler, Ps4Linker, Ps4Assembler, checkers=ps4Checkers)
 	csbuild.RegisterToolchain("psvita", "arm", PsVitaCppCompiler, PsVitaLinker, PsVitaAssembler, checkers=psVitaCheckers)
 

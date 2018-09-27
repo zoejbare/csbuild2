@@ -241,7 +241,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 			inputProject.architectureName,
 			inputProject.targetName
 		)
-		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject))
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject), cwd=inputProject.outputDir)
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFiles)
 		return self._getOutputFiles(inputProject)

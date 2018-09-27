@@ -39,6 +39,28 @@ from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 
 @MetaClass(ABCMeta)
+class Ps3ProjectType(object):
+	PpuSncApplication = 0 # Identical to `csbuild.ProjectType.Application`.
+	PpuSncSharedLibrary = 1 # Identical to `csbuild.ProjectType.SharedLibrary`.
+	PpuSncStaticLibrary = 2 # Identical to `csbuild.ProjectType.StaticLibrary`.
+
+	PpuGccApplication = 3
+	PpuGccSharedLibrary = 4
+	PpuGccStaticLibrary = 5
+
+	SpuApplication = 6
+	SpuSharedLibrary = 7
+	SpuStaticLibrary = 8
+
+
+@MetaClass(ABCMeta)
+class Ps3BuildType(object):
+	PpuSnc = "ppu-snc"
+	PpuGcc = "ppu-gcc"
+	Spu = "spu"
+
+
+@MetaClass(ABCMeta)
 class SonyBaseTool(Tool):
 	"""
 	Parent class for all Sony tools.
@@ -98,13 +120,131 @@ class SonyBaseTool(Tool):
 							log.Info("... found {}".format(fullPath))
 							found[libraryName] = fullPath
 
-
 				if libraryName not in found:
 					# Failed to find the library in any of the provided directories.
 					log.Error("Failed to find library \"{}\".".format(libraryName))
 					notFound.add(libraryName)
 
 		return None if notFound else found
+
+
+@MetaClass(ABCMeta)
+class Ps3BaseTool(SonyBaseTool):
+	"""
+	Parent class for all PS3 tools.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		SonyBaseTool.__init__(self, projectSettings)
+
+		self._ps3SdkPath = projectSettings.get("ps3SdkPath", None)
+		self._ps3SnPath = projectSettings.get("ps3SnPath", None)
+
+		self._ps3BuildType = None
+		self._ps3HostBinPath = None
+		self._ps3SystemBinPath = None
+		self._ps3SystemLibPaths = []
+		self._ps3SystemIncludePaths = []
+
+
+	####################################################################################################################
+	### Static makefile methods
+	####################################################################################################################
+
+	@staticmethod
+	def SetPs3SdkPath(path):
+		"""
+		Set the path to the PS3 SDK.
+
+		:param path: Path to the PS3 SDK.
+		:type path: str
+		"""
+		csbuild.currentPlan.SetValue("ps3SdkPath", os.path.abspath(path) if path else None)
+
+	@staticmethod
+	def SetPs3SnPath(path):
+		"""
+		Set the path to the PS3 SN Systems directory.
+
+		:param path: Path to the PS3 SN Systems installation directory.
+		:type path: str
+		"""
+		csbuild.currentPlan.SetValue("ps3SnPath", os.path.abspath(path) if path else None)
+
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
+	def SetupForProject(self, project):
+		# If the SDK path wasn't set, attempt to find it from the environment.
+		if not self._ps3SdkPath:
+			self._ps3SdkPath = os.getenv("SCE_PS3_ROOT", None)
+
+		if not self._ps3SnPath:
+			self._ps3SnPath = os.getenv("SN_PS3_PATH", None)
+
+		assert self._ps3SdkPath, "No PS3 SDK path has been set"
+		assert os.access(self._ps3SdkPath, os.F_OK), "PS3 SDK path does not exist: {}".format(self._ps3SdkPath)
+
+		assert self._ps3SnPath, "No PS3 SN Systems path has been set"
+		assert os.access(self._ps3SnPath, os.F_OK), "PS3 SN Systems path does not exist: {}".format(self._ps3SnPath)
+
+		# Is this a PPU SNC project?
+		if project.projectType in (Ps3ProjectType.PpuSncApplication, Ps3ProjectType.PpuSncSharedLibrary, Ps3ProjectType.PpuSncStaticLibrary):
+			self._ps3BuildType = Ps3BuildType.PpuSnc
+
+		# Is this a PPU GCC project?
+		elif project.projectType in (Ps3ProjectType.PpuGccApplication, Ps3ProjectType.PpuGccSharedLibrary, Ps3ProjectType.PpuGccStaticLibrary):
+			self._ps3BuildType = Ps3BuildType.PpuGcc
+
+		# Is this an SPU project?
+		elif project.projectType in (Ps3ProjectType.SpuApplication, Ps3ProjectType.SpuSharedLibrary, Ps3ProjectType.SpuStaticLibrary):
+			self._ps3BuildType = Ps3BuildType.Spu
+
+		assert self._ps3BuildType, "Invalid PS3 project type: {})".format(project.projectType)
+
+		self._ps3SdkPath = os.path.abspath(self._ps3SdkPath)
+		self._ps3SnPath = os.path.abspath(self._ps3SnPath)
+
+		hostRootPath = os.path.join(self._ps3SdkPath, "host-win32")
+		self._ps3HostBinPath = os.path.join(hostRootPath, "bin")
+
+		buildToolRootPath = {
+			Ps3BuildType.PpuSnc: os.path.join(hostRootPath, "sn"),
+			Ps3BuildType.PpuGcc: os.path.join(hostRootPath, "ppu"),
+			Ps3BuildType.Spu: os.path.join(hostRootPath, "spu"),
+		}.get(self._ps3BuildType, None)
+
+		self._ps3SystemBinPath = os.path.join(buildToolRootPath, "bin")
+		self._ps3SystemLibPaths = []
+		self._ps3SystemIncludePaths = [
+			os.path.join(self._ps3SdkPath, "target", "common", "include"),
+		]
+
+		if self._ps3BuildType == Ps3BuildType.Spu:
+			self._ps3SystemLibPaths.extend([
+				os.path.join(self._ps3SnPath, "spu", "lib", "sn"),
+				os.path.join(self._ps3SdkPath, "target", "spu", "lib"),
+			])
+
+			self._ps3SystemIncludePaths.extend([
+				os.path.join(self._ps3SnPath, "spu", "include", "sn"),
+				os.path.join(self._ps3SdkPath, "target", "spu", "include"),
+			])
+
+		else:
+			self._ps3SystemLibPaths.extend([
+				os.path.join(self._ps3SnPath, "ppu", "lib", "sn"),
+				os.path.join(self._ps3SdkPath, "target", "ppu", "lib"),
+			])
+
+			self._ps3SystemIncludePaths.extend([
+				os.path.join(self._ps3SnPath, "ppu", "include", "sn"),
+				os.path.join(self._ps3SdkPath, "target", "ppu", "include"),
+			])
 
 
 @MetaClass(ABCMeta)
@@ -133,7 +273,7 @@ class Ps4BaseTool(SonyBaseTool):
 		:param sdkPath: Path to the PS4 SDK.
 		:type sdkPath: str
 		"""
-		csbuild.currentPlan.SetValue("ps4SdkPath", os.path.abspath(sdkPath))
+		csbuild.currentPlan.SetValue("ps4SdkPath", os.path.abspath(sdkPath) if sdkPath else None)
 
 
 	####################################################################################################################
