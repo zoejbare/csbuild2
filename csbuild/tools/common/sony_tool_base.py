@@ -40,6 +40,11 @@ from ...toolchain import Tool
 
 @MetaClass(ABCMeta)
 class Ps3ProjectType(object):
+	"""
+	Replacement of the base ProjectType enum values specifically for PS3 projects.
+	The original ProjectType values still work, but they will map directly to the
+	PPU SNC output types.
+	"""
 	PpuSncApplication = 0 # Identical to `csbuild.ProjectType.Application`.
 	PpuSncSharedLibrary = 1 # Identical to `csbuild.ProjectType.SharedLibrary`.
 	PpuSncStaticLibrary = 2 # Identical to `csbuild.ProjectType.StaticLibrary`.
@@ -54,10 +59,51 @@ class Ps3ProjectType(object):
 
 
 @MetaClass(ABCMeta)
-class Ps3BuildType(object):
+class Ps3ToolsetType(object):
+	"""
+	Identifiers for the toolset that will be used for any given PS3 build.
+	"""
 	PpuSnc = "ppu-snc"
 	PpuGcc = "ppu-gcc"
 	Spu = "spu"
+
+
+class Ps3BuildInfo(object):
+	"""
+	Collection of info representing the type of a project's output and the toolset it will use for the
+	build based on the project type.
+	"""
+	def __init__(self, projectType):
+		self.outputType = {
+			Ps3ProjectType.PpuSncApplication: csbuild.ProjectType.Application,
+			Ps3ProjectType.PpuSncSharedLibrary: csbuild.ProjectType.SharedLibrary,
+			Ps3ProjectType.PpuSncStaticLibrary: csbuild.ProjectType.StaticLibrary,
+
+			Ps3ProjectType.PpuGccApplication: csbuild.ProjectType.Application,
+			Ps3ProjectType.PpuGccSharedLibrary: csbuild.ProjectType.SharedLibrary,
+			Ps3ProjectType.PpuGccStaticLibrary: csbuild.ProjectType.StaticLibrary,
+
+			Ps3ProjectType.SpuApplication: csbuild.ProjectType.Application,
+			Ps3ProjectType.SpuSharedLibrary: csbuild.ProjectType.SharedLibrary,
+			Ps3ProjectType.SpuStaticLibrary: csbuild.ProjectType.StaticLibrary,
+		}.get(projectType, None)
+
+		self.toolsetType = {
+			Ps3ProjectType.PpuSncApplication: Ps3ToolsetType.PpuSnc,
+			Ps3ProjectType.PpuSncSharedLibrary: Ps3ToolsetType.PpuSnc,
+			Ps3ProjectType.PpuSncStaticLibrary: Ps3ToolsetType.PpuSnc,
+
+			Ps3ProjectType.PpuGccApplication: Ps3ToolsetType.PpuGcc,
+			Ps3ProjectType.PpuGccSharedLibrary: Ps3ToolsetType.PpuGcc,
+			Ps3ProjectType.PpuGccStaticLibrary: Ps3ToolsetType.PpuGcc,
+
+			Ps3ProjectType.SpuApplication: Ps3ToolsetType.Spu,
+			Ps3ProjectType.SpuSharedLibrary: Ps3ToolsetType.Spu,
+			Ps3ProjectType.SpuStaticLibrary: Ps3ToolsetType.Spu,
+		}.get(projectType, None)
+
+		assert self.outputType is not None, "Cannot determine PS3 build info, invalid project type: {}".format(projectType)
+		assert self.toolsetType is not None, "Cannot determine PS3 build info, invalid project type: {}".format(projectType)
 
 
 @MetaClass(ABCMeta)
@@ -142,11 +188,11 @@ class Ps3BaseTool(SonyBaseTool):
 		self._ps3SdkPath = projectSettings.get("ps3SdkPath", None)
 		self._ps3SnPath = projectSettings.get("ps3SnPath", None)
 
-		self._ps3BuildType = None
-		self._ps3HostBinPath = None
-		self._ps3SystemBinPath = None
-		self._ps3SystemLibPaths = []
-		self._ps3SystemIncludePaths = []
+		self._ps3BuildInfo = None # type: Ps3BuildInfo
+		self._ps3HostBinPath = None # type: str
+		self._ps3SystemBinPath = None # type: str
+		self._ps3SystemLibPaths = [] # type: list[str]
+		self._ps3SystemIncludePaths = [] # type: list[str]
 
 
 	####################################################################################################################
@@ -192,19 +238,7 @@ class Ps3BaseTool(SonyBaseTool):
 		assert self._ps3SnPath, "No PS3 SN Systems path has been set"
 		assert os.access(self._ps3SnPath, os.F_OK), "PS3 SN Systems path does not exist: {}".format(self._ps3SnPath)
 
-		# Is this a PPU SNC project?
-		if project.projectType in (Ps3ProjectType.PpuSncApplication, Ps3ProjectType.PpuSncSharedLibrary, Ps3ProjectType.PpuSncStaticLibrary):
-			self._ps3BuildType = Ps3BuildType.PpuSnc
-
-		# Is this a PPU GCC project?
-		elif project.projectType in (Ps3ProjectType.PpuGccApplication, Ps3ProjectType.PpuGccSharedLibrary, Ps3ProjectType.PpuGccStaticLibrary):
-			self._ps3BuildType = Ps3BuildType.PpuGcc
-
-		# Is this an SPU project?
-		elif project.projectType in (Ps3ProjectType.SpuApplication, Ps3ProjectType.SpuSharedLibrary, Ps3ProjectType.SpuStaticLibrary):
-			self._ps3BuildType = Ps3BuildType.Spu
-
-		assert self._ps3BuildType, "Invalid PS3 project type: {})".format(project.projectType)
+		self._ps3BuildInfo = Ps3BuildInfo(project.projectType)
 
 		self._ps3SdkPath = os.path.abspath(self._ps3SdkPath)
 		self._ps3SnPath = os.path.abspath(self._ps3SnPath)
@@ -213,10 +247,10 @@ class Ps3BaseTool(SonyBaseTool):
 		self._ps3HostBinPath = os.path.join(hostRootPath, "bin")
 
 		buildToolRootPath = {
-			Ps3BuildType.PpuSnc: os.path.join(hostRootPath, "sn"),
-			Ps3BuildType.PpuGcc: os.path.join(hostRootPath, "ppu"),
-			Ps3BuildType.Spu: os.path.join(hostRootPath, "spu"),
-		}.get(self._ps3BuildType, None)
+			Ps3ToolsetType.PpuSnc: os.path.join(hostRootPath, "sn"),
+			Ps3ToolsetType.PpuGcc: os.path.join(hostRootPath, "ppu"),
+			Ps3ToolsetType.Spu: os.path.join(hostRootPath, "spu"),
+		}.get(self._ps3BuildInfo.toolsetType, None)
 
 		self._ps3SystemBinPath = os.path.join(buildToolRootPath, "bin")
 		self._ps3SystemLibPaths = []
@@ -224,7 +258,7 @@ class Ps3BaseTool(SonyBaseTool):
 			os.path.join(self._ps3SdkPath, "target", "common", "include"),
 		]
 
-		if self._ps3BuildType == Ps3BuildType.Spu:
+		if self._ps3BuildInfo.toolsetType == Ps3ToolsetType.Spu:
 			self._ps3SystemLibPaths.extend([
 				os.path.join(self._ps3SnPath, "spu", "lib", "sn"),
 				os.path.join(self._ps3SdkPath, "target", "spu", "lib"),

@@ -32,7 +32,7 @@ import os
 
 from .linker_base import LinkerBase
 
-from ..common.sony_tool_base import Ps3BuildType, Ps3ProjectType, Ps3BaseTool, SonyBaseTool
+from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType, SonyBaseTool
 
 from ... import log
 from ..._build.input_file import InputFile
@@ -66,16 +66,18 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 		LinkerBase.SetupForProject(self, project)
 
 		self._arExeName = {
-			Ps3BuildType.PpuSnc: "ps3snarl.exe",
-			Ps3BuildType.PpuGcc: "ppu-lv2-ar.exe",
-			Ps3BuildType.Spu:    "spu-lv2-ar.exe",
-		}.get(self._ps3BuildType, None)
+			Ps3ToolsetType.PpuSnc: "ps3snarl.exe",
+			Ps3ToolsetType.PpuGcc: "ppu-lv2-ar.exe",
+			Ps3ToolsetType.Spu:    "spu-lv2-ar.exe",
+		}.get(self._ps3BuildInfo.toolsetType, None)
 
 		self._linkerExeName = {
-			Ps3BuildType.PpuSnc: "ps3ppuld.exe",
-			Ps3BuildType.PpuGcc: "ppu-lv2-g++.exe",
-			Ps3BuildType.Spu:    "spu-lv2-g++.exe",
-		}.get(self._ps3BuildType, None)
+			Ps3ToolsetType.PpuSnc: "ps3ppuld.exe",
+			Ps3ToolsetType.PpuGcc: "ppu-lv2-g++.exe",
+			Ps3ToolsetType.Spu:    "spu-lv2-g++.exe",
+		}.get(self._ps3BuildInfo.toolsetType, None)
+
+		assert self._arExeName and self._linkerExeName, "Invalid PS3 toolset type: {}".format(self._ps3BuildInfo.toolsetType)
 
 	def _getOutputFiles(self, project):
 		outputFilename = "{}{}".format(project.outputName, self._getOutputExtension(project.projectType))
@@ -161,9 +163,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 		return os.path.join(self._ps3SystemBinPath, self._arExeName)
 
 	def _getDefaultArgs(self, project):
-		args = []
-
-		args.extend({
+		args = {
 			Ps3ProjectType.PpuSncApplication: [
 				"-oformat=fself",
 			],
@@ -193,7 +193,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 				"-shared",
 				"-Wl,-soname={}{}".format(project.outputName, self._getOutputExtension(project.projectType)),
 			],
-		}.get(project.projectType, []))
+		}.get(project.projectType, [])
 
 		return args
 
@@ -202,7 +202,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 
 	def _getOutputFileArgs(self, project):
 		outFile = "{}".format(self._getOutputFiles(project)[0])
-		if project.projectType in (Ps3ProjectType.PpuSncStaticLibrary, Ps3ProjectType.PpuGccStaticLibrary, Ps3ProjectType.SpuStaticLibrary):
+		if self._ps3BuildInfo.outputType == csbuild.ProjectType.StaticLibrary:
 			return [outFile]
 		return ["-o", outFile]
 
@@ -224,7 +224,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 				libPath = os.path.join(os.path.dirname(libPath), "cellPrx_{}_stub.a".format(os.path.basename(libNameExt[0])))
 
 			elif libNameExt[1].startswith(".spu_"):
-				csbuild.log.Warn("Cannot link PS3 PPU binary directly against an SPU binary: {}".format(libPath))
+				csbuild.log.Warn("Cannot link PS3 SPU binary directly into an PPU binary: {}".format(libPath))
 				continue
 
 			args.append(libPath)
@@ -234,13 +234,13 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 	def _getStartGroupArgs(self):
 		return [
 			{
-				Ps3BuildType.PpuSnc: "--start-group",
-			}.get(self._ps3BuildType, "-Wl,--start-group")
+				Ps3ToolsetType.PpuSnc: "--start-group",
+			}.get(self._ps3BuildInfo.toolsetType, "-Wl,--start-group")
 		]
 
 	def _getEndGroupArgs(self):
 		return [
 			{
-				Ps3BuildType.PpuSnc: "--end-group",
-			}.get(self._ps3BuildType, "-Wl,--end-group")
+				Ps3ToolsetType.PpuSnc: "--end-group",
+			}.get(self._ps3BuildInfo.toolsetType, "-Wl,--end-group")
 		]

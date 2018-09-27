@@ -27,12 +27,11 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import csbuild
 import os
 
 from .cpp_compiler_base import CppCompilerBase
 
-from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3BuildType
+from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
 
 from ... import log
@@ -67,11 +66,11 @@ class Ps3CppCompiler(Ps3BaseTool, CppCompilerBase):
 		CppCompilerBase.SetupForProject(self, project)
 
 		self._compilerExeName = {
-			Ps3BuildType.PpuSnc: ("ps3ppusnc.exe", "ps3ppusnc.exe"),
-			Ps3BuildType.PpuGcc: ("ppu-lv2-gcc.exe", "ppu-lv2-g++.exe"),
-			Ps3BuildType.Spu:    ("spu-lv2-gcc.exe", "spu-lv2-g++.exe"),
-		}.get(self._ps3BuildType, None)
-		assert self._compilerExeName, "Invalid PS3 build type: {}".format(self._ps3BuildType)
+			Ps3ToolsetType.PpuSnc: ("ps3ppusnc.exe", "ps3ppusnc.exe"),
+			Ps3ToolsetType.PpuGcc: ("ppu-lv2-gcc.exe", "ppu-lv2-g++.exe"),
+			Ps3ToolsetType.Spu:    ("spu-lv2-gcc.exe", "spu-lv2-g++.exe"),
+		}.get(self._ps3BuildInfo.toolsetType, None)
+		assert self._compilerExeName, "Invalid PS3 toolset type: {}".format(self._ps3BuildInfo.toolsetType)
 
 	def _getOutputFiles(self, project, inputFile):
 		intDirPath = project.GetIntermediateDirectory(inputFile)
@@ -117,8 +116,8 @@ class Ps3CppCompiler(Ps3BaseTool, CppCompilerBase):
 	def _getPreprocessorArgs(self, project):
 		args = ["-D__PS3__"]
 
-		if self._ps3BuildType != Ps3BuildType.Spu:
-			if self._ps3BuildType == Ps3BuildType.PpuGcc:
+		if self._ps3BuildInfo.toolsetType != Ps3ToolsetType.Spu:
+			if self._ps3BuildInfo.toolsetType == Ps3ToolsetType.PpuGcc:
 				args.append("-D__GCC__")
 
 			if project.projectType in (Ps3ProjectType.PpuSncSharedLibrary, Ps3ProjectType.PpuGccSharedLibrary):
