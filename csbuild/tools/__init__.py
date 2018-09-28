@@ -38,6 +38,7 @@ from .assemblers.android_gcc_assembler import AndroidGccAssembler
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
+from .assemblers.ps3_assembler import Ps3Assembler
 from .assemblers.ps4_assembler import Ps4Assembler
 from .assemblers.psvita_assembler import PsVitaAssembler
 
@@ -123,7 +124,7 @@ def InitTools():
 
 	ps3Checkers = _createCheckers({
 		CppCompileChecker(Ps3CppCompiler): Ps3CppCompiler.inputFiles,
-		#AsmCompileChecker(Ps3Assembler): Ps3Assembler.inputFiles,
+		AsmCompileChecker(Ps3Assembler): Ps3Assembler.inputFiles,
 	})
 
 	ps4Checkers = _createCheckers({
@@ -137,7 +138,7 @@ def InitTools():
 	})
 
 	# Register the Sony platform toolchains.
-	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, checkers=ps3Checkers)
+	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, Ps3Assembler, checkers=ps3Checkers)
 	csbuild.RegisterToolchain("ps4", "x64", Ps4CppCompiler, Ps4Linker, Ps4Assembler, checkers=ps4Checkers)
 	csbuild.RegisterToolchain("psvita", "arm", PsVitaCppCompiler, PsVitaLinker, PsVitaAssembler, checkers=psVitaCheckers)
 
