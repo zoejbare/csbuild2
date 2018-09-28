@@ -32,11 +32,14 @@ import os
 
 from abc import ABCMeta
 
-from csbuild import log
+from csbuild import commands, log
+
+from .tool_traits import HasOptimizationLevel
 
 from ..._utils.decorators import MetaClass
-
 from ...toolchain import Tool
+
+OptimizationLevel = HasOptimizationLevel.OptimizationLevel
 
 @MetaClass(ABCMeta)
 class Ps3ProjectType(object):
@@ -279,6 +282,102 @@ class Ps3BaseTool(SonyBaseTool):
 				os.path.join(self._ps3SnPath, "ppu", "include", "sn"),
 				os.path.join(self._ps3SdkPath, "target", "ppu", "include"),
 			])
+
+
+class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
+	"""
+	Tool that converts SPU binaries to PPU compiled objects for linking into PPU binaries.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	supportedPlatforms = { "Windows" }
+	supportedArchitectures = { "cell" }
+	inputFiles = { ".spu_elf", ".spu_so" }
+	outputFiles = { ".o" }
+
+	################################################################################
+	### Initialization
+	################################################################################
+
+	def __init__(self, projectSettings):
+		Ps3BaseTool.__init__(self, projectSettings)
+		HasOptimizationLevel.__init__(self, projectSettings)
+
+
+	################################################################################
+	### Internal methods
+	################################################################################
+
+	def _getOutputFiles(self, inputFile):
+		inputFileExtSplit = os.path.splitext(inputFile.filename)
+		outputFilePath = os.path.join(
+			"{}{}.o".format(
+				inputFileExtSplit[0],
+				inputFileExtSplit[1].replace(".", "_")
+			)
+		)
+		return tuple({ outputFilePath })
+
+	def _getCommand(self, project, inputFile):
+		cmdExe = self._getExeName()
+		cmd = [cmdExe] \
+			+ self._getStripModeArgs() \
+			+ self._getInputArgs(inputFile) \
+			+ self._getOutputArgs(project, inputFile)
+
+		return cmd
+
+	def _getExeName(self):
+		return os.path.join(self._ps3HostBinPath, "spu_elf-to-ppu_obj.exe")
+
+	def _getStripModeArgs(self):
+		stripMode = {
+			OptimizationLevel.Disabled: "none",
+			OptimizationLevel.Max: "hard",
+		}.get(self._optLevel, "normal")
+		return ["--strip-mode={}".format(stripMode)]
+
+	def _getInputArgs(self, inputFile):
+		return [inputFile.filename]
+
+	def _getOutputArgs(self, project, inputFile):
+		return [self._getOutputFiles(inputFile)[0]]
+
+
+	################################################################################
+	### Base class methods containing logic shared by all subclasses
+	################################################################################
+
+	def SetupForProject(self, project):
+		Ps3BaseTool.SetupForProject(self, project)
+
+	def Run(self, inputProject, inputFile):
+		"""
+		Execute a single build step. Note that this method is run massively in parallel with other build steps.
+		It is NOT thread-safe in ANY way. If you need to change shared state within this method, you MUST use a
+		mutex.
+
+		:param inputProject: project being built
+		:type inputProject: csbuild._build.project.Project
+		:param inputFile: File to build
+		:type inputFile: input_file.InputFile
+		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
+		:rtype: tuple[str]
+		"""
+		log.Build(
+			"Converting SPU binary {} ({}-{}-{})...",
+			os.path.basename(inputFile.filename),
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName
+		)
+
+		_, extension = os.path.splitext(inputFile.filename)
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile))
+		if returncode != 0:
+			raise csbuild.BuildFailureException(inputProject, inputFile)
+		return self._getOutputFiles(inputFile)
 
 
 @MetaClass(ABCMeta)

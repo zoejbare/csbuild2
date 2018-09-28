@@ -42,6 +42,8 @@ from .assemblers.ps3_assembler import Ps3Assembler
 from .assemblers.ps4_assembler import Ps4Assembler
 from .assemblers.psvita_assembler import PsVitaAssembler
 
+from .common.sony_tool_base import Ps3SpuConverter
+
 from .cpp_compilers.android_clang_cpp_compiler import AndroidClangCppCompiler
 from .cpp_compilers.android_gcc_cpp_compiler import AndroidGccCppCompiler
 from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
@@ -138,7 +140,7 @@ def InitTools():
 	})
 
 	# Register the Sony platform toolchains.
-	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, Ps3Assembler, checkers=ps3Checkers)
+	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, Ps3Assembler, Ps3SpuConverter, checkers=ps3Checkers)
 	csbuild.RegisterToolchain("ps4", "x64", Ps4CppCompiler, Ps4Linker, Ps4Assembler, checkers=ps4Checkers)
 	csbuild.RegisterToolchain("psvita", "arm", PsVitaCppCompiler, PsVitaLinker, PsVitaAssembler, checkers=psVitaCheckers)
 
