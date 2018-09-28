@@ -319,12 +319,12 @@ class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
 		)
 		return tuple({ outputFilePath })
 
-	def _getCommand(self, project, inputFile):
+	def _getCommand(self, inputFile):
 		cmdExe = self._getExeName()
 		cmd = [cmdExe] \
 			+ self._getStripModeArgs() \
 			+ self._getInputArgs(inputFile) \
-			+ self._getOutputArgs(project, inputFile)
+			+ self._getOutputArgs(inputFile)
 
 		return cmd
 
@@ -341,7 +341,7 @@ class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
 	def _getInputArgs(self, inputFile):
 		return [inputFile.filename]
 
-	def _getOutputArgs(self, project, inputFile):
+	def _getOutputArgs(self, inputFile):
 		return [self._getOutputFiles(inputFile)[0]]
 
 
@@ -373,8 +373,7 @@ class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
 			inputProject.targetName
 		)
 
-		_, extension = os.path.splitext(inputFile.filename)
-		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile))
+		returncode, _, _ = commands.Run(self._getCommand(inputFile))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFile)
 		return self._getOutputFiles(inputFile)
