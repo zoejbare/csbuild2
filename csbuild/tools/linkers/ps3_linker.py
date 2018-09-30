@@ -30,7 +30,7 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 import os
 
-from .linker_base import LinkerBase
+from .linker_base import LinkerBase, LibraryError
 
 from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType, SonyBaseTool
 
@@ -46,7 +46,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 
 	inputGroups = { ".o" }
 	outputFiles = { ".self", ".prx", ".sprx", ".a", ".spu_elf", ".spu_so" }
-	crossProjectDependencies = { ".prx", ".sprx", ".a", ".spu_so" }
+	crossProjectDependencies = { ".prx", ".sprx", ".a" }
 
 	def __init__(self, projectSettings):
 		Ps3BaseTool.__init__(self, projectSettings)
@@ -63,7 +63,32 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 
 	def SetupForProject(self, project):
 		Ps3BaseTool.SetupForProject(self, project)
-		LinkerBase.SetupForProject(self, project)
+
+		# Intentionally reimplementing LinkerBase.SetupForProject() since PS3 has different
+		# requirements for dependent projects.
+		log.Linker("Verifying libraries for {}...", project)
+
+		# Make all the library directory paths are absolute after the macro formatter has been run on them.
+		self._libraryDirectories = ordered_set.OrderedSet(
+			[os.path.abspath(directory) for directory in self._libraryDirectories]
+		)
+
+		if self._libraries:
+			self._actualLibraryLocations = self._findLibraries(project, self._libraries)
+
+			if self._actualLibraryLocations is None:
+				raise LibraryError(project)
+
+		self._actualLibraryLocations.update(
+			{
+				dependProject.outputName : os.path.join(
+					dependProject.outputDir,
+					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
+				)
+				for dependProject in project.dependencies
+					if dependProject.projectType not in (Ps3ProjectType.PpuSncApplication, Ps3ProjectType.PpuGccApplication)
+			}
+		)
 
 		self._arExeName = {
 			Ps3ToolsetType.PpuSnc: "ps3snarl.exe",
@@ -224,8 +249,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 				libPath = os.path.join(os.path.dirname(libPath), "cellPrx_{}_stub.a".format(os.path.basename(libNameExt[0])))
 
 			elif libNameExt[1].startswith(".spu_"):
-				csbuild.log.Warn("Cannot link PS3 SPU binary directly into an PPU binary: {}".format(libPath))
-				continue
+				libPath = "{}{}.a".format(libNameExt[0], libNameExt[1].replace(".", "_"))
 
 			args.append(libPath)
 

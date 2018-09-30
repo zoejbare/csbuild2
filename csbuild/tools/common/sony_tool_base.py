@@ -294,7 +294,7 @@ class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
 	supportedPlatforms = { "Windows" }
 	supportedArchitectures = { "cell" }
 	inputFiles = { ".spu_elf", ".spu_so" }
-	outputFiles = { ".o" }
+	outputFiles = { ".a" }
 
 	################################################################################
 	### Initialization
@@ -309,22 +309,23 @@ class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
 	### Internal methods
 	################################################################################
 
-	def _getOutputFiles(self, inputFile):
-		inputFileExtSplit = os.path.splitext(inputFile.filename)
+	def _getOutputFiles(self, project, inputFile):
+		inputFileExtSplit = os.path.splitext(os.path.basename(inputFile.filename))
 		outputFilePath = os.path.join(
-			"{}{}.o".format(
+			project.outputDir,
+			"{}{}.a".format(
 				inputFileExtSplit[0],
 				inputFileExtSplit[1].replace(".", "_")
 			)
 		)
 		return tuple({ outputFilePath })
 
-	def _getCommand(self, inputFile):
+	def _getCommand(self, project, inputFile):
 		cmdExe = self._getExeName()
 		cmd = [cmdExe] \
 			+ self._getStripModeArgs() \
 			+ self._getInputArgs(inputFile) \
-			+ self._getOutputArgs(inputFile)
+			+ self._getOutputArgs(project, inputFile)
 
 		return cmd
 
@@ -341,8 +342,8 @@ class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
 	def _getInputArgs(self, inputFile):
 		return [inputFile.filename]
 
-	def _getOutputArgs(self, inputFile):
-		return [self._getOutputFiles(inputFile)[0]]
+	def _getOutputArgs(self, project, inputFile):
+		return [self._getOutputFiles(project, inputFile)[0]]
 
 
 	################################################################################
@@ -373,10 +374,10 @@ class Ps3SpuConverter(Ps3BaseTool, HasOptimizationLevel):
 			inputProject.targetName
 		)
 
-		returncode, _, _ = commands.Run(self._getCommand(inputFile))
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFile)
-		return self._getOutputFiles(inputFile)
+		return self._getOutputFiles(inputProject, inputFile)
 
 
 @MetaClass(ABCMeta)
