@@ -55,6 +55,27 @@ class Ps4Linker(Ps4BaseTool, GccLinker):
 	### Methods implemented from base classes
 	####################################################################################################################
 
+	def SetupForProject(self, project):
+		Ps4BaseTool.SetupForProject(self, project)
+		GccLinker.SetupForProject(self, project)
+
+	def _getOutputFiles(self, project):
+		outputFilename = "{}{}".format(project.outputName, self._getOutputExtension(project.projectType))
+		outputFullPath = os.path.join(project.outputDir, outputFilename)
+		outputFiles = [outputFullPath]
+
+		# For shared libraries, the linker will automatically generate stub libraries that can be linked against.
+		# Note the stubs will only be generated if something in the project is being exported.  But, since dynamic
+		# loading at runtime isn't possible, such a project would be pointless, so we can assume the developer will
+		# always export something.
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			outputFiles.extend([
+				os.path.join(project.outputDir, "{}_stub.a".format(project.outputName)),
+				os.path.join(project.outputDir, "{}_stub_weak.a".format(project.outputName)),
+			])
+
+		return tuple(outputFiles)
+
 	def _findLibraries(self, project, libs):
 		targetLibPath = os.path.join(self._ps4SdkPath, "target", "lib")
 		allLibraryDirectories = [x for x in self._libraryDirectories] + [targetLibPath]
@@ -89,11 +110,19 @@ class Ps4Linker(Ps4BaseTool, GccLinker):
 		return []
 
 	def _getLibraryArgs(self):
-		return ["{}".format(lib) for lib in self._actualLibraryLocations.values()]
+		args = []
+
+		for libPath in self._actualLibraryLocations.values():
+			libNameExt = os.path.splitext(libPath)
+
+			# PRX libraries can't be linked directly. We have to link against their static stub libraries
+			# that are generated when they are built.
+			if libNameExt[1] in (".prx", ".sprx"):
+				libPath = os.path.join(os.path.dirname(libPath), "{}_stub.a".format(os.path.basename(libNameExt[0])))
+
+			args.append(libPath)
+
+		return args
 
 	def _getStartGroupArgs(self):
 		return ["-Wl,--start-group"]
-
-	def SetupForProject(self, project):
-		Ps4BaseTool.SetupForProject(self, project)
-		GccLinker.SetupForProject(self, project)

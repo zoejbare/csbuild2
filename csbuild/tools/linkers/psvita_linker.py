@@ -56,8 +56,31 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 	### Methods implemented from base classes
 	####################################################################################################################
 
+	def SetupForProject(self, project):
+		PsVitaBaseTool.SetupForProject(self, project)
+		LinkerBase.SetupForProject(self, project)
+
 	def _getOutputFiles(self, project):
-		return tuple({ os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType)) })
+		projectOutputName = project.outputName
+
+		# PSVita requires that libraries being with the "lib" prefix.
+		if project.projectType == csbuild.ProjectType.SharedLibrary and not projectOutputName.startswith("lib"):
+			projectOutputName = "lib{}".format(projectOutputName)
+
+		outputFilename = "{}{}".format(projectOutputName, self._getOutputExtension(project.projectType))
+		outputFullPath = os.path.join(project.outputDir, outputFilename)
+		outputFiles = [outputFullPath]
+
+		# For shared libraries, the linker will automatically generate a stub library that can be linked against.
+		# Note the stub will only be generated if something in the project is being exported.  But, since dynamic
+		# loading at runtime isn't possible, such a project would be pointless, so we can assume the developer will
+		# always export something.
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			outputFiles.extend([
+				os.path.join(project.outputDir, "{}_stub.a".format(projectOutputName)),
+			])
+
+		return tuple(outputFiles)
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
@@ -153,10 +176,14 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 		args = []
 
 		for lib in libNames:
-			if lib.startswith("lib"):
-				lib = lib[3:]
+			libName, libExt = os.path.splitext(lib)
+			if libName.startswith("lib"):
+				libName = libName[3:]
 
-			args.append("-l{}".format(lib))
+			if libExt == ".suprx":
+				libName = "{}_stub".format(libName)
+
+			args.append("-l{}".format(libName))
 
 		return args
 

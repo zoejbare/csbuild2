@@ -19,75 +19,40 @@
 # SOFTWARE.
 
 """
-.. package:: platform_handlers
-	:synopsis: Built-in platform handlers for the Visual Studio project generator.
+.. module:: ps3
+	:synopsis: Built-in Visual Studio platform handler for outputing PS3 project files.
 
 .. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-import abc
+from . import VsBasePlatformHandler
 
-from csbuild._utils.decorators import MetaClass
-
-from xml.etree import ElementTree as ET
+from ....common.sony_tool_base import Ps3ProjectType
 
 def _ignore(_):
 	pass
 
-class VsInstallInfo(object):
+class VsPs3PlatformHandler(VsBasePlatformHandler):
 	"""
-	Visual Studio version data helper class.
-
-	:ivar friendlyName: Friendly version name for logging.
-	:type friendlyName: str
-
-	:ivar fileVersion: File format version (e.g., "Microsoft Visual Studio Solution File, Format Version XX.XX" where "XX.XX" is the member value).
-	:type fileVersion: str
-
-	:ivar versionId: Version of Visual Studio the solution belongs to (e.g., "# Visual Studio XX" where "XX" is the member value).
-	:type versionId: str
-
-	:ivar toolsetVersion: Platform toolset version for the Visual Studio version.
-	:type toolsetVersion: str
+	Visual Studio platform handler as a base class, containing project writing functionality for the PS3 platform.
 	"""
-	def __init__(self, friendlyName, fileVersion, versionId, toolsetVersion):
-		self.friendlyName = friendlyName
-		self.fileVersion = fileVersion
-		self.versionId = versionId
-		self.toolsetVersion = toolsetVersion
-
-
-@MetaClass(abc.ABCMeta)
-class VsBasePlatformHandler(object):
-	"""
-	Visual Studio platform handler base class.
-
-	:ivar buildSpec: Internal build specification being written.
-	:type buildSpec: tuple[str, str, str]
-
-	:ivar vsInstallInfo: Information relating to the selected version of Visual Studio.
-	:type vsInstallInfo: csbuild.tools.project_generators.visual_studio.platform_handlers.VsInstallInfo
-	"""
-	def __init__(self, buildSpec, vsInstallInfo):
-		self.buildSpec = buildSpec
-		self.vsInstallInfo = vsInstallInfo
-
-		self._addXmlNode = ET.SubElement
+	def __init__(self, buildTarget, vsInstallInfo):
+		VsBasePlatformHandler.__init__(self, buildTarget, vsInstallInfo)
 
 	@staticmethod
-	def GetVisualStudioPlatformName(): # pylint: disable=redundant-returns-doc
+	def GetVisualStudioPlatformName():
 		"""
 		Get the name that is recognizeable by Visual Studio for the current platform.
 
 		:return: Visual Studio platform name.
 		:rtype: str
 		"""
-		pass
+		return "PS3"
 
 	@staticmethod
-	def GetOutputExtensionIfDebuggable(projectOutputType): # pylint: disable=redundant-returns-doc
+	def GetOutputExtensionIfDebuggable(projectOutputType):
 		"""
 		Get the file extension of the input project output type for the current platform.
 		Only applies to debuggable projects.  Any other project types should return `None`.
@@ -98,42 +63,20 @@ class VsBasePlatformHandler(object):
 		:return: Application extension.
 		:rtype: str or None
 		"""
-		_ignore(projectOutputType)
-		return None
+		return {
+			Ps3ProjectType.PpuSncApplication: ".self",
+			Ps3ProjectType.PpuGccApplication: ".self",
+		}.get(projectOutputType, None)
 
 	@staticmethod
-	def GetNMakeAdditionalOptions(): # pylint: disable=redundant-returns-doc
+	def GetNMakeAdditionalOptions():
 		"""
 		Get any additional NMake options to configure intellisense.
 
 		:return: Additional NMake options.
 		:rtype: str or None
 		"""
-		return None
-
-	def WriteGlobalHeader(self, parentXmlNode, project):
-		"""
-		Write any top-level information about this platform at the start of the project file.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-		"""
-		pass
-
-	def WriteGlobalFooter(self, parentXmlNode, project):
-		"""
-		Write any final data nodes needed by the project.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-		"""
-		pass
+		return "$(PS3IntelliSense)"
 
 	def WriteGlobalImportTargets(self, parentXmlNode, project):
 		"""
@@ -145,7 +88,14 @@ class VsBasePlatformHandler(object):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
-		pass
+		vsPlatformName = self.GetVisualStudioPlatformName()
+
+		importGroupXmlNode = self._addXmlNode(parentXmlNode, "ImportGroup")
+		importGroupXmlNode.set("Condition", "'$(Platform)'=='{}'".format(vsPlatformName))
+
+		importXmlNode = self._addXmlNode(importGroupXmlNode, "Import")
+		importXmlNode.set("Condition", r"'$(ConfigurationType)' == 'Makefile' and Exists('$(VCTargetsPath)\Platforms\$(Platform)\SCE.Makefile.$(Platform).targets')")
+		importXmlNode.set("Project", r"$(VCTargetsPath)\Platforms\$(Platform)\SCE.Makefile.$(Platform).targets")
 
 	def WriteProjectConfiguration(self, parentXmlNode, project, vsConfig):
 		"""
@@ -160,8 +110,6 @@ class VsBasePlatformHandler(object):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -187,7 +135,19 @@ class VsBasePlatformHandler(object):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		pass
+		vsPlatformName = self.GetVisualStudioPlatformName()
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
+
+		propertyGroupXmlNode = self._addXmlNode(parentXmlNode, "PropertyGroup")
+		propertyGroupXmlNode.set("Label", "Configuration")
+		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
+
+		# TODO: Get the platform toolset from the project output type.
+		# platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
+		# platformToolsetXmlNode.text = "SNC"
+
+		configTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
+		configTypeXmlNode.text = "Makefile"
 
 	def WriteImportProperties(self, parentXmlNode, project, vsConfig):
 		"""
@@ -223,25 +183,25 @@ class VsBasePlatformHandler(object):
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		pass
+		_ignore(project)
 
-	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, vsConfig):
-		"""
-		Write extra property group nodes related to platform build properties.
+		vsPlatformName = self.GetVisualStudioPlatformName()
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
+		propertyGroupXmlNode = self._addXmlNode(parentXmlNode, "PropertyGroup")
+		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
-		:param project: Visual Studio project project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+		fileServingDirXmlNode = self._addXmlNode(propertyGroupXmlNode, "LocalDebuggerFileServingDirectory" )
+		fileServingDirXmlNode.text = "$(OutDir)"
 
-		:param vsConfig: Visual Studio configuration being written.
-		:type vsConfig: str
-		"""
-		pass
+		homeDirXmlNode = self._addXmlNode(propertyGroupXmlNode, "LocalDebuggerHomeDirectory" )
+		homeDirXmlNode.text = "$(OutDir)"
+
+		debuggerFlavorXmlNode = self._addXmlNode(propertyGroupXmlNode, "DebuggerFlavor" )
+		debuggerFlavorXmlNode.text = "PS3Debugger"

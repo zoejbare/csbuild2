@@ -43,6 +43,7 @@ from xml.etree import ElementTree as ET
 from xml.dom import minidom
 
 from ..platform_handlers import VsInstallInfo
+from ..platform_handlers.ps3 import VsPs3PlatformHandler
 from ..platform_handlers.ps4 import VsPs4PlatformHandler
 from ..platform_handlers.psvita import VsPsVitaPlatformHandler
 from ..platform_handlers.windows import VsWindowsX86PlatformHandler, VsWindowsX64PlatformHandler
@@ -481,6 +482,7 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 		PLATFORM_HANDLERS.update({
 			("msvc", "x86", ()): VsWindowsX86PlatformHandler,
 			("msvc", "x64", ()): VsWindowsX64PlatformHandler,
+			("ps3", "cell", ()): VsPs3PlatformHandler,
 			("ps4", "x64", ()): VsPs4PlatformHandler,
 			("psvita", "arm", ()): VsPsVitaPlatformHandler,
 		})
@@ -974,7 +976,7 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 		cleanCommandXmlNode.text = cleanArgs
 
 		includePathXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeIncludeSearchPath")
-		includePathXmlNode.text = ";".join(sorted(set(project.platformIncludePaths[buildSpec])))
+		includePathXmlNode.text = ";".join(sorted({ _constructRelPath(incPath, outputDirPath) for incPath in project.platformIncludePaths[buildSpec] }))
 
 		preprocessorXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakePreprocessorDefinitions")
 		preprocessorXmlNode.text = ";".join(sorted(set(project.platformDefines[buildSpec])) + ["$(NMakePreprocessorDefinitions)"])
@@ -985,17 +987,20 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 			buildOutputDirPath = project.platformOutputDirPath[buildSpec]
 			buildIntermediateDirPath = project.platformIntermediateDirPath[buildSpec]
 
-			# Only include the NMakeOutput extension if the current project build is an application.
+			outputExtension = platformHandler.GetOutputExtensionIfDebuggable(buildOutputType)
+			additionalOptions = platformHandler.GetNMakeAdditionalOptions()
+
+			# Only include the NMakeOutput extension if the current project build has a debuggable output type.
 			# This is what Visual Studio will look for when attempting to debug.
-			if buildOutputType == csbuild.ProjectType.Application:
+			if outputExtension:
 				outputXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeOutput")
-				outputXmlNode.text = _constructRelPath(os.path.join(buildOutputDirPath, "{}{}".format(buildOutputName, platformHandler.GetApplicationExtension())), outputDirPath)
+				outputXmlNode.text = _constructRelPath(os.path.join(buildOutputDirPath, "{}{}".format(buildOutputName, outputExtension)), outputDirPath)
 
-			outDirXmlNode = _addXmlNode(propertyGroupXmlNode, "OutDir")
-			outDirXmlNode.text = _constructRelPath(buildOutputDirPath, outputDirPath)
+			_addXmlNode(propertyGroupXmlNode, "OutDir").text = _constructRelPath(buildOutputDirPath, outputDirPath)
+			_addXmlNode(propertyGroupXmlNode, "IntDir").text = _constructRelPath(buildIntermediateDirPath, outputDirPath)
 
-			intDirXmlNode = _addXmlNode(propertyGroupXmlNode, "IntDir")
-			intDirXmlNode.text = _constructRelPath(buildIntermediateDirPath, outputDirPath)
+			if additionalOptions:
+				_addXmlNode(propertyGroupXmlNode, "AdditionalOptions").text = additionalOptions
 
 		platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, vsConfig)
 

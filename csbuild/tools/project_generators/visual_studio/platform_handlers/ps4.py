@@ -27,8 +27,12 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import csbuild
+
 from . import VsBasePlatformHandler
 
+def _ignore(_):
+	pass
 
 class VsPs4PlatformHandler(VsBasePlatformHandler):
 	"""
@@ -48,14 +52,30 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		return "ORBIS"
 
 	@staticmethod
-	def GetApplicationExtension():
+	def GetOutputExtensionIfDebuggable(projectOutputType):
 		"""
-		Get the extension that represents executables for the current platform.
+		Get the file extension of the input project output type for the current platform.
+		Only applies to debuggable projects.  Any other project types should return `None`.
+
+		:param projectOutputType: Final output type of a project.
+		:type projectOutputType: any
 
 		:return: Application extension.
 		:rtype: str
 		"""
-		return ".elf"
+		return {
+			csbuild.ProjectType.Application: ".elf",
+		}.get(projectOutputType, None)
+
+	@staticmethod
+	def GetNMakeAdditionalOptions():
+		"""
+		Get any additional NMake options to configure intellisense.
+
+		:return: Additional NMake options.
+		:rtype: str
+		"""
+		return "$(ORBISIntelliSense)"
 
 	def WriteGlobalFooter(self, parentXmlNode, project):
 		"""
@@ -67,6 +87,8 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
+		_ignore(project)
+
 		# Extension settings
 		importGroupXmlNode = self._addXmlNode(parentXmlNode, "ImportGroup")
 		importGroupXmlNode.set("Label", "ExtensionSettings")
@@ -91,6 +113,8 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
+		_ignore(project)
+
 		vsPlatformName = self.GetVisualStudioPlatformName()
 
 		importGroupXmlNode = self._addXmlNode(parentXmlNode, "ImportGroup")
@@ -113,8 +137,10 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
+		_ignore(project)
+
 		vsPlatformName = self.GetVisualStudioPlatformName()
-		vsBuildTarget = "{}|{}".format( vsConfig, vsPlatformName )
+		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
 		projectConfigXmlNode = self._addXmlNode(parentXmlNode, "ProjectConfiguration")
 		projectConfigXmlNode.set("Include", vsBuildTarget)
@@ -138,6 +164,8 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
+		_ignore(project)
+
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -164,6 +192,8 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
+		_ignore(project)
+
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -171,7 +201,7 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		importGroupXmlNode.set("Label", "PropertySheets")
 		importGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
-		importXmlNode = self._addXmlNode( importGroupXmlNode, "Import")
+		importXmlNode = self._addXmlNode(importGroupXmlNode, "Import")
 		importXmlNode.set("Label", "LocalAppDataPlatform")
 		importXmlNode.set("Project", r"$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props")
 		importXmlNode.set("Condition", r"exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')")
@@ -189,6 +219,7 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
+		_ignore(project)
 
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)

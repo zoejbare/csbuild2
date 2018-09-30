@@ -27,8 +27,12 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import csbuild
+
 from . import VsBasePlatformHandler
 
+def _ignore(_):
+	pass
 
 class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 	"""
@@ -38,14 +42,20 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		VsBasePlatformHandler.__init__(self, buildTarget, vsInstallInfo)
 
 	@staticmethod
-	def GetApplicationExtension():
+	def GetOutputExtensionIfDebuggable(projectOutputType):
 		"""
-		Get the extension that represents executables for the current platform.
+		Get the file extension of the input project output type for the current platform.
+		Only applies to debuggable projects.  Any other project types should return `None`.
+
+		:param projectOutputType: Final output type of a project.
+		:type projectOutputType: any
 
 		:return: Application extension.
-		:rtype: str
+		:rtype: str or None
 		"""
-		return ".exe"
+		return {
+			csbuild.ProjectType.Application: ".exe",
+		}.get(projectOutputType, None)
 
 	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
 		"""
@@ -60,6 +70,8 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
+		_ignore(project)
+
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -90,6 +102,8 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
+		_ignore(project)
+
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
