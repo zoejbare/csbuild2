@@ -57,7 +57,7 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 			csbuild.ProjectType.Application: ".exe",
 		}.get(projectOutputType, None)
 
-	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteConfigPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.
 
@@ -67,11 +67,12 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -89,7 +90,7 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		configTypeNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
 		configTypeNode.text = "Makefile"
 
-	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes specifying the user debug settings.
 
@@ -99,11 +100,12 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 

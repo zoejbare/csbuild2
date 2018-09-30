@@ -97,7 +97,7 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 		importXmlNode.set("Condition", r"'$(ConfigurationType)' == 'Makefile' and Exists('$(VCTargetsPath)\Platforms\$(Platform)\SCE.Makefile.$(Platform).targets')")
 		importXmlNode.set("Project", r"$(VCTargetsPath)\Platforms\$(Platform)\SCE.Makefile.$(Platform).targets")
 
-	def WriteProjectConfiguration(self, parentXmlNode, project, vsConfig):
+	def WriteProjectConfiguration(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the project configuration nodes for this platform.
 
@@ -106,6 +106,9 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
@@ -122,7 +125,7 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 		platformXmlNode = self._addXmlNode(projectConfigXmlNode, "Platform")
 		platformXmlNode.text = vsPlatformName
 
-	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteConfigPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.
 
@@ -131,6 +134,9 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
@@ -142,14 +148,29 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 		propertyGroupXmlNode.set("Label", "Configuration")
 		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
-		# TODO: Get the platform toolset from the project output type.
-		# platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
-		# platformToolsetXmlNode.text = "SNC"
+		projectOutputType = project.platformOutputType.get(buildSpec, None)
+		if projectOutputType is not None:
+			toolset = {
+				Ps3ProjectType.PpuSncApplication: "SNC",
+				Ps3ProjectType.PpuSncSharedLibrary: "SNC",
+				Ps3ProjectType.PpuSncStaticLibrary: "SNC",
+
+				Ps3ProjectType.PpuGccApplication: "GCC",
+				Ps3ProjectType.PpuGccSharedLibrary: "GCC",
+				Ps3ProjectType.PpuGccStaticLibrary: "GCC",
+
+				Ps3ProjectType.SpuApplication: "SPU",
+				Ps3ProjectType.SpuSharedLibrary: "SPU",
+				Ps3ProjectType.SpuStaticLibrary: "SPU",
+			}.get(projectOutputType, None)
+			if toolset:
+				platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
+				platformToolsetXmlNode.text = toolset
 
 		configTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
 		configTypeXmlNode.text = "Makefile"
 
-	def WriteImportProperties(self, parentXmlNode, project, vsConfig):
+	def WriteImportProperties(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write any special import properties for this platform.
 
@@ -158,6 +179,9 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
@@ -176,7 +200,7 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 		importXmlNode.set("Project", r"$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props")
 		importXmlNode.set("Condition", r"exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')")
 
-	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes specifying the user debug settings.
 
@@ -185,6 +209,9 @@ class VsPs3PlatformHandler(VsBasePlatformHandler):
 
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str

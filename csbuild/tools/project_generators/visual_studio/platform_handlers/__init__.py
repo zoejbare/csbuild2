@@ -147,7 +147,7 @@ class VsBasePlatformHandler(object):
 		"""
 		pass
 
-	def WriteProjectConfiguration(self, parentXmlNode, project, vsConfig):
+	def WriteProjectConfiguration(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the project configuration nodes for this platform.
 
@@ -156,6 +156,9 @@ class VsBasePlatformHandler(object):
 
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
@@ -174,7 +177,7 @@ class VsBasePlatformHandler(object):
 		platformXmlNode = self._addXmlNode(projectConfigXmlNode, "Platform")
 		platformXmlNode.text = vsPlatformName
 
-	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteConfigPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.
 
@@ -184,12 +187,15 @@ class VsBasePlatformHandler(object):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
 		pass
 
-	def WriteImportProperties(self, parentXmlNode, project, vsConfig):
+	def WriteImportProperties(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write any special import properties for this platform.
 
@@ -198,6 +204,9 @@ class VsBasePlatformHandler(object):
 
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
@@ -216,30 +225,36 @@ class VsBasePlatformHandler(object):
 		importXmlNode.set("Project", r"$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props")
 		importXmlNode.set("Condition", r"exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')")
 
-	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes specifying the user debug settings.
 
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
 		pass
 
-	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, vsConfig):
+	def WriteExtraPropertyGroupBuildNodes(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write extra property group nodes related to platform build properties.
 
 		:param parentXmlNode: Parent project XML node.
 		:type parentXmlNode: xml.etree.ElementTree.SubElement
 
-		:param project: Visual Studio project project data.
+		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str

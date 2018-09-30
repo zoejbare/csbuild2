@@ -830,7 +830,7 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 	# Write the project configurations.
 	for buildSpec in BUILD_SPECS:
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
-		platformHandler.WriteProjectConfiguration(itemGroupXmlNode, project, _getVsConfigName(buildSpec))
+		platformHandler.WriteProjectConfiguration(itemGroupXmlNode, project, buildSpec, _getVsConfigName(buildSpec))
 
 	_makeXmlCommentNode(rootXmlNode, "Project files")
 
@@ -900,7 +900,7 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 	# Write the config property groups for each platform.
 	for buildSpec in BUILD_SPECS:
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
-		platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
+		platformHandler.WriteConfigPropertyGroup(rootXmlNode, project, buildSpec, _getVsConfigName(buildSpec))
 
 	_makeXmlCommentNode(rootXmlNode, "Import properties (continued)")
 
@@ -915,7 +915,7 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 			continue
 
 		platformHandler = PLATFORM_HANDLERS[buildSpec]
-		platformHandler.WriteImportProperties(rootXmlNode, project, _getVsConfigName(buildSpec))
+		platformHandler.WriteImportProperties(rootXmlNode, project, buildSpec, _getVsConfigName(buildSpec))
 
 	_makeXmlCommentNode(rootXmlNode, "Platform build commands")
 
@@ -1002,7 +1002,7 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 			if additionalOptions:
 				_addXmlNode(propertyGroupXmlNode, "AdditionalOptions").text = additionalOptions
 
-		platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, vsConfig)
+		platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, buildSpec, vsConfig)
 
 	_makeXmlCommentNode(rootXmlNode, "Import targets")
 
@@ -1093,7 +1093,7 @@ def _writeUserVcxProj(outputRootPath, project):
 				continue
 
 			platformHandler = PLATFORM_HANDLERS[buildSpec]
-			platformHandler.WriteUserDebugPropertyGroup(rootXmlNode, project, _getVsConfigName(buildSpec))
+			platformHandler.WriteUserDebugPropertyGroup(rootXmlNode, project, buildSpec, _getVsConfigName(buildSpec))
 
 	# Write out the XML file.
 	_saveXmlFile(outputFilePath, rootXmlNode)

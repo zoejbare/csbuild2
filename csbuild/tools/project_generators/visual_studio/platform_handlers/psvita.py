@@ -31,9 +31,6 @@ import csbuild
 
 from . import VsBasePlatformHandler
 
-def _ignore(_):
-	pass
-
 class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 	"""
 	Visual Studio platform handler as a base class, containing project writing functionality for the PSVita platform.
@@ -87,8 +84,6 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 
 		importGroupXmlNode = self._addXmlNode(parentXmlNode, "ImportGroup")
@@ -98,7 +93,7 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		importXmlNode.set("Condition", r"'$(ConfigurationType)' == 'Makefile' and Exists('$(VCTargetsPath)\Platforms\$(Platform)\SCE.Makefile.$(Platform).targets')")
 		importXmlNode.set("Project", r"$(VCTargetsPath)\Platforms\$(Platform)\SCE.Makefile.$(Platform).targets")
 
-	def WriteProjectConfiguration(self, parentXmlNode, project, vsConfig):
+	def WriteProjectConfiguration(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the project configuration nodes for this platform.
 
@@ -108,11 +103,12 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format( vsConfig, vsPlatformName )
 
@@ -125,7 +121,7 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		platformXmlNode = self._addXmlNode(projectConfigXmlNode, "Platform")
 		platformXmlNode.text = vsPlatformName
 
-	def WriteConfigPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteConfigPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.
 
@@ -135,11 +131,12 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -153,7 +150,7 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		configTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
 		configTypeXmlNode.text = "Makefile"
 
-	def WriteImportProperties(self, parentXmlNode, project, vsConfig):
+	def WriteImportProperties(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write any special import properties for this platform.
 
@@ -163,11 +160,12 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
@@ -180,7 +178,7 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		importXmlNode.set("Project", r"$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props")
 		importXmlNode.set("Condition", r"exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')")
 
-	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, vsConfig):
+	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes specifying the user debug settings.
 
@@ -190,11 +188,12 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		:param project: Visual Studio project data.
 		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
 
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
 		:param vsConfig: Visual Studio configuration being written.
 		:type vsConfig: str
 		"""
-		_ignore(project)
-
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
