@@ -22,7 +22,7 @@
 .. module:: tests
 	:synopsis: Basic test of assembler tools
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Brandon Bare
 """
 
 from __future__ import unicode_literals, division, print_function
@@ -48,8 +48,8 @@ class BasicAsmTest(FunctionalTest):
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		self.cleanArgs = ["--project=hello_world", "--arch=x86"]
-		self.assertMakeSucceeds("-v", "--arch=x86", "--project=hello_world", "--show-commands")
+		self.cleanArgs = ["--project=hello_world", "--arch=x64"]
+		self.assertMakeSucceeds("-v", "--arch=x64", "--project=hello_world", "--show-commands")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
