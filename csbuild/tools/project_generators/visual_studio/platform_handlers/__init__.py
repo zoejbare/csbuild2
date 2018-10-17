@@ -164,6 +164,7 @@ class VsBasePlatformHandler(object):
 		:type vsConfig: str
 		"""
 		_ignore(project)
+		_ignore(buildSpec)
 
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
@@ -212,6 +213,7 @@ class VsBasePlatformHandler(object):
 		:type vsConfig: str
 		"""
 		_ignore(project)
+		_ignore(buildSpec)
 
 		vsPlatformName = self.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
