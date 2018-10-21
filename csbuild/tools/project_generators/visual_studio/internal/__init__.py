@@ -377,7 +377,7 @@ class VsProject(object):
 				projectData = generator.projectData
 
 				self.platformOutputType[buildSpec] = projectData.projectType
-				self.platformOutputName[buildSpec] = projectData.name
+				self.platformOutputName[buildSpec] = projectData.outputName
 				self.platformOutputDirPath[buildSpec] = os.path.abspath(projectData.outputDir)
 				self.platformIntermediateDirPath[buildSpec] = os.path.abspath(projectData.intermediateDir)
 

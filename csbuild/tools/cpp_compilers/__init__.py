@@ -52,8 +52,10 @@ class CppCompileChecker(CompileChecker):
 		:return: Set of files to depend on
 		:rtype: set[str]
 		"""
-		with open(inputFile.filename, "r") as f:
+		with open(inputFile.filename, "rb") as f:
 			contents = f.read()
+			contents = contents.decode("utf-8", "replace")
+
 		ret = set()
 
 		includeDirs = [os.path.dirname(inputFile.filename)] + list(buildProject.toolchain.Tool(self._compiler).GetIncludeDirectories())

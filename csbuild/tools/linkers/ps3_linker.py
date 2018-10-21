@@ -158,7 +158,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 		return cmd
 
 	def _findLibraries(self, project, libs):
-		allLibraryDirectories = [x for x in self._libraryDirectories] + [self._ps3SystemLibPaths]
+		allLibraryDirectories = [x for x in self._libraryDirectories] + self._ps3SystemLibPaths
 
 		return SonyBaseTool._commonFindLibraries(allLibraryDirectories, libs)
 
