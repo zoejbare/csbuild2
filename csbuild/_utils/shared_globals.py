@@ -103,6 +103,7 @@ startTime = 0
 totalBuilds = 0
 completedBuilds = 0
 
+buildStartedHooks = set()
 buildFinishedHooks = set()
 
 class InMemoryOnlySettings(object):

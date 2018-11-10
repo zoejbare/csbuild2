@@ -771,6 +771,15 @@ with perf_timer.PerfTimer("csbuild module init"):
 			currentPlan = self._prevPlan
 			return False
 
+	def OnBuildStarted(func):
+		"""
+		Decorator that registers an OnBuildStarted event hook.
+		:param func: Function that accepts a single parameter with type list[csbuild._build.project.Project],
+			containing all projects that will be built in this run.
+		:type func: Callable
+		"""
+		shared_globals.buildStartedHooks.add(func)
+
 	def OnBuildFinished(func):
 		"""
 		Decorator that registers an OnBuildFinished event hook.

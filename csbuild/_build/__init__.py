@@ -1047,17 +1047,22 @@ def Run():
 		_clean(projectBuildList, args.rebuild)
 
 	if not args.clean or args.rebuild:
-
 		shared_globals.commandOutputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		shared_globals.commandOutputThread.start()
+
+		log.Build("Executing build start hooks")
+		for hook in shared_globals.buildStartedHooks:
+			hook(projectBuildList)
+
 		failures = _build(args.jobs, projectBuildList)
 
-		log.Build("Executing build completion hooks on")
+		log.Build("Executing build completion hooks")
 		for hook in shared_globals.buildFinishedHooks:
 			hook(projectBuildList)
 
 	with perf_timer.PerfTimer("Waiting on logging to shut down"):
 		log.StopLogThread()
+
 	totaltime = time.time() - preparationStart
 	log.Build("Total execution took {}".format(FormatTime(totaltime)))
 	system.Exit(failures)
