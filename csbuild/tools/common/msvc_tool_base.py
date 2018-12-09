@@ -178,7 +178,10 @@ class _InstallDataPost2017(_BaseInstallData):
 
 	@staticmethod
 	def FindInstallations():
-		vsWhereFilePath = os.path.join(os.environ["ProgramFiles(x86)"], "Microsoft Visual Studio", "Installer", "vswhere.exe")
+		progFilesX86Path = os.getenv("ProgramFiles(x86)")
+		assert progFilesX86Path, "Failed to find the \"Program Files (x86)\" path"
+
+		vsWhereFilePath = os.path.join(progFilesX86Path, "Microsoft Visual Studio", "Installer", "vswhere.exe")
 
 		if not os.access(vsWhereFilePath, os.F_OK):
 			# The file doesn't exist, so Visual Studio 2017 (or newer) hasn't been installed.
@@ -197,6 +200,21 @@ class _InstallDataPost2017(_BaseInstallData):
 		foundInstallations = json.loads(output)
 
 		installDataList = []
+
+		### BEGIN HACK
+		# The Visual Studio 2019 preview installation currently cannot be found via vswhere.exe (or presumably anything else),
+		# so for now, we'll hack support in by checking an assumed install path and manually filling in its data.  Once vswhere
+		# is capable of finding it, we'll remove this.
+		vs2019PreviewPath = os.path.join(progFilesX86Path, "Microsoft Visual Studio", "2019", "Preview")
+		if os.access(vs2019PreviewPath, os.F_OK):
+			installDataList.append(
+				_InstallDataPost2017(
+					"16",
+					"Visual Studio Enterprise 2019 Preview",
+					vs2019PreviewPath
+				)
+			)
+		### END HACK
 
 		# Parse the install information.
 		for install in foundInstallations:
