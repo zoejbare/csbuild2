@@ -399,6 +399,7 @@ class MsvcToolBase(Tool):
 			"12" => Visual Studio 2013
 			"14" => Visual Studio 2015
 			"15" => Visual Studio 2017
+			"16" => Visual Studio 2019
 		:type version: str
 		"""
 		csbuild.currentPlan.SetValue("vsVersion", version)

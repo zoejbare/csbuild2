@@ -74,7 +74,8 @@ from .project_generators.visual_studio import \
 	VsSolutionGenerator2012, \
 	VsSolutionGenerator2013, \
 	VsSolutionGenerator2015, \
-	VsSolutionGenerator2017
+	VsSolutionGenerator2017, \
+	VsSolutionGenerator2019
 
 from ..toolchain import CompileChecker
 
@@ -155,3 +156,4 @@ def InitTools():
 	csbuild.RegisterProjectGenerator("visual-studio-2013", [VsProjectGenerator], VsSolutionGenerator2013)
 	csbuild.RegisterProjectGenerator("visual-studio-2015", [VsProjectGenerator], VsSolutionGenerator2015)
 	csbuild.RegisterProjectGenerator("visual-studio-2017", [VsProjectGenerator], VsSolutionGenerator2017)
+	csbuild.RegisterProjectGenerator("visual-studio-2019", [VsProjectGenerator], VsSolutionGenerator2019)
