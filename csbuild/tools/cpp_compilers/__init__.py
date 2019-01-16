@@ -62,6 +62,6 @@ class CppCompileChecker(CompileChecker):
 		for header in _includeRegex.findall(contents):
 			for includeDir in includeDirs:
 				maybeHeaderLoc = os.path.join(includeDir, header)
-				if os.access(maybeHeaderLoc, os.F_OK):
+				if os.access(maybeHeaderLoc, os.F_OK) and not os.path.isdir(maybeHeaderLoc):
 					ret.add(maybeHeaderLoc)
 		return ret
