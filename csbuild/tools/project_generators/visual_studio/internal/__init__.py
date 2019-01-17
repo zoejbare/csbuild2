@@ -312,7 +312,8 @@ class VsProject(object):
 		global MAKEFILE_PATH
 		global BUILD_SPECS
 
-		makeFileItem = VsProjectItem("make.py", os.path.dirname(MAKEFILE_PATH), VsProjectItemType.File, [])
+		makeFileName = sys.modules['__main__'].__file__
+		makeFileItem = VsProjectItem(makeFileName, os.path.dirname(MAKEFILE_PATH), VsProjectItemType.File, [])
 		makeFileItem.supportedBuildSpecs = set(BUILD_SPECS)
 
 		self.name = name
