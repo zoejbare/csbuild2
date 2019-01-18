@@ -262,3 +262,37 @@ class VsBasePlatformHandler(object):
 		:type vsConfig: str
 		"""
 		pass
+
+	def GetIntellisenseIncludeSearchPaths(self, project, buildSpec):
+		"""
+		Get a list of any platform-specific include search paths needed by intellisense.
+
+		:param project: Visual Studio project data.
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
+		:return: List of include search paths.
+		:rtype: list[str]
+		"""
+		_ignore(project)
+		_ignore(buildSpec)
+		return []
+
+	def GetIntellisensePreprocessorDefinitions(self, project, buildSpec):
+		"""
+		Get a list of any platform-specific preprocessor definitions needed by intellisense.
+
+		:param project: Visual Studio project data.
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
+
+		:return: List of preprocessor definitions.
+		:rtype: list[str]
+		"""
+		_ignore(project)
+		_ignore(buildSpec)
+		return []

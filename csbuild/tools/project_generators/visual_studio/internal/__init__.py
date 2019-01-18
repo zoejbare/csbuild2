@@ -43,6 +43,7 @@ from xml.etree import ElementTree as ET
 from xml.dom import minidom
 
 from ..platform_handlers import VsInstallInfo
+from ..platform_handlers.android import VsNsightTegraPlatformHandler
 from ..platform_handlers.ps3 import VsPs3PlatformHandler
 from ..platform_handlers.ps4 import VsPs4PlatformHandler
 from ..platform_handlers.psvita import VsPsVitaPlatformHandler
@@ -312,7 +313,7 @@ class VsProject(object):
 		global MAKEFILE_PATH
 		global BUILD_SPECS
 
-		makeFileName = sys.modules['__main__'].__file__
+		makeFileName = os.path.basename(MAKEFILE_PATH)
 		makeFileItem = VsProjectItem(makeFileName, os.path.dirname(MAKEFILE_PATH), VsProjectItemType.File, [])
 		makeFileItem.supportedBuildSpecs = set(BUILD_SPECS)
 
@@ -483,6 +484,18 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 	if not PLATFORM_HANDLERS:
 		# No platform handlers have been registered by user, so we can add reasonable defaults here.
 		PLATFORM_HANDLERS.update({
+			("android-gcc", "arm", ()): VsNsightTegraPlatformHandler,
+			("android-gcc", "arm64", ()): VsNsightTegraPlatformHandler,
+			("android-gcc", "x86", ()): VsNsightTegraPlatformHandler,
+			("android-gcc", "x64", ()): VsNsightTegraPlatformHandler,
+			("android-gcc", "mips", ()): VsNsightTegraPlatformHandler,
+			("android-gcc", "mips64", ()): VsNsightTegraPlatformHandler,
+			("android-clang", "arm", ()): VsNsightTegraPlatformHandler,
+			("android-clang", "arm64", ()): VsNsightTegraPlatformHandler,
+			("android-clang", "x86", ()): VsNsightTegraPlatformHandler,
+			("android-clang", "x64", ()): VsNsightTegraPlatformHandler,
+			("android-clang", "mips", ()): VsNsightTegraPlatformHandler,
+			("android-clang", "mips64", ()): VsNsightTegraPlatformHandler,
 			("msvc", "x86", ()): VsWindowsX86PlatformHandler,
 			("msvc", "x64", ()): VsWindowsX64PlatformHandler,
 			("ps3", "cell", ()): VsPs3PlatformHandler,
@@ -966,6 +979,13 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 		vsPlatformName = platformHandler.GetVisualStudioPlatformName()
 		vsBuildTarget = "{}|{}".format(vsConfig, vsPlatformName)
 
+		vsIncludePaths = platformHandler.GetIntellisenseIncludeSearchPaths(project, buildSpec) + \
+			sorted({ _constructRelPath(incPath, outputDirPath) for incPath in project.platformIncludePaths[buildSpec] })
+
+		vsDefines = platformHandler.GetIntellisensePreprocessorDefinitions(project, buildSpec) + \
+			sorted(set(project.platformDefines[buildSpec])) + \
+			["$(NMakePreprocessorDefinitions)"]
+
 		propertyGroupXmlNode = _addXmlNode(rootXmlNode, "PropertyGroup")
 		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
@@ -979,10 +999,10 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 		cleanCommandXmlNode.text = cleanArgs
 
 		includePathXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakeIncludeSearchPath")
-		includePathXmlNode.text = ";".join(sorted({ _constructRelPath(incPath, outputDirPath) for incPath in project.platformIncludePaths[buildSpec] }))
+		includePathXmlNode.text = ";".join([x for x in vsIncludePaths if x])
 
 		preprocessorXmlNode = _addXmlNode(propertyGroupXmlNode, "NMakePreprocessorDefinitions")
-		preprocessorXmlNode.text = ";".join(sorted(set(project.platformDefines[buildSpec])) + ["$(NMakePreprocessorDefinitions)"])
+		preprocessorXmlNode.text = ";".join([x for x in vsDefines if x])
 
 		if project.subType == VsProjectSubType.Normal:
 			buildOutputType = project.platformOutputType[buildSpec]
