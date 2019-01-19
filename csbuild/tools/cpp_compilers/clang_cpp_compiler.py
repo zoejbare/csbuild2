@@ -44,7 +44,7 @@ class ClangCppCompiler(GccCppCompiler):
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
+	def _getComplierName(self, project, isCpp):
 		return "clang++" if isCpp else "clang"
 
 	def _getDefaultArgs(self, project):

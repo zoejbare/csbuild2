@@ -167,15 +167,12 @@ class AndroidToolBase(Tool):
 
 		assert self._androidNdkRootPath, "No Android NDK root path provided"
 		assert self._androidSdkRootPath, "No Android SDK root path provided"
-		assert self._androidManifestFilePath, "No Android manifest file path provided"
 		assert self._androidTargetSdkVersion, "No Android target SDK version provided"
 
 		assert os.access(self._androidNdkRootPath, os.F_OK), "Android NDK root path does not exist: {}".format(self._androidNdkRootPath)
 		assert os.access(self._androidSdkRootPath, os.F_OK), "Android SDK root path does not exist: {}".format(self._androidSdkRootPath)
-		assert os.access(self._androidManifestFilePath, os.F_OK), "Android manifest file path does not exist: {}".format(self._androidManifestFilePath)
 
 		self._androidInfo = None
-
 
 	####################################################################################################################
 	### Private methods
@@ -196,7 +193,6 @@ class AndroidToolBase(Tool):
 					"mips64": "mips64el",
 				}.get(arch, "")
 				assert toolchainArchPrefix, "Android architecture not supported: {}".format(arch)
-
 				return toolchainArchPrefix
 
 			def _getStlArchName():
@@ -209,7 +205,6 @@ class AndroidToolBase(Tool):
 					"mips64": "mips64",
 				}.get(arch, "")
 				assert stlArchName, "Android architecture not supported: {}".format(arch)
-
 				return stlArchName
 
 			def _getIncludeArchName():
@@ -223,7 +218,6 @@ class AndroidToolBase(Tool):
 					"mips64": "mips64el-linux-android",
 				}.get(arch, "")
 				assert includeArchName, "Android architecture not supported: {}".format(arch)
-
 				return includeArchName
 
 			# Certain architectures must use the "lib64" directory instead of "lib".
@@ -281,16 +275,15 @@ class AndroidToolBase(Tool):
 			clangPath = os.path.join(llvmToolchainBinPath, "clang{}".format(exeExtension))
 			clangppPath = os.path.join(llvmToolchainBinPath, "clang++{}".format(exeExtension))
 
-			assert gccPath, "No Android gcc executable found for architecture: {}".format(arch)
-			assert gppPath, "No Android g++ executable found for architecture: {}".format(arch)
+			# Do not assert on missing gcc or clang. GCC was deprecated and removed from later versions of the NDK
+			# and clang wasn't added until several NDK version in. It will be best if we assert when trying to use
+			# their respective toolchains.
 			assert asPath, "No Android as executable found for architecture: {}".format(arch)
 			assert ldPath, "No Android ld executable found for architecture: {}".format(arch)
 			assert arPath, "No Android ar executable found for architecture: {}".format(arch)
-			assert os.access(clangPath, os.F_OK), "No Android clang executable found for architecture: {}".format(arch)
-			assert os.access(clangppPath, os.F_OK), "No Android clang++ executable found for architecture: {}".format(arch)
 
-			gccPath = gccPath[0]
-			gppPath = gppPath[0]
+			gccPath = gccPath[0] if gccPath else None
+			gppPath = gppPath[0] if gppPath else None
 			asPath = asPath[0]
 			ldPath = ldPath[0]
 			arPath = arPath[0]
@@ -384,7 +377,6 @@ class AndroidToolBase(Tool):
 			"mips64": "arch-mips64",
 		}.get(arch, "")
 		assert platformArchName, "Architecture platform name not found for: {}".format(arch)
-
 		return platformArchName
 
 	def _getBuildArchName(self, arch):
@@ -405,7 +397,6 @@ class AndroidToolBase(Tool):
 			"mips64": "mips64el-none-linux-android",
 		}.get(arch, "")
 		assert targetTriple, "Architecture target triple not defined for: {}".format(arch)
-
 		return targetTriple
 
 	def _getDefaultLinkerArgs(self):
@@ -428,7 +419,6 @@ class AndroidToolBase(Tool):
 			"-Wa,--noexecstack",
 		]
 
-
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
@@ -444,7 +434,6 @@ class AndroidToolBase(Tool):
 
 		if not self._androidInfo:
 			self._androidInfo = self._getInfo(project.architectureName)
-
 
 	################################################################################
 	### Static makefile methods
@@ -496,7 +485,7 @@ class AndroidToolBase(Tool):
 		Sets the Android STL lib type.
 
 		:param lib: Android STL lib type.
-		:type lib: int
+		:type lib: str
 		"""
 		csbuild.currentPlan.SetValue("androidStlLibType", lib)
 

@@ -61,7 +61,7 @@ class GccCppCompiler(CppCompilerBase):
 		return tuple({ os.path.join(intDirPath, filename) })
 
 	def _getCommand(self, project, inputFile, isCpp):
-		cmdExe = self._getComplierName(isCpp)
+		cmdExe = self._getComplierName(project, isCpp)
 		cmd = self._getDefaultArgs(project) \
 			+ self._getCustomArgs(project, isCpp) \
 			+ self._getArchitectureArgs(project) \
@@ -86,7 +86,7 @@ class GccCppCompiler(CppCompilerBase):
 	### Internal methods
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
+	def _getComplierName(self, project, isCpp):
 		return "g++" if isCpp else "gcc"
 
 	def _getDefaultArgs(self, project):

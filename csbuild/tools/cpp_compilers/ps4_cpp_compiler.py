@@ -51,7 +51,7 @@ class Ps4CppCompiler(Ps4BaseTool, GccCppCompiler):
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
+	def _getComplierName(self, project, isCpp):
 		binPath = os.path.join(self._ps4SdkPath, "host_tools", "bin")
 		exeName = "orbis-clang++.exe" if isCpp else "orbis-clang.exe"
 

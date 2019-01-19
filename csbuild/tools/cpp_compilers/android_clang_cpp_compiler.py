@@ -28,6 +28,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
+import os
 
 from .android_gcc_cpp_compiler import AndroidGccCppCompiler
 
@@ -42,7 +43,9 @@ class AndroidClangCppCompiler(AndroidGccCppCompiler):
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
+	def _getComplierName(self, project, isCpp):
+		assert os.access(self._androidInfo.clangPath, os.F_OK), "No Android clang executable found for architecture: {}".format(project.architectureName)
+		assert os.access(self._androidInfo.clangppPath, os.F_OK), "No Android clang++ executable found for architecture: {}".format(project.architectureName)
 		return self._androidInfo.clangppPath if isCpp else self._androidInfo.clangPath
 
 	def _getDefaultArgs(self, project):
