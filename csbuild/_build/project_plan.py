@@ -447,7 +447,7 @@ class ProjectPlan(object):
 		:type value: Any
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings[key] = value
 
@@ -460,7 +460,7 @@ class ProjectPlan(object):
 		:type key: str, bytes
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			del settings[key]
 
@@ -475,7 +475,7 @@ class ProjectPlan(object):
 		:type value: Any
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, []).extend(value)
 
@@ -490,7 +490,7 @@ class ProjectPlan(object):
 		:type value: Any
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, []).append(value)
 
@@ -505,7 +505,7 @@ class ProjectPlan(object):
 		:type value: dict
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, {}).update(value)
 
@@ -520,7 +520,7 @@ class ProjectPlan(object):
 		:type value: Any
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).update(value)
 
@@ -535,7 +535,7 @@ class ProjectPlan(object):
 		:type value: Any
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).add(value)
 
@@ -584,7 +584,7 @@ class ProjectPlan(object):
 			Any other value will not be merged with values in parent scopes, but will override them.
 		"""
 		if toolchain.currentToolId is not None:
-			key = "{}!{}".format(toolchain.currentToolId, key)
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings[key] = action(settings.setdefault(key, None))
 
