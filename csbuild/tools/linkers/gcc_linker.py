@@ -102,9 +102,12 @@ class GccLinker(LinkerBase):
 		longLibs = []
 
 		for lib in libs:
-			if os.access(lib, os.F_OK) or os.path.splitext(lib)[1]:
+			if os.access(lib, os.F_OK):
 				abspath = os.path.abspath(lib)
 				ret[lib] = abspath
+				shortLibs.remove(lib)
+
+			elif os.path.splitext(lib)[1]:
 				shortLibs.remove(lib)
 				longLibs.append(lib)
 
