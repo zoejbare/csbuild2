@@ -57,6 +57,16 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 			csbuild.ProjectType.Application: ".exe",
 		}.get(projectOutputType, None)
 
+	@staticmethod
+	def GetIntellisenseAdditionalOptions(): # pylint: disable=redundant-returns-doc
+		"""
+		Get any additional NMake options to configure intellisense.
+
+		:return: Additional NMake options.
+		:rtype: str or None
+		"""
+		return "-include $(UM_IncludePath)"
+
 	def WriteConfigPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""
 		Write the property group nodes for the project's configuration and platform.

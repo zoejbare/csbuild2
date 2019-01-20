@@ -68,7 +68,7 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		}.get(projectOutputType, None)
 
 	@staticmethod
-	def GetNMakeAdditionalOptions():
+	def GetIntellisenseAdditionalOptions():
 		"""
 		Get any additional NMake options to configure intellisense.
 

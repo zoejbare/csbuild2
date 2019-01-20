@@ -1011,7 +1011,7 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 			buildIntermediateDirPath = project.platformIntermediateDirPath[buildSpec]
 
 			outputExtension = platformHandler.GetOutputExtensionIfDebuggable(buildOutputType)
-			additionalOptions = platformHandler.GetNMakeAdditionalOptions()
+			additionalOptions = platformHandler.GetIntellisenseAdditionalOptions()
 
 			# Only include the NMakeOutput extension if the current project build has a debuggable output type.
 			# This is what Visual Studio will look for when attempting to debug.
