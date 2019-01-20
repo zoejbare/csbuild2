@@ -87,6 +87,7 @@ class GccCppCompiler(CppCompilerBase):
 	####################################################################################################################
 
 	def _getComplierName(self, project, isCpp):
+		_ignore(project)
 		return "g++" if isCpp else "gcc"
 
 	def _getDefaultArgs(self, project):
