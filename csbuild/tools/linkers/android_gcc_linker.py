@@ -100,6 +100,9 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 
 		return args
 
+	def _getRpathArgs(self):
+		return []
+
 	def _getLibraryArgs(self):
 		args = ["-lc", "-lm", "-lgcc", "-llog", "-landroid"]
 

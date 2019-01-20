@@ -76,6 +76,7 @@ class GccLinker(LinkerBase):
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._getLibraryPathArgs(project) \
+				+ self._getRpathArgs() \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs()
@@ -244,6 +245,9 @@ class GccLinker(LinkerBase):
 	def _getLibraryPathArgs(self, project):
 		_ignore(project)
 		return []
+
+	def _getRpathArgs(self):
+		return ["-Wl,-R{}".format(os.path.dirname(lib)) for lib in self._actualLibraryLocations.values()]
 
 	def _getLibraryArgs(self):
 		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]

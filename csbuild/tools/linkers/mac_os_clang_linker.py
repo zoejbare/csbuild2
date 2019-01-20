@@ -28,6 +28,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
+import os
 
 from .clang_linker import ClangLinker
 
@@ -65,6 +66,18 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 		return baseArgs + [
 			libraryBuildArg
 		]
+
+	def _getRpathArgs(self):
+		args = [
+			"-Xlinker", "-rpath",
+			"-Xlinker", "@executable_path",
+		]
+		for lib in self._actualLibraryLocations.values():
+			args.extend([
+				"-Xlinker", "-rpath",
+				"-Xlinker", os.path.dirname(lib),
+			])
+		return args
 
 	def _getLibraryArgs(self):
 		libArgs = [lib for lib in self._actualLibraryLocations.values()]
