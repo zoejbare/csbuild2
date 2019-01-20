@@ -101,10 +101,11 @@ class GccLinker(LinkerBase):
 		longLibs = []
 
 		for lib in libs:
-			if os.access(lib, os.F_OK):
+			if os.access(lib, os.F_OK) or os.path.splitext(lib)[1]:
 				abspath = os.path.abspath(lib)
 				ret[lib] = abspath
 				shortLibs.remove(lib)
+				longLibs.append(lib)
 
 		if platform.system() == "Windows":
 			nullOut = os.path.join(project.csbuildDir, "null")
@@ -120,9 +121,9 @@ class GccLinker(LinkerBase):
 			# is possible! Still better than doing a pass per file like we used to.
 			while True:
 				cmd = [self._getLdName(), "--verbose", "-M", "-o", nullOut] + \
+					  ["-L"+path for path in self._getLibrarySearchDirectories()] + \
 					  ["-l"+lib for lib in shortLibs] + \
-					  ["-l:"+lib for lib in longLibs] + \
-					  ["-L"+path for path in self._getLibrarySearchDirectories()]
+					  ["-l:"+lib for lib in longLibs]
 				returncode, out, err = commands.Run(cmd, None, None)
 				if returncode != 0:
 					lines = err.splitlines()
