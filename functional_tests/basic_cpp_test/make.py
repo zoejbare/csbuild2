@@ -58,7 +58,9 @@ with csbuild.Project("hello_world", "hello_world"):
 		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("static/{userData.libraryName}.a"))
 		csbuild.Platform("Windows").AddLibraries(os.path.abspath("static/{userData.libraryName}.lib"))
 
-	csbuild.Platform("Linux").AddLibraries("pthread", "libdl.so", "libc.so.6")
+	csbuild.Platform("Darwin", "Linux").AddLibraries("pthread")
+	csbuild.Platform("Darwin").AddLibraries("libdl.dylib", "libc++.1.dylib")
+	csbuild.Platform("Linux").AddLibraries("libdl.so", "libc.so.6")
 	csbuild.Platform("Windows").AddLibraries("winmm", "DbgHelp.lib")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 

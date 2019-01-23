@@ -31,6 +31,7 @@ import os
 import csbuild
 
 from .linker_base import LinkerBase
+from ..common import FindLibraries
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel
 from ... import log
@@ -105,53 +106,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def _findLibraries(self, project, libs):
-		notFound = set()
-		found = {}
 		allLibraryDirectories = [x for x in self._libraryDirectories] + self.vcvarsall.libPaths
 
-		def _searchForLib(libraryName, libraryDir, libExt):
-			# Add the extension if it's not already there.
-			filename = "{}{}".format(libraryName, libExt) if not libraryName.endswith(libExt) else libraryName
-
-			# Try searching for the library name as it is.
-			log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
-			fullPath = os.path.join(libraryDir, filename)
-
-			# Check if the file exists at the current path.
-			if os.access(fullPath, os.F_OK):
-				return fullPath
-
-			# If the library couldn't be found, simulate posix by adding the "lib" prefix.
-			filename = "lib{}".format(filename)
-
-			log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
-			fullPath = os.path.join(libraryDir, filename)
-
-			# Check if the modified filename exists at the current path.
-			if os.access(fullPath, os.F_OK):
-				return fullPath
-
-			return None
-
-		for libraryName in libs:
-			if os.access(libraryName, os.F_OK):
-				abspath = os.path.abspath(libraryName)
-				log.Info("... found {}".format(abspath))
-				found[libraryName] = abspath
-			else:
-				for libraryDir in allLibraryDirectories:
-					# Search for the library as a ".lib" file.
-					fullPath = _searchForLib(libraryName, libraryDir, ".lib")
-					if fullPath:
-						log.Info("... found {}".format(fullPath))
-						found[libraryName] = fullPath
-
-				if libraryName not in found:
-					# Failed to find the library in any of the provided directories.
-					log.Error("Failed to find library \"{}\".".format(libraryName))
-					notFound.add(libraryName)
-
-		return None if notFound else found
+		return FindLibraries([x for x in libs], allLibraryDirectories, [".lib"])
 
 	def _getOutputExtension(self, projectType):
 		# These are extensions of the files that can be output from the linker or librarian.

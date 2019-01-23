@@ -32,6 +32,7 @@ import os
 
 from .gcc_linker import GccLinker
 
+from ..common import FindLibraries
 from ..common.sony_tool_base import Ps4BaseTool, SonyBaseTool
 
 def _ignore(_):
@@ -80,7 +81,7 @@ class Ps4Linker(Ps4BaseTool, GccLinker):
 		targetLibPath = os.path.join(self._ps4SdkPath, "target", "lib")
 		allLibraryDirectories = [x for x in self._libraryDirectories] + [targetLibPath]
 
-		return SonyBaseTool._commonFindLibraries(allLibraryDirectories, libs)
+		return FindLibraries([x for x in libs], allLibraryDirectories, [".prx", ".a"])
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {

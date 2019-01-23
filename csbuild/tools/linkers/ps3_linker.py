@@ -32,6 +32,7 @@ import os
 
 from .linker_base import LinkerBase, LibraryError
 
+from ..common import FindLibraries
 from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType, SonyBaseTool
 
 from ... import log
@@ -160,7 +161,7 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 	def _findLibraries(self, project, libs):
 		allLibraryDirectories = [x for x in self._libraryDirectories] + self._ps3SystemLibPaths
 
-		return SonyBaseTool._commonFindLibraries(allLibraryDirectories, libs)
+		return FindLibraries([x for x in libs], allLibraryDirectories, [".sprx", ".prx", ".a"])
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {

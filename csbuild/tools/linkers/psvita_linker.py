@@ -32,6 +32,7 @@ import os
 
 from .linker_base import LinkerBase
 
+from ..common import FindLibraries
 from ..common.sony_tool_base import PsVitaBaseTool, SonyBaseTool
 
 from ... import log
@@ -119,7 +120,7 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 		targetLibPath = os.path.join(self._psVitaSdkPath, "target", "lib")
 		allLibraryDirectories = [x for x in self._libraryDirectories] + [targetLibPath]
 
-		return SonyBaseTool._commonFindLibraries(allLibraryDirectories, libs)
+		return FindLibraries([x for x in libs], allLibraryDirectories, [".suprx", ".a"])
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {

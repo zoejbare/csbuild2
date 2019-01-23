@@ -32,6 +32,7 @@ import os
 
 from .clang_linker import ClangLinker
 
+from ..common import FindLibraries
 from ..common.apple_tool_base import MacOsToolBase
 
 class MacOsClangLinker(MacOsToolBase, ClangLinker):
@@ -55,6 +56,15 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 		MacOsToolBase.SetupForProject(self, project)
 		ClangLinker.SetupForProject(self, project)
 
+	def _findLibraries(self, project, libs):
+		sysLibDirs = [
+			"/usr/local/lib",
+			"/usr/lib",
+		]
+		allLibraryDirectories = [x for x in self._libraryDirectories] + sysLibDirs
+
+		return FindLibraries([x for x in libs], allLibraryDirectories, [".dylib", ".so", ".a"])
+
 	def _getDefaultArgs(self, project):
 		baseArgs = ClangLinker._getDefaultArgs(self, project)
 
@@ -68,6 +78,7 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 		]
 
 	def _getRpathArgs(self):
+		# TODO: We should make the default rpath configurable between @executable_path, @loader_path, and @rpath.
 		args = [
 			"-Xlinker", "-rpath",
 			"-Xlinker", "@executable_path",

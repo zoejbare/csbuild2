@@ -120,62 +120,6 @@ class SonyBaseTool(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-	@staticmethod
-	def _commonFindLibraries(libDirs, libs):
-		notFound = set()
-		found = {}
-
-		def _searchForLib(libName, libDir, libExt):
-			# Add the extension if it's not already there.
-			filename = "{}{}".format(libName, libExt) if not libName.endswith(libExt) else libName
-
-			# Try searching for the library name as it is.
-			log.Info("Looking for library {} in directory {}...".format(filename, libDir))
-			fullPath = os.path.join(libDir, filename)
-
-			# Check if the file exists at the current path.
-			if os.access(fullPath, os.F_OK):
-				return fullPath
-
-			# If the library couldn't be found, simulate posix by adding the "lib" prefix.
-			filename = "lib{}".format(filename)
-
-			log.Info("Looking for library {} in directory {}...".format(filename, libDir))
-			fullPath = os.path.join(libDir, filename)
-
-			# Check if the modified filename exists at the current path.
-			if os.access(fullPath, os.F_OK):
-				return fullPath
-
-			return None
-
-		for libraryName in libs:
-			if os.access(libraryName, os.F_OK):
-				abspath = os.path.abspath(libraryName)
-				log.Info("... found {}".format(abspath))
-				found[libraryName] = abspath
-			else:
-				for libraryDir in libDirs:
-					# Search for the library as a ".prx" dynamic library file.
-					fullPath = _searchForLib(libraryName, libraryDir, ".prx")
-					if fullPath:
-						log.Info("... found {}".format(fullPath))
-						found[libraryName] = fullPath
-
-					else:
-						# As a fallback, search for the library as a ".a" static archive file.
-						fullPath = _searchForLib(libraryName, libraryDir, ".a")
-						if fullPath:
-							log.Info("... found {}".format(fullPath))
-							found[libraryName] = fullPath
-
-				if libraryName not in found:
-					# Failed to find the library in any of the provided directories.
-					log.Error("Failed to find library \"{}\".".format(libraryName))
-					notFound.add(libraryName)
-
-		return None if notFound else found
-
 
 @MetaClass(ABCMeta)
 class Ps3BaseTool(SonyBaseTool):
