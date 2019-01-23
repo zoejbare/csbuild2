@@ -159,7 +159,7 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 		)
 
 		_, extension = os.path.splitext(inputFile.filename)
-		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile, extension in {".cpp", ".cc", ".cxx"}), env=self._getEnv(inputProject))
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile, extension in {".cpp", ".cc", ".cxx", ".mm"}), env=self._getEnv(inputProject))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFile)
 		return self._getOutputFiles(inputProject, inputFile)
