@@ -89,11 +89,21 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 		csbuild.currentPlan.ExtendList("globalFlags", flags)
 
 	@staticmethod
+	def AddCompilerCcFlags(*flags):
+		"""
+		Add compiler C flags.
+
+		:param flags: List of C flags
+		:type flags: str
+		"""
+		csbuild.currentPlan.ExtendList("cFlags", flags)
+
+	@staticmethod
 	def AddCompilerCxxFlags(*flags):
 		"""
-		Add compiler cxx flags.
+		Add compiler C++ flags.
 
-		:param flags: List of cxx flags
+		:param flags: List of C++ flags
 		:type flags: str
 		"""
 		csbuild.currentPlan.ExtendList("cxxFlags", flags)
