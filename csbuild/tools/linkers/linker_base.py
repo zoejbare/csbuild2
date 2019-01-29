@@ -100,17 +100,14 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 			if self._actualLibraryLocations is None:
 				raise LibraryError(project)
 
-		self._actualLibraryLocations.update(
-			{
-				dependProject.outputName : os.path.join(
-					dependProject.outputDir,
-					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
-				)
-				for dependProject in project.dependencies
-					if dependProject.projectType != csbuild.ProjectType.Application
-			}
-		)
-
+		for dependProject in project.dependencies:
+			outputExt = self._getOutputExtension(dependProject.projectType)
+			if outputExt is not None:
+				self._actualLibraryLocations[dependProject.outputName] = \
+					os.path.join(
+						dependProject.outputDir,
+						"{}{}".format(dependProject.outputName, outputExt)
+					)
 
 	################################################################################
 	### Static makefile methods

@@ -33,7 +33,7 @@ import os
 from .linker_base import LinkerBase, LibraryError
 
 from ..common import FindLibraries
-from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType, SonyBaseTool
+from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType
 
 from ... import log
 from ..._build.input_file import InputFile
@@ -167,13 +167,16 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 		outputExt = {
 			Ps3ProjectType.PpuSncApplication: ".self",
 			Ps3ProjectType.PpuSncSharedLibrary: ".sprx",
+			Ps3ProjectType.PpuSncStaticLibrary: ".a",
 
 			Ps3ProjectType.PpuGccApplication: ".self",
 			Ps3ProjectType.PpuGccSharedLibrary: ".prx",
+			Ps3ProjectType.PpuGccStaticLibrary: ".a",
 
 			Ps3ProjectType.SpuApplication: ".spu_elf",
 			Ps3ProjectType.SpuSharedLibrary: ".spu_so",
-		}.get(projectType, ".a")
+			Ps3ProjectType.SpuStaticLibrary: ".a",
+		}.get(projectType, None)
 
 		return outputExt
 

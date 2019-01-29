@@ -198,9 +198,10 @@ class GccLinker(LinkerBase):
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {
+			csbuild.ProjectType.Application: "",
 			csbuild.ProjectType.SharedLibrary: ".so",
 			csbuild.ProjectType.StaticLibrary: ".a",
-		}.get(projectType, "")
+		}.get(projectType, None)
 
 		return outputExt
 

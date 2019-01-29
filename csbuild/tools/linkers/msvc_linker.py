@@ -64,9 +64,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def _getOutputFiles(self, project):
 		outputPath = os.path.join(project.outputDir, project.outputName)
 		outputFiles = {
+			csbuild.ProjectType.Application: ["{}.exe".format(outputPath)],
 			csbuild.ProjectType.StaticLibrary: ["{}.lib".format(outputPath)],
 			csbuild.ProjectType.SharedLibrary: ["{}.lib".format(outputPath), "{}.dll".format(outputPath)],
-			csbuild.ProjectType.Application: ["{}.exe".format(outputPath)],
 		}[project.projectType]
 
 		# Output files when not building a static library.
@@ -114,10 +114,11 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		# These are extensions of the files that can be output from the linker or librarian.
 		# The library extensions should represent the file types that can actually linked against.
 		ext = {
+			csbuild.ProjectType.Application: ".exe",
 			csbuild.ProjectType.SharedLibrary: ".lib",
 			csbuild.ProjectType.StaticLibrary: ".lib",
 		}
-		return ext.get(projectType, ".exe")
+		return ext.get(projectType, None)
 
 	def SetupForProject(self, project):
 		MsvcToolBase.SetupForProject(self, project)

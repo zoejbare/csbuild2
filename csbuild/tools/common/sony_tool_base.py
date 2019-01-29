@@ -47,18 +47,21 @@ class Ps3ProjectType(object):
 	Replacement of the base ProjectType enum values specifically for PS3 projects.
 	The original ProjectType values still work, but they will map directly to the
 	PPU SNC output types.
+
+	Note the overlapping types must be set manually since `ProjectType` cannot
+	be imported into this module.
 	"""
-	PpuSncApplication = 0 # Identical to `csbuild.ProjectType.Application`.
-	PpuSncSharedLibrary = 1 # Identical to `csbuild.ProjectType.SharedLibrary`.
-	PpuSncStaticLibrary = 2 # Identical to `csbuild.ProjectType.StaticLibrary`.
+	PpuSncApplication = 1 # Identical to `csbuild.ProjectType.Application`.
+	PpuSncSharedLibrary = 2 # Identical to `csbuild.ProjectType.SharedLibrary`.
+	PpuSncStaticLibrary = 3 # Identical to `csbuild.ProjectType.StaticLibrary`.
 
-	PpuGccApplication = 3
-	PpuGccSharedLibrary = 4
-	PpuGccStaticLibrary = 5
+	PpuGccApplication = PpuSncApplication + 3
+	PpuGccSharedLibrary = PpuSncSharedLibrary + 3
+	PpuGccStaticLibrary = PpuSncStaticLibrary + 3
 
-	SpuApplication = 6
-	SpuSharedLibrary = 7
-	SpuStaticLibrary = 8
+	SpuApplication = PpuGccApplication + 3
+	SpuSharedLibrary = PpuGccSharedLibrary + 3
+	SpuStaticLibrary = PpuGccStaticLibrary + 3
 
 
 @MetaClass(ABCMeta)

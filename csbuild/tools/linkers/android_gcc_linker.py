@@ -60,8 +60,10 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 	def _getOutputExtension(self, projectType):
 		# Android doesn't have a native application type.  Applications are linked as shared libraries.
 		outputExt = {
+			csbuild.ProjectType.Application: ".so",
+			csbuild.ProjectType.SharedLibrary: ".so",
 			csbuild.ProjectType.StaticLibrary: ".a",
-		}.get(projectType, ".so")
+		}.get(projectType, None)
 
 		return outputExt
 

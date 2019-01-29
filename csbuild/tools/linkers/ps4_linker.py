@@ -33,7 +33,7 @@ import os
 from .gcc_linker import GccLinker
 
 from ..common import FindLibraries
-from ..common.sony_tool_base import Ps4BaseTool, SonyBaseTool
+from ..common.sony_tool_base import Ps4BaseTool
 
 def _ignore(_):
 	pass
@@ -85,9 +85,10 @@ class Ps4Linker(Ps4BaseTool, GccLinker):
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {
+			csbuild.ProjectType.Application: ".elf",
 			csbuild.ProjectType.SharedLibrary: ".prx",
 			csbuild.ProjectType.StaticLibrary: ".a",
-		}.get(projectType, ".elf")
+		}.get(projectType, None)
 
 		return outputExt
 

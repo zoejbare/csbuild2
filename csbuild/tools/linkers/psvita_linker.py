@@ -33,7 +33,7 @@ import os
 from .linker_base import LinkerBase
 
 from ..common import FindLibraries
-from ..common.sony_tool_base import PsVitaBaseTool, SonyBaseTool
+from ..common.sony_tool_base import PsVitaBaseTool
 
 from ... import log
 from ..._utils import ordered_set, response_file, shared_globals
@@ -124,9 +124,10 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {
+			csbuild.ProjectType.Application: ".self",
 			csbuild.ProjectType.SharedLibrary: ".suprx",
 			csbuild.ProjectType.StaticLibrary: ".a",
-		}.get(projectType, ".self")
+		}.get(projectType, None)
 
 		return outputExt
 

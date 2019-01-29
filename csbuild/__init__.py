@@ -193,9 +193,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		'enum' representing the available project types.
 		"""
-		Application = 0
-		SharedLibrary = 1
-		StaticLibrary = 2
+		Stub = 0
+		Application = 1
+		SharedLibrary = 2
+		StaticLibrary = 3
 
 	class ScopeDef(object):
 		"""
