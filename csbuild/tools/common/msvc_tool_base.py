@@ -199,22 +199,8 @@ class _InstallDataPost2017(_BaseInstallData):
 		# Load the install data from json.
 		foundInstallations = json.loads(output)
 
+		installDataMap = {}
 		installDataList = []
-
-		### BEGIN HACK
-		# The Visual Studio 2019 preview installation currently cannot be found via vswhere.exe (or presumably anything else),
-		# so for now, we'll hack support in by checking an assumed install path and manually filling in its data.  Once vswhere
-		# is capable of finding it, we'll remove this.
-		vs2019PreviewPath = os.path.join(progFilesX86Path, "Microsoft Visual Studio", "2019", "Preview")
-		if os.access(vs2019PreviewPath, os.F_OK):
-			installDataList.append(
-				_InstallDataPost2017(
-					"16",
-					"Visual Studio Enterprise 2019 Preview",
-					vs2019PreviewPath
-				)
-			)
-		### END HACK
 
 		# Parse the install information.
 		for install in foundInstallations:
@@ -222,7 +208,17 @@ class _InstallDataPost2017(_BaseInstallData):
 			displayName = install["displayName"]
 			path = install["installationPath"]
 
-			installDataList.append(_InstallDataPost2017(version, displayName, path))
+			if version not in installDataMap:
+				installDataMap.update({ version: [] })
+
+			installDataMap[version].append(_InstallDataPost2017(version, displayName, path))
+
+		# Sort the versions by latest to oldest.
+		sortedKeys = reversed(sorted(installDataMap.keys()))
+
+		for versionKey in sortedKeys:
+			installsForVersion = installDataMap[versionKey]
+			installDataList.extend(installsForVersion)
 
 		return installDataList
 
