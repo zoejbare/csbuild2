@@ -97,8 +97,18 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
 		platformToolsetXmlNode.text = self.vsInstallInfo.toolsetVersion
 
-		configTypeNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
-		configTypeNode.text = "Makefile"
+		configTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
+		configTypeXmlNode.text = "Makefile"
+
+		generator = project.platformGenerator.get(buildSpec, None)
+		vcData = generator.vcvarsall if generator else None
+		winSdkVersion = vcData.winSdkVersion if vcData else None
+
+		# The Windows SDK version is useful so Intellisense knows where to look up headers and symbols when
+		# doing any Windows development.
+		if winSdkVersion:
+			sdkVersionXmlNode = self._addXmlNode(propertyGroupXmlNode, "WindowsTargetPlatformVersion")
+			sdkVersionXmlNode.text = winSdkVersion
 
 	def WriteUserDebugPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""

@@ -35,6 +35,7 @@ from csbuild._utils.decorators import TypeChecked
 
 from csbuild.toolchain import SolutionGenerator
 
+from csbuild.tools.common.msvc_tool_base import MsvcToolBase
 from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories
 
 
@@ -70,7 +71,7 @@ def SetEnableFileTypeFolders(enable):
 		internal.ENABLE_FILE_TYPE_FOLDERS = enable
 
 
-class VsProjectGenerator(HasDefines, HasIncludeDirectories):
+class VsProjectGenerator(MsvcToolBase, HasDefines, HasIncludeDirectories):
 	"""
 	Visual Studio project generator
 
@@ -81,6 +82,7 @@ class VsProjectGenerator(HasDefines, HasIncludeDirectories):
 	outputFiles = { ".proj" }
 
 	def __init__(self, projectSettings):
+		MsvcToolBase.__init__(self, projectSettings)
 		HasDefines.__init__(self, projectSettings)
 		HasIncludeDirectories.__init__(self, projectSettings)
 
@@ -89,8 +91,16 @@ class VsProjectGenerator(HasDefines, HasIncludeDirectories):
 		self._groupSegments = []
 
 	def SetupForProject(self, project):
-		# No setup necessary.
-		pass
+		try:
+			MsvcToolBase.SetupForProject(self, project)
+		except:
+			# Do nothing on failure. This likely means something went wrong with trying to find
+			# an installation of Visual Studio. Nothing is completely dependent on this, so it's
+			# ok if it fails.
+			pass
+
+		HasDefines.SetupForProject(self, project)
+		HasIncludeDirectories.SetupForProject(self, project)
 
 	def RunGroup(self, inputProject, inputFiles):
 		self._projectData = inputProject

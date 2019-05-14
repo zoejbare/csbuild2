@@ -325,6 +325,7 @@ class VsProject(object):
 		self.children = {}
 		self.items = { makeFileItem.name: makeFileItem }
 		self.supportedBuildSpecs = set()
+		self.platformGenerator = {}
 		self.platformOutputType = {}
 		self.platformOutputName = {}
 		self.platformOutputDirPath = {}
@@ -375,6 +376,7 @@ class VsProject(object):
 
 			# Merge the data from the generator.
 			if generator:
+				self.platformGenerator[buildSpec] = generator
 				self.platformIncludePaths[buildSpec].extend([x for x in generator.includeDirectories])
 				self.platformDefines[buildSpec].extend([x for x in generator.defines])
 

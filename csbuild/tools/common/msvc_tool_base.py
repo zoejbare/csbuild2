@@ -543,7 +543,7 @@ class MsvcToolBase(Tool):
 				if vcvarsall:
 					self._selectedInstall = installData
 					log.Build(
-						"Selected {}{}".format(
+						"Building for {}{}".format(
 							self._selectedInstall.displayName,
 							" using Windows SDK {}".format(vcvarsall.winSdkVersion) if vcvarsall.winSdkVersion else ""
 						)
