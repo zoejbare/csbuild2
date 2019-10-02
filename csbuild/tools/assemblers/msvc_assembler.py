@@ -41,14 +41,14 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 	inputFiles={".asm"}
 	outputFiles = {".obj"}
 
+	def __init__(self, projectSettings):
+		MsvcToolBase.__init__(self, projectSettings)
+		AssemblerBase.__init__(self, projectSettings)
+
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
-
-	def __init__(self, projectSettings):
-		MsvcToolBase.__init__(self, projectSettings)
-		AssemblerBase.__init__(self, projectSettings)
 
 	def _getEnv(self, project):
 		return self.vcvarsall.env

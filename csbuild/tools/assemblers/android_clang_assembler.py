@@ -35,6 +35,9 @@ class AndroidClangAssembler(AndroidGccAssembler):
 	"""
 	Android clang assembler implementation
 	"""
+	def __init__(self, projectSettings):
+		AndroidGccAssembler.__init__(self, projectSettings)
+
 
 	####################################################################################################################
 	### Methods implemented from base classes

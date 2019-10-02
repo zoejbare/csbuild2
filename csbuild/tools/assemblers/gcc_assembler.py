@@ -42,6 +42,9 @@ class GccAssembler(AssemblerBase):
 	inputFiles={".s", ".S"}
 	outputFiles = {".o"}
 
+	def __init__(self, projectSettings):
+		AssemblerBase.__init__(self, projectSettings)
+
 
 	####################################################################################################################
 	### Methods implemented from base classes

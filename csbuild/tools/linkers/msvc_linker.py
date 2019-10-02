@@ -45,7 +45,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	"""
 	supportedPlatforms = {"Windows"}
 	supportedArchitectures = {"x86", "x64", "arm"}
-	inputGroups = {".obj"}
+	inputGroups = {".obj", ".o"}
 	outputFiles = {".exe", ".lib", ".dll"}
 	crossProjectDependencies = {".lib"}
 

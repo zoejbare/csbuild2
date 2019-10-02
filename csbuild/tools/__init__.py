@@ -148,7 +148,7 @@ def InitTools():
 	# Register toolchain groups.
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
 	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")
-	csbuild.RegisterToolchainGroup("sony", "ps4", "psvita")
+	csbuild.RegisterToolchainGroup("sony", "ps3", "ps4", "psvita")
 
 	# Register default project generators.
 	csbuild.RegisterProjectGenerator("visual-studio-2010", [VsProjectGenerator], VsSolutionGenerator2010)
