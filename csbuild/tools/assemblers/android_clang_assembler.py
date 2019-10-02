@@ -22,7 +22,7 @@
 .. module:: android_clang_assembler
 	:synopsis: Android clang assembler tool
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

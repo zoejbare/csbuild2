@@ -22,7 +22,7 @@
 .. module:: android_clang_linker
 	:synopsis: Android clang linker tool.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

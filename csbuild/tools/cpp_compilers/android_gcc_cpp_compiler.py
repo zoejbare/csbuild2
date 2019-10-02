@@ -22,7 +22,7 @@
 .. module:: android_gcc_cpp_compiler
 	:synopsis: Android GCC compiler tool for C++.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

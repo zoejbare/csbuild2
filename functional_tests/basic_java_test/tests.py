@@ -22,7 +22,7 @@
 .. module:: tests
 	:synopsis: Basic test of Java tools
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

@@ -22,7 +22,7 @@
 .. module:: tests
 	:synopsis: Test that files can be executed immediately after being built
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

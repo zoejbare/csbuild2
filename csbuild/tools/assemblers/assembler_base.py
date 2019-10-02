@@ -22,7 +22,7 @@
 .. module:: assembler_base
 	:synopsis: Base class for assemblers
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

@@ -22,7 +22,7 @@
 .. package:: java_compilers
 	:synopsis: Built-in Java compilers.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

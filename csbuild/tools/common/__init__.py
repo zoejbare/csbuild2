@@ -22,7 +22,7 @@
 .. package:: common
 	:synopsis: Abstract tools that can be shared between other tools.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 # Required to keep lint happy.

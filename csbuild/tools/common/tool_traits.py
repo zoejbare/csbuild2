@@ -22,7 +22,7 @@
 .. module:: tool_traits
 	:synopsis: Optional add-ins for tools.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
