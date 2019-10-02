@@ -22,7 +22,7 @@
 .. module:: msvc_tool_base
 	:synopsis: Abstract base class for msvc tools.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

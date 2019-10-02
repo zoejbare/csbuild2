@@ -22,7 +22,7 @@
 .. module:: tests
 	:synopsis: Tests for explicitly adding and excluding source files from a project.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

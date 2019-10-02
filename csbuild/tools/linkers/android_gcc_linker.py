@@ -22,7 +22,7 @@
 .. module:: android_gcc_linker
 	:synopsis: Android gcc linker tool.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

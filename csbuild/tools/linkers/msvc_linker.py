@@ -22,7 +22,7 @@
 .. module:: msvc_linker
 	:synopsis: msvc linker tool for C++, d, asm, etc
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

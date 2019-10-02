@@ -22,7 +22,7 @@
 .. module:: java_compiler_base
 	:synopsis: Base class for Java compilers.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

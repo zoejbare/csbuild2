@@ -22,7 +22,7 @@
 .. module:: clang_cpp_compiler
 	:synopsis: Clang compiler tool for C++.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

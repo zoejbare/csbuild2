@@ -22,7 +22,7 @@
 .. package:: csbuild
 	:synopsis: cross-platform c/c++ build system
 
-.. moduleauthor:: Jaedyn K. Draper, Brandon M. Bare
+.. moduleauthor:: Jaedyn K. Draper, Zoe J. Bare
 .. attention:: To support CSBuild's operation, Python's import lock is DISABLED once CSBuild has started.
 This should not be a problem for most makefiles, but if you do any threading within your makefile, take note:
 anything that's imported and used by those threads should always be implemented on the main thread before that
@@ -57,9 +57,9 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 	from ._utils import shared_globals
 
-	__author__ = "Jaedyn K. Draper, Brandon M. Bare"
+	__author__ = "Jaedyn K. Draper, Zoe J. Bare"
 	__copyright__ = 'Copyright (C) 2012-2014 Jaedyn K. Draper'
-	__credits__ = ["Jaedyn K. Draper", "Brandon M. Bare", "Jeff Grills", "Randy Culley"]
+	__credits__ = ["Jaedyn K. Draper", "Zoe J. Bare", "Jeff Grills", "Randy Culley"]
 	__license__ = 'MIT'
 
 	__maintainer__ = "Jaedyn K. Draper"

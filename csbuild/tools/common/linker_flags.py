@@ -22,7 +22,7 @@
 .. module:: linker_flags
 	:synopsis: Abstract base class for tools requiring linker flags.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 # Required to keep lint happy.

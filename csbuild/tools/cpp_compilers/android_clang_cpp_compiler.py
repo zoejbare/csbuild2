@@ -22,7 +22,7 @@
 .. module:: android_clang_cpp_compiler
 	:synopsis: Android clang compiler tool for C++.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
