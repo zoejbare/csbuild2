@@ -22,7 +22,7 @@
 .. package:: visual_studio
 	:synopsis: Visual Studio project generators
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

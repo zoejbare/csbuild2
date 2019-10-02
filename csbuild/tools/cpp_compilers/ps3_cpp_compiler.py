@@ -22,7 +22,7 @@
 .. module:: ps3_cpp_compiler
 	:synopsis: Implementation of the PS3 C/C++ compiler tool.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

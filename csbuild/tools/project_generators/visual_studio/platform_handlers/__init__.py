@@ -22,7 +22,7 @@
 .. package:: platform_handlers
 	:synopsis: Built-in platform handlers for the Visual Studio project generator.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

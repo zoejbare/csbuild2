@@ -22,7 +22,7 @@
 .. module:: tests
 	:synopsis: Test build of a C++ project with recursive includes.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

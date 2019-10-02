@@ -22,7 +22,7 @@
 .. module:: sony_tool_base
 	:synopsis: Base tools for all Sony tool implementations.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

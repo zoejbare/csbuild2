@@ -22,7 +22,7 @@
 .. module:: ps4
 	:synopsis: Built-in Visual Studio platform handler for outputing PS4 project files.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

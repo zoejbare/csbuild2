@@ -22,7 +22,7 @@
 .. module:: windows
 	:synopsis: Built-in Visual Studio platform handlers for outputing Windows-compatible project files.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

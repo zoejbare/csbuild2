@@ -22,7 +22,7 @@
 .. module:: psvita_cpp_compiler
 	:synopsis: Implementation of the PSVita C/C++ compiler tool.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

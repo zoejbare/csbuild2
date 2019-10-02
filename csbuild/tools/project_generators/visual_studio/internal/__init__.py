@@ -22,7 +22,7 @@
 .. package:: internal
 	:synopsis: Internal functionality for the Visual Studio solution generator.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
