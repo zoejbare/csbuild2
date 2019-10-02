@@ -22,7 +22,7 @@
 .. module:: clang_assembler
 	:synopsis: Clang assembler tool
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

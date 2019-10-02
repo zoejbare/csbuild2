@@ -22,7 +22,7 @@
 .. module:: java_tool_base
 	:synopsis: Abstract base class for Java tools.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

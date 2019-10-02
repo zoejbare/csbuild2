@@ -22,7 +22,7 @@
 .. module:: apple_tool_base
 	:synopsis: Abstract base class for macOS tools.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

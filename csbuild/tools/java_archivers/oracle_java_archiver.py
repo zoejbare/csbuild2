@@ -22,7 +22,7 @@
 .. module:: oracle_java_archiver
 	:synopsis: Oracle-compatible Java archiver tool.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

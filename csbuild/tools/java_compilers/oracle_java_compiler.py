@@ -22,7 +22,7 @@
 .. module:: oracle_java_compiler
 	:synopsis: Oracle-compatible Java compiler tool.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

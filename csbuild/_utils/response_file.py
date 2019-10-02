@@ -22,7 +22,7 @@
 .. module:: response_file
 	:synopsis: Helper class for creating a tool response file.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

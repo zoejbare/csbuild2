@@ -22,7 +22,7 @@
 .. module:: mac_os_clang_linker
 	:synopsis: Clang linker tool for the macOS platform.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

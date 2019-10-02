@@ -22,7 +22,7 @@
 .. module:: make
 	:synopsis: Makefile for this test
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
