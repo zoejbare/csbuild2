@@ -1027,6 +1027,10 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 			if additionalOptions:
 				_addXmlNode(propertyGroupXmlNode, "AdditionalOptions").text = additionalOptions
 
+		else:
+			_addXmlNode(propertyGroupXmlNode, "OutDir").text = ".out"
+			_addXmlNode(propertyGroupXmlNode, "IntDir").text = ".int"
+
 		platformHandler.WriteExtraPropertyGroupBuildNodes(propertyGroupXmlNode, project, buildSpec, vsConfig)
 
 	_makeXmlCommentNode(rootXmlNode, "Import targets")
