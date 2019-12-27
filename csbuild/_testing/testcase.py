@@ -36,6 +36,22 @@ from xml.etree import ElementTree
 from xml.dom import minidom
 
 
+initialized = False
+
+
+def _init():
+	"""Initialize some test environment data"""
+	global initialized
+	if not initialized:
+		from .._utils import shared_globals, terminfo
+
+		initialized = True
+		shared_globals.startTime = time.time()
+
+		shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
+		shared_globals.showCommands = True
+
+
 class TestCase(unittest.TestCase):
 	"""
 	Thin wrapper around python unittest to provide more details on test progress
@@ -49,6 +65,7 @@ class TestCase(unittest.TestCase):
 	def __init__(self, methodName):
 		super(TestCase, self).__init__(methodName)
 		self.success = True
+		_init()
 
 	def run(self, result=None):
 		"""
@@ -225,9 +242,6 @@ class TestResult(unittest.TextTestResult):
 
 		# Python 3.5 changed from ModuleImportFailure to _FailedTest...
 		from .. import log
-		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
-			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
-				return
 
 		super(TestResult, self).addError(test, err)
 		log.Error(self.errors[-1][1])
@@ -238,9 +252,6 @@ class TestResult(unittest.TextTestResult):
 
 		# See comment in addError above
 		from .. import log
-		if test.__class__.__name__ == "_FailedTest" or test.__class__.__name__ == "ModuleImportFailure":
-			if (test._testMethodName.endswith("_py2") and sys.version_info[0] != 2) or (test._testMethodName.endswith("_py3") and sys.version_info[0] != 3):
-				return
 
 		super(TestResult, self).addFailure(test, err)
 		log.Error(self.failures[-1][1])

@@ -32,7 +32,7 @@ import threading
 
 import csbuild
 from .. import log, perf_timer
-from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString
+from .._utils import ordered_set, shared_globals, StrType, BytesType, PlatformString, PlatformUnicode
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._build import input_file
@@ -50,12 +50,15 @@ class UserData(object):
 	def __getattr__(self, item):
 		return object.__getattribute__(self, "dataDict")[item]
 
+	def __contains__(self, item):
+		return item in self.dataDict
+
 class Project(object):
 	"""
 	A finalized, concrete project
 
 	:param name: The project's name. Must be unique.
-	:type name: String
+	:type name: str
 	:param workingDirectory: The location on disk containing the project's files, which should be examined to collect source files.
 		If autoDiscoverSourceFiles is False, this parameter is ignored.
 	:type workingDirectory: String
@@ -104,7 +107,13 @@ class Project(object):
 			self.tools = projectSettings["tools"]
 			self.checkers = projectSettings.get("checkers", {})
 
-			self.toolchain = Toolchain(projectSettings, *self.tools, checkers=self.checkers)
+			if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+				tools = []
+				generatorTools = shared_globals.allGenerators[shared_globals.solutionGeneratorType].projectTools
+				for tool in self.tools:
+					if tool in generatorTools:
+						tools.append(tool)
+				self.tools = tools
 
 			self.userData = UserData(projectSettings.get("_userData", {}))
 
@@ -140,21 +149,23 @@ class Project(object):
 				self.settings = projectSettings
 				self.settings = _convertItem(projectSettings)
 
-			self.projectType = projectSettings.get("projectType", csbuild.ProjectType.Application)
+			self.toolchain = Toolchain(self.settings, *self.tools, checkers=self.checkers)
+
+			self.projectType = self.settings.get("projectType", csbuild.ProjectType.Application)
 
 			#: type: set[str]
-			self.extraDirs = projectSettings.get("extraDirs", set())
+			self.excludeFiles = self.settings.get("excludeFiles", set())
 			#: type: set[str]
-			self.excludeDirs = projectSettings.get("excludeDirs", set())
+			self.excludeDirs = self.settings.get("excludeDirs", set())
 			#: type: set[str]
-			self.excludeFiles = projectSettings.get("excludeFiles", set())
+			self.sourceFiles = self.settings.get("sourceFiles", set())
 			#: type: set[str]
-			self.sourceFiles = projectSettings.get("sourceFiles", set())
+			self.sourceDirs = self.settings.get("sourceDirs", set())
 
 			#: type: str
 			self.intermediateDir = os.path.join(
 				self.scriptDir,
-				projectSettings.get(
+				self.settings.get(
 					"intermediateDir",
 					os.path.join(
 						"intermediate",
@@ -165,10 +176,11 @@ class Project(object):
 					)
 				)
 			)
+
 			#: type: str
 			self.outputDir = os.path.join(
 				self.scriptDir,
-				projectSettings.get(
+				self.settings.get(
 					"outputDir",
 					os.path.join(
 						"out",
@@ -178,6 +190,7 @@ class Project(object):
 					)
 				)
 			)
+
 			#: type: str
 			self.csbuildDir = os.path.join(self.scriptDir, ".csbuild")
 
@@ -188,14 +201,14 @@ class Project(object):
 
 			self.artifacts = collections.OrderedDict()
 
-			self.outputName = projectSettings.get("outputName", self.name)
+			self.outputName = self.settings.get("outputName", self.name)
 
 			if not os.access(self.intermediateDir, os.F_OK):
 				os.makedirs(self.intermediateDir)
 			if not os.access(self.outputDir, os.F_OK):
 				os.makedirs(self.outputDir)
 
-			#: type: dict[str, ordered_set.OrderedSet]
+			#: type: dict[str, set[csbuild._build.input_file.InputFile]]
 			self.inputFiles = {}
 
 			self.RediscoverFiles()
@@ -235,7 +248,6 @@ class Project(object):
 					toolchainName=self.toolchainName,
 					architectureName=self.architectureName,
 					targetName=self.targetName,
-					toolchain=self.toolchain,
 					userData=self.userData,
 					**self.settings
 				)
@@ -258,11 +270,16 @@ class Project(object):
 		:param artifact: absolute path to the file
 		:type artifact: str
 		"""
+		if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+			if artifact not in self.artifacts.get(inputs, {}):
+				self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
+			return
+
 		if inputs is not None:
 			if isinstance(inputs, input_file.InputFile):
 				inputs = [inputs]
 			inputs = tuple(sorted(i.filename for i in inputs))
-		if artifact not in self.artifacts:
+		if artifact not in self.artifacts.get(inputs, {}):
 			self.artifacts.setdefault(inputs, ordered_set.OrderedSet()).add(artifact)
 			shared_globals.settings.Save(repr(self)+".artifacts", self.artifacts)
 
@@ -305,7 +322,7 @@ class Project(object):
 				# If the directory still does not exist, create it.
 				if not os.access(directory, os.F_OK):
 					os.makedirs(directory)
-		return directory
+		return PlatformUnicode(directory)
 
 	def RediscoverFiles(self):
 		"""
@@ -316,15 +333,25 @@ class Project(object):
 		Note that even if autoDiscoverSourceFiles is disabled, this must be called again in order to update the source
 		file list after a preBuildStep.
 		"""
-		with perf_timer.PerfTimer("File discovery"):
-			log.Info("Discovering files for {}...", self)
-			self.inputFiles = {}
+		if self.projectType != csbuild.ProjectType.Stub:
+			with perf_timer.PerfTimer("File discovery"):
+				log.Info("Discovering files for {}...", self)
+				self.inputFiles = {}
 
-			if self.autoDiscoverSourceFiles:
+				searchDirectories = ordered_set.OrderedSet(self.sourceDirs)
+
+				if self.autoDiscoverSourceFiles:
+					searchDirectories |= ordered_set.OrderedSet([self.workingDirectory])
+
 				extensionList = self.toolchain.GetSearchExtensions()
 
+				excludeFiles = [
+					os.path.abspath(os.path.join(self.workingDirectory, filename))
+					for filename in self.excludeFiles
+				]
+
 				with perf_timer.PerfTimer("Walking working dir"):
-					for sourceDir in ordered_set.OrderedSet([self.workingDirectory]) | self.extraDirs:
+					for sourceDir in searchDirectories:
 						log.Build("Collecting files from {}", sourceDir)
 						for root, _, filenames in os.walk(sourceDir):
 							if not filenames:
@@ -359,11 +386,13 @@ class Project(object):
 												os.path.join(absroot, filename)
 											) for filename in filenames if os.path.splitext(filename)[1] == extension
 											and os.path.join(absroot, filename) not in self.lastRunArtifacts
+											and os.path.join(absroot, filename) not in excludeFiles
 										]
 									)
 
-			with perf_timer.PerfTimer("Processing source files"):
-				for filename in self.sourceFiles:
-					extension = os.path.splitext(filename)[1]
-					self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(input_file.InputFile(filename))
-			log.Info("Discovered {}", self.inputFiles)
+				with perf_timer.PerfTimer("Processing source files"):
+					for filename in self.sourceFiles:
+						extension = os.path.splitext(filename)[1]
+						self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(input_file.InputFile(filename))
+
+				log.Info("Discovered {}", self.inputFiles)

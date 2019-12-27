@@ -41,9 +41,33 @@ allTargets = set()
 allToolchains = set()
 allArchitectures = set()
 
+class GeneratorData(object):
+	"""Contains data for a solution generator"""
+	def __init__(self, projectTools, solutionTool):
+		self.projectTools = projectTools
+		self.solutionTool = solutionTool
+
+allGenerators = {}
+allGeneratorTools = set()
+
+solutionGeneratorType = ""
+
 runPerfReport = None
 
 toolchainGroups = {}
+
+solutionPath = ""
+solutionArgs = ""
+
+class RunMode(object):
+	"""
+	'enum' representing the way csbuild has been invoked
+	"""
+	Normal = 0
+	Help = 1
+	Version = 2
+	GenerateSolution = 3
+	QUALAP = 4
 
 runMode = None
 
@@ -78,6 +102,9 @@ startTime = 0
 
 totalBuilds = 0
 completedBuilds = 0
+
+buildStartedHooks = set()
+buildFinishedHooks = set()
 
 class InMemoryOnlySettings(object):
 	"""Mockup class for settings_manager.SettingsManager"""

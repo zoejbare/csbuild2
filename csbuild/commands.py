@@ -154,16 +154,20 @@ def Run(cmd, stdout=DefaultStdoutHandler, stderr=DefaultStderrHandler, **kwargs)
 				outlist.append(line)
 
 		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+
 		outputThread = threading.Thread(target=_streamOutput, args=(proc.stdout, output, stdout))
 		errorThread = threading.Thread(target=_streamOutput, args=(proc.stderr, errors, stderr))
 
 		outputThread.start()
 		errorThread.start()
 
-		proc.wait()
-
 		outputThread.join()
 		errorThread.join()
+
+		proc.wait()
+
+		proc.stdout.close()
+		proc.stderr.close()
 
 		if shared.queue is not None:
 			shared.queue.Put(stopEvent)

@@ -22,7 +22,7 @@
 .. module:: clang_linker
 	:synopsis: Clang linker tool.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
@@ -31,12 +31,16 @@ from .gcc_linker import GccLinker
 
 class ClangLinker(GccLinker):
 	"""
-	Clang compiler implementation
+	Clang linker implementation
 	"""
 
+	def __init__(self, projectSettings):
+		GccLinker.__init__(self, projectSettings)
+
+
 	####################################################################################################################
-	### Internal methods
+	### Methods implemented from base classes
 	####################################################################################################################
 
 	def _getBinaryLinkerName(self):
-		return "clang"
+		return "clang++"

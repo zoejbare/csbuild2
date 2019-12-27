@@ -22,7 +22,7 @@
 .. module:: clang_cpp_compiler
 	:synopsis: Clang compiler tool for C++.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
@@ -36,15 +36,41 @@ class ClangCppCompiler(GccCppCompiler):
 	Clang compiler implementation
 	"""
 
+	def __init__(self, projectSettings):
+		GccCppCompiler.__init__(self, projectSettings)
+
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
+	def _getComplierName(self, project, isCpp):
+		return "clang++" if isCpp else "clang"
+
+	def _getDefaultArgs(self, project):
+		args = ["-fPIC"] if project.projectType == csbuild.ProjectType.SharedLibrary else []
+		return args
+
+	def _getArchitectureArgs(self, project):
+		args = GccCppCompiler._getArchitectureArgs(self, project)
+		target = self._getArchTarget(project)
+
+		if target:
+			args.extend([
+				"-target", target,
+			])
+
+		return args
+
+
 	####################################################################################################################
 	### Internal methods
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
-		return "clang++" if isCpp else "clang"
-
-	def _getDefaultArgs(self, project):
-		args = []
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("-fPIC")
-		return args
+	def _getArchTarget(self, project):
+		# When necessary fill in the architecture name with something clang expects.
+		architecture = {
+			"x86": "i386",
+			"x64": "x86_64",
+		}.get(project.architectureName, project.architectureName)
+		return "{}-unknown-linux-unknown".format(architecture)

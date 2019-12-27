@@ -157,7 +157,7 @@ class Toolchain(object):
 					"""
 					global currentToolId
 					lastToolId = currentToolId
-					currentToolId = id(cls)
+					currentToolId = [id(x) for x in cls.mro()]
 					oldClass = _getLastClass()
 					_threadSafeClassTrackr.lastClass = cls
 					try:
@@ -220,7 +220,7 @@ class Toolchain(object):
 
 			# Collect a list of all the base classes
 			for cls in classes:
-				assert (cls.inputFiles is None or cls.inputFiles or cls.inputGroups), "Tool {} has no inputs set".format(cls.__name__)
+				assert (cls.inputFiles is None or cls.inputFiles or cls.inputGroups or cls.crossProjectInputGroups), "Tool {} has no inputs set".format(cls.__name__)
 				assert cls.outputFiles, "Tool {} has no outputs set".format(cls.__name__)
 				# mro() - "method resolution order", which happens to also be a list of all classes in the inheritance
 				# tree, including the class itself (but we only care about its base classes
@@ -340,34 +340,38 @@ class Toolchain(object):
 						:rtype: any
 						:raises KeyError: if the key is not present in the dictionary within the calling class's scope
 						"""
-						key = "{}!{}".format(currentToolId, item)
-						if key not in self._settingsDict:
-							raise KeyError(item)
-						return self._settingsDict[key]
+						for toolId in currentToolId:
+							key = "{}!{}".format(toolId, item)
+							if key in self._settingsDict:
+								return self._settingsDict[key]
+						raise KeyError(item)
 
 					def items(self):
 						"""
 						Iterate the key,value tuple pairs in the dictionary
 						"""
 						for key, value in self._settingsDict.items():
-							if key.startswith("{}!".format(currentToolId)):
-								yield key.split("!", 1)[1], value
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield key.split("!", 1)[1], value
 
 					def keys(self):
 						"""
 						Iterate the keys in the dictionary
 						"""
 						for key in self._settingsDict.keys():
-							if key.startswith("{}!".format(currentToolId)):
-								yield key.split("!", 1)[1]
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield key.split("!", 1)[1]
 
 					def __iter__(self):
 						"""
 						Iterate the keys in the dictionary
 						"""
 						for key in self._settingsDict.keys():
-							if key.startswith("{}!".format(currentToolId)):
-								yield key.split("!", 1)[1]
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield key.split("!", 1)[1]
 
 					def __contains__(self, item):
 						"""
@@ -377,8 +381,11 @@ class Toolchain(object):
 						:return: true if in, false otherwise
 						:rtype: bool
 						"""
-						key = "{}!{}".format(currentToolId, item)
-						return key in self._settingsDict
+						for toolId in currentToolId:
+							key = "{}!{}".format(toolId, item)
+							if key in self._settingsDict:
+								return True
+						return False
 
 					def get(self, item, default):
 						"""
@@ -390,18 +397,20 @@ class Toolchain(object):
 						:return: the value, or default
 						:rtype: any
 						"""
-						key = "{}!{}".format(currentToolId, item)
-						if key not in self._settingsDict:
-							return default
-						return self._settingsDict[key]
+						for toolId in currentToolId:
+							key = "{}!{}".format(toolId, item)
+							if key in self._settingsDict:
+								return self._settingsDict[key]
+						return default
 
 					def values(self):
 						"""
 						Iterate the values in the dictionary
 						"""
 						for key, value in self._settingsDict.items():
-							if key.startswith("{}!".format(currentToolId)):
-								yield value
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield value
 
 					def __len__(self):
 						"""
@@ -411,8 +420,10 @@ class Toolchain(object):
 						"""
 						length = 0
 						for key in self._settingsDict.keys():
-							if key.startswith("{}!".format(currentToolId)):
-								length += 1
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									length += 1
+									break
 						return length
 
 				class ToolchainTemplate(object):
@@ -774,6 +785,20 @@ class Toolchain(object):
 
 							lastClass = _getLastClass()
 							limit = _getLimit()
+							if len(limit) == 1 and shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+								cls = list(limit)[0]
+								if hasattr(cls, name):
+									sentinel = object()
+									val = sentinel
+									for cls2 in cls.mro():
+										if name in cls2.__dict__:
+											val = cls2.__dict__[name]
+											break
+									if not isinstance(val, (types.FunctionType, types.MethodType, property)):
+										for cls in _classTrackr.classes:
+											if cls in shared_globals.allGeneratorTools:
+												limit.add(cls)
+
 							if not lastClass and len(limit) == 1:
 								for dummy in limit:
 									with Use(dummy):
@@ -816,7 +841,7 @@ class Toolchain(object):
 									elif isinstance(val, (staticmethod, classmethod)):
 										# pylint: disable=no-member
 										return val.__get__(cls)
-									elif isinstance(val, types.FunctionType) or isinstance(types.MethodType):
+									elif isinstance(val, (types.FunctionType, types.MethodType)):
 										assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
 										return types.MethodType(val, self)
 									return val
@@ -838,6 +863,10 @@ class Toolchain(object):
 									# (so if there are two subclasses of a base that base's functions won't get called twice)
 									if limit:
 										classes = limit
+										if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+											for cls in _classTrackr.classes:
+												if cls in shared_globals.allGeneratorTools:
+													classes.add(cls)
 									else:
 										classes = _classTrackr.classes
 									for cls in classes:

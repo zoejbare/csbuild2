@@ -36,11 +36,8 @@ import imp
 import math
 import multiprocessing
 import time
-import encodings
-import importlib
-import pkgutil
 import threading
-import traceback
+import collections
 
 from . import recompile
 from . import project_plan, project, input_file
@@ -126,13 +123,28 @@ def _dependenciesMet(buildProject, tool):
 def _getGroupInputFiles(buildProject, tool):
 	with perf_timer.PerfTimer("Collecting group inputs"):
 		fileList = ordered_set.OrderedSet()
-		for inputFile in tool.inputGroups:
-			log.Info("Checking if all builds for {} are done yet", inputFile)
-			if buildProject.toolchain.IsOutputActive(inputFile):
-				log.Info("Extension {} is still active, can't build yet.", inputFile)
-				return None
-			log.Info("{} is ok to build.", inputFile)
-			fileList.update([x for x in buildProject.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)])
+		if tool.crossProjectInputGroups:
+			for inputFile in tool.crossProjectInputGroups:
+				log.Info("Checking if all cross-project builds for {} are done yet", inputFile)
+				if buildProject.toolchain.IsOutputActive(inputFile):
+					log.Info("Extension {} is still active, can't build yet.", inputFile)
+					return None
+				for dep in buildProject.dependencies:
+					if dep.toolchain.IsOutputActive(inputFile):
+						log.Info("Extension {} is still active in dependent project, can't build yet.", inputFile)
+						return None
+				log.Info("{} is ok to build.", inputFile)
+				fileList.update([x for x in buildProject.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)])
+				for dep in buildProject.dependencies:
+					fileList.update(dep.inputFiles.get(inputFile, []))
+		else:
+			for inputFile in tool.inputGroups:
+				log.Info("Checking if all builds for {} are done yet", inputFile)
+				if buildProject.toolchain.IsOutputActive(inputFile):
+					log.Info("Extension {} is still active, can't build yet.", inputFile)
+					return None
+				log.Info("{} is ok to build.", inputFile)
+				fileList.update([x for x in buildProject.inputFiles.get(inputFile, []) if not x.WasToolUsed(tool)])
 		return fileList
 
 def _checkDependenciesPreBuild(checkProject, tool, dependencies):
@@ -141,9 +153,9 @@ def _checkDependenciesPreBuild(checkProject, tool, dependencies):
 		for dependency in dependencies:
 			for checkTool in checkProject.toolchain.GetAllTools():
 				if checkTool.inputFiles is None:
-					extensionSet = checkTool.inputGroups
+					extensionSet = checkTool.inputGroups | checkTool.crossProjectInputGroups
 				else:
-					extensionSet = checkTool.inputFiles | checkTool.inputGroups
+					extensionSet = checkTool.inputFiles | checkTool.inputGroups | checkTool.crossProjectInputGroups
 				hasExtension = False
 				for dependentExtension in extensionSet:
 					if checkProject.inputFiles.get(dependentExtension):
@@ -164,17 +176,21 @@ def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, d
 					extension = os.path.splitext(inputFiles.filename)[1]
 					fileList = ordered_set.OrderedSet([inputFiles])
 
-				if not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
-					return tuple(buildProject.GetLastResult(inputFiles)), True
+				lastResult = buildProject.GetLastResult(inputFiles)
+				if lastResult is not None \
+						and not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
+					return tuple(lastResult), True
 		else:
 			if isinstance(inputFiles, ordered_set.OrderedSet):
 				fileList = inputFiles
 			else:
 				fileList = ordered_set.OrderedSet([inputFiles])
 
-			filesNeedingBuild = [f for f in fileList if not f.upToDate]
-			if not filesNeedingBuild:
-				return tuple(buildProject.GetLastResult(inputFiles)), True
+			lastResult = buildProject.GetLastResult(inputFiles)
+			if lastResult is not None:
+				filesNeedingBuild = [f for f in fileList if not f.upToDate]
+				if not filesNeedingBuild:
+					return tuple(lastResult), True
 
 
 	with perf_timer.PerfTimer("Tool execution"):
@@ -243,12 +259,26 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 							if buildProject.toolchain.IsOutputActive(inputFile):
 								done = False
 								break
+						if done:
+							for inputFile in toolUsed.crossProjectInputGroups:
+								if buildProject.toolchain.IsOutputActive(inputFile):
+									done = False
+									break
+								if done:
+									for dep in buildProject.dependencies:
+										if dep.toolchain.IsOutputActive(inputFile):
+											done = False
+											break
+										if not done:
+											break
 					if done:
 						log.Info("Tool {} has finished building for project {}", toolUsed.__name__, buildProject)
 						buildProject.toolchain.DeactivateTool(toolUsed)
 
 		if not isinstance(outputFiles, tuple):
 			outputFiles = (outputFiles, )
+
+		extensionsToCheck = set()
 		for outputFile in outputFiles:
 			log.Info(
 				"Checking for new tasks created by {}",
@@ -259,6 +289,7 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 				buildProject.AddArtifact(inputFiles, outputFile)
 
 				outputExtension = os.path.splitext(outputFile)[1]
+				extensionsToCheck.add(outputExtension)
 
 				if inputExtension == outputExtension:
 					newInput = input_file.InputFile(outputFile, inputFiles, upToDate=upToDate)
@@ -284,8 +315,9 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 
 					_enqueueBuild(buildProject, tool, newInput, pool, projectList, projectsWithCrossProjectDeps, outputExtension)
 
+		for outputExtension in extensionsToCheck:
 			isActive = buildProject.toolchain.IsOutputActive(outputExtension)
-			log.Info("Checking if {} is still active... {}", outputExtension, "yes" if isActive else "no")
+			log.Info("Checking if {} is still active... {}", outputExtension if outputExtension else "<no extension>", "yes" if isActive else "no")
 
 			# If this was the last file being built of its extension, check whether we can pass it and maybe others to relevant group input tools
 			if not isActive:
@@ -311,7 +343,7 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 											break
 										_enqueueBuild(buildProject, tool, projectInput, pool, projectList, projectsWithCrossProjectDeps, ext)
 
-						if not tool.inputGroups:
+						if not tool.inputGroups and not tool.crossProjectInputGroups:
 							continue
 
 						# Check for group inputs that have been freed and queue up if all are free
@@ -330,7 +362,8 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 								if not _canRun(tool):
 									continue
 
-								if outputExtension not in tool.crossProjectDependencies:
+
+								if outputExtension not in tool.crossProjectDependencies and outputExtension not in tool.crossProjectInputGroups:
 									continue
 
 								if not _dependenciesMet(proj, tool):
@@ -349,7 +382,7 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 													break
 												_enqueueBuild(proj, tool, projectInput, pool, projectList, projectsWithCrossProjectDeps, ext)
 
-								if not tool.inputGroups:
+								if not tool.inputGroups and not tool.crossProjectInputGroups:
 									continue
 
 								fileList = _getGroupInputFiles(proj, tool)
@@ -406,7 +439,7 @@ def _build(numThreads, projectBuildList):
 
 		for buildProject in projectBuildList:
 			for tool in buildProject.toolchain.GetAllTools():
-				if tool.crossProjectDependencies:
+				if tool.crossProjectDependencies or tool.crossProjectInputGroups:
 					projectsWithCrossProjectDeps.append(buildProject)
 					break
 
@@ -448,7 +481,7 @@ def _build(numThreads, projectBuildList):
 			toolList = buildProject.toolchain.GetAllTools()
 			log.Info("Checking for group inputs we can run already")
 			for tool in toolList:
-				if not tool.inputGroups:
+				if not tool.inputGroups and not tool.crossProjectInputGroups:
 					continue
 
 				if not _canRun(tool):
@@ -555,6 +588,7 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 						if os.access(artifact, os.F_OK):
 							log.Info("Removing {}", artifact)
 							os.remove(artifact)
+				cleanProject.lastRunArtifacts = collections.OrderedDict()
 
 			if not keepArtifactsAndDirectories:
 				_rmDirIfPossible(cleanProject.csbuildDir)
@@ -573,6 +607,7 @@ def Run():
 	"""
 	Run the build! This is the main entry point for csbuild.
 	"""
+	shared_globals.startTime = time.time()
 	with perf_timer.PerfTimer("Argument Parsing"):
 		mainFileDir = ""
 		mainFile = sys.modules['__main__'].__file__
@@ -732,16 +767,16 @@ def Run():
 
 		#parser.add_argument("-d", "--define", help = "Add defines to each project being built.", action = "append")
 
-		# group = parser.add_argument_group("Solution generation", "Commands to generate a solution")
-		# group.add_argument('--generate-solution', help = "Generate a solution file for use with the given IDE.",
-		# 	choices = _shared_globals.allgenerators.keys(), action = "store")
-		# group.add_argument('--solution-path',
-		# 	help = "Path to output the solution file (default is ./Solutions/<solutiontype>)", action = "store",
-		# 	default = "")
-		# group.add_argument('--solution-name', help = "Name of solution output file (default is csbuild)", action = "store",
-		# 	default = "csbuild")
-		# group.add_argument('--solution-args', help = 'Arguments passed to the build script executed by the solution',
-		# 	action = "store", default = "")
+		group = parser.add_argument_group("Solution generation", "Commands to generate a solution")
+		group.add_argument('--generate-solution', help = "Generate a solution file for use with the given IDE.",
+			action = "store")
+		group.add_argument('--solution-path',
+			help = "Path to output the solution file (default is ./Solutions/<solutiontype>)", action = "store",
+			default = "")
+		group.add_argument('--solution-name', help = "Name of solution output file (default is csbuild)", action = "store",
+			default = "csbuild")
+		group.add_argument('--solution-args', help = 'Arguments passed to the build script executed by the solution',
+			action = "store", default = "")
 
 		#TODO: Additional args here
 		# for chain in _shared_globals.alltoolchains.items():
@@ -818,7 +853,49 @@ def Run():
 		with csbuild.Target("fastdebug"):
 			pass
 
+		if args.generate_solution:
+
+			shared_globals.runMode = csbuild.RunMode.GenerateSolution
+			shared_globals.solutionGeneratorType = args.generate_solution
+
+			if args.solution_path:
+				shared_globals.solutionPath = args.solution_path
+			else:
+				shared_globals.solutionPath = "./Solutions/{}/".format(args.generate_solution)
+
+			shared_globals.solutionPath = os.path.abspath(shared_globals.solutionPath)
+
+			if not os.access(shared_globals.solutionPath, os.F_OK):
+				os.makedirs(shared_globals.solutionPath)
+
+			if args.solution_args:
+				shared_globals.solutionArgs = args.solution_args
+
+			if args.solution_name:
+				solutionName = args.solution_name
+			else:
+				solutionName = "csbuild"
+
+			@csbuild.OnBuildFinished
+			def OnBuildFinished(projectList): # pylint: disable=unused-variable
+				"""
+				:param projectList: list of projects
+				:type projectList: list[project.Project]
+				"""
+				solutionTool = shared_globals.allGenerators[args.generate_solution].solutionTool
+				if not os.access(shared_globals.solutionPath, os.F_OK):
+					os.makedirs(shared_globals.solutionPath)
+				solutionTool.GenerateSolution(shared_globals.solutionPath, solutionName, projectList)
+
+			for tool in shared_globals.allGeneratorTools:
+				csbuild.Toolchain(*shared_globals.allToolchains).AddTool(tool)
+
 		_execfile(mainFile, makefileDict, makefileDict)
+
+		if args.generate_solution:
+			if args.generate_solution not in shared_globals.allGenerators:
+				log.Error("No such solution generator: {}", args.generate_solution)
+				system.Exit(1)
 
 		if args.at:
 			targetList = list(shared_globals.allTargets)
@@ -970,13 +1047,22 @@ def Run():
 		_clean(projectBuildList, args.rebuild)
 
 	if not args.clean or args.rebuild:
-
 		shared_globals.commandOutputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		shared_globals.commandOutputThread.start()
+
+		log.Build("Executing build start hooks")
+		for hook in shared_globals.buildStartedHooks:
+			hook(projectBuildList)
+
 		failures = _build(args.jobs, projectBuildList)
+
+		log.Build("Executing build completion hooks")
+		for hook in shared_globals.buildFinishedHooks:
+			hook(projectBuildList)
 
 	with perf_timer.PerfTimer("Waiting on logging to shut down"):
 		log.StopLogThread()
+
 	totaltime = time.time() - preparationStart
 	log.Build("Total execution took {}".format(FormatTime(totaltime)))
 	system.Exit(failures)

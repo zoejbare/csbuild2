@@ -20,9 +20,9 @@
 
 """
 .. module:: gcc_assembler
-	:synopsis: gcc assember tool for assembly
+	:synopsis: GCC assember tool
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
@@ -32,6 +32,8 @@ import csbuild
 
 from .assembler_base import AssemblerBase
 
+from ..._utils.ordered_set import OrderedSet
+
 class GccAssembler(AssemblerBase):
 	"""
 	GCC assembler implementation
@@ -40,23 +42,28 @@ class GccAssembler(AssemblerBase):
 	inputFiles={".s", ".S"}
 	outputFiles = {".o"}
 
+	def __init__(self, projectSettings):
+		AssemblerBase.__init__(self, projectSettings)
+
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
 	def _getOutputFiles(self, project, inputFile):
+		intDirPath = project.GetIntermediateDirectory(inputFile)
 		filename = os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o"
-		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
+		return tuple({ os.path.join(intDirPath, filename) })
 
 	def _getCommand(self, project, inputFile):
-		cmd = ["gcc"] \
+		cmd = [self._getComplierName()] \
 			+ self._getInputFileArgs(inputFile) \
 			+ self._getDefaultArgs(project) \
+			+ self._getCustomArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ self._asmFlags
+			+ self._getArchitectureArgs(project)
 		return [arg for arg in cmd if arg]
 
 
@@ -64,20 +71,31 @@ class GccAssembler(AssemblerBase):
 	### Internal methods
 	####################################################################################################################
 
+	def _getComplierName(self):
+		return "gcc"
+
 	def _getDefaultArgs(self, project):
 		args = ["--pass-exit-codes"]
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.append("-fPIC")
 		return args
 
+	def _getCustomArgs(self):
+		return sorted(OrderedSet(self._asmFlags))
+
 	def _getInputFileArgs(self, inputFile):
-		return ["-c", inputFile.filename]
+		return ["-c", "{}".format(inputFile.filename)]
 
 	def _getOutputFileArgs(self, project, inputFile):
-		return ["-o", self._getOutputFiles(project, inputFile)]
+		outputFiles = self._getOutputFiles(project, inputFile)
+		return ["-o", "{}".format(outputFiles[0])]
 
 	def _getPreprocessorArgs(self):
 		return ["-D{}".format(d) for d in self._defines]
 
 	def _getIncludeDirectoryArgs(self):
-		return ["-I" + d for d in self._includeDirectories]
+		return ["-I{}".format(d) for d in self._includeDirectories]
+
+	def _getArchitectureArgs(self, project):
+		arg = "-m64" if project.architectureName == "x64" else "-m32"
+		return [arg]

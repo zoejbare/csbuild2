@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Jaedyn K. Draper
+# Copyright (C) 2013 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -19,21 +19,39 @@
 # SOFTWARE.
 
 """
-.. module:: reraise_py3
-	:synopsis: Python 3 reraise implementation
+.. module:: android_clang_assembler
+	:synopsis: Android clang assembler tool
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
 
-def Reraise(exception, traceback):
-	"""
-	Reraise a python exception with a traceback using py3 syntax
+import csbuild
 
-	:param exception: Exception object
-	:type exception: Exception
-	:param traceback: Traceback object to attach to the exception
-	:type traceback: Traceback
+from .android_gcc_assembler import AndroidGccAssembler
+
+class AndroidClangAssembler(AndroidGccAssembler):
 	"""
-	raise exception.with_traceback(traceback)
+	Android clang assembler implementation
+	"""
+	def __init__(self, projectSettings):
+		AndroidGccAssembler.__init__(self, projectSettings)
+
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
+	def _getComplierName(self):
+		return self._androidInfo.clangPath
+
+	def _getDefaultArgs(self, project):
+		args = []
+		if project.projectType == csbuild.ProjectType.SharedLibrary:
+			args.append("-fPIC")
+		return args
+
+	def _getArchitectureArgs(self, project):
+		targetName = self._getTargetTripleName(project.architectureName)
+		return ["-target", targetName]

@@ -58,7 +58,7 @@ def RunTests(include, exclude):
 			modulepath = os.path.join("functional_tests", testdir, "tests.py")
 			if os.access(modulepath, os.F_OK):
 				log.Test("Loading {}", modulepath)
-				tests.addTest(unittest.defaultTestLoader.loadTestsFromModule(imp.load_source("{}_tests".format(testdir), modulepath)))
+				tests.addTest(unittest.defaultTestLoader.loadTestsFromModule(imp.load_source("{}_TESTS".format(testdir), modulepath)))
 	testRunner = testcase.TestRunner(xmlfile="result.xml", stream=sys.stdout, verbosity=0)
 
 	# Handle filtering:
@@ -71,35 +71,38 @@ def RunTests(include, exclude):
 		for test2 in test._tests:
 			delIndexes = []
 			# pylint: disable=protected-access
-			for idx, test3 in enumerate(test2._tests):
-				# pylint: disable=protected-access
-				baseId = test3.id().rsplit('.', 2)[1]
-				simpleTestId = "{}.{}".format(baseId, test3._testMethodName)
-				match = True
-				if include:
-					match = False
-					for inc in include:
-						if fnmatch.fnmatch(simpleTestId, inc):
-							match = True
-					if not match:
-						log.Test("Excluding test {} due to no include match", simpleTestId)
-						delIndexes.append(idx)
-						continue
-				for exc in exclude:
+			try:
+				for idx, test3 in enumerate(test2._tests):
+					# pylint: disable=protected-access
+					baseId = test3.id().rsplit('.', 2)[1]
+					simpleTestId = "{}.{}".format(baseId, test3._testMethodName)
 					match = True
-					if fnmatch.fnmatch(simpleTestId, exc):
-						log.Test("Excluding test {} due to exclude match", simpleTestId)
-						delIndexes.append(idx)
+					if include:
 						match = False
-						break
+						for inc in include:
+							if fnmatch.fnmatch(simpleTestId, inc):
+								match = True
+						if not match:
+							log.Test("Excluding test {} due to no include match", simpleTestId)
+							delIndexes.append(idx)
+							continue
+					for exc in exclude:
+						match = True
+						if fnmatch.fnmatch(simpleTestId, exc):
+							log.Test("Excluding test {} due to exclude match", simpleTestId)
+							delIndexes.append(idx)
+							match = False
+							break
 
-				if not match:
-					continue
+					if not match:
+						continue
 
-				if baseId == "TestPylint":
-					assert pylinttest is None
-					pylinttest = test3
-					delIndexes.append(idx)
+					if baseId == "TestPylint":
+						assert pylinttest is None
+						pylinttest = test3
+						delIndexes.append(idx)
+			except AttributeError:
+				continue
 
 			for idx in reversed(delIndexes):
 				# pylint: disable=protected-access

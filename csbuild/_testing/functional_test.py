@@ -196,9 +196,9 @@ class FunctionalTest(TestCase):
 				else:
 					self.RunMake("--clean")
 				if os.access(self.outDir, os.F_OK):
-					self.fail("Out dir not empty:\n{}".format(ListFiles(self.outDir)))
+					self.fail("Out dir not removed by clean:\n{}".format(ListFiles(self.outDir)))
 				if os.access(self.intermediateDir, os.F_OK):
-					self.fail("Intermediate dir not empty:\n{}".format(ListFiles(self.intermediateDir)))
+					self.fail("Intermediate dir not removed by clean:\n{}".format(ListFiles(self.intermediateDir)))
 		finally:
 			os.chdir(self._prevdir)
 			if self._oldenviron is not None:
@@ -315,6 +315,15 @@ class FunctionalTest(TestCase):
 		"""
 
 		self.assertTrue(os.access(filename, os.F_OK), "No such file: "+filename)
+
+	def assertFileDoesNotExist(self, filename):
+		"""
+		Assert that an expected file doesn't exists
+		:param filename: file to check
+		:type filename: str
+		"""
+
+		self.assertFalse(os.access(filename, os.F_OK), "File exists: "+filename)
 
 	# pylint: disable=invalid-name
 	def assertFileContents(self, filename, expectedContents):

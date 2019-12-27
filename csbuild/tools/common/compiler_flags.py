@@ -22,7 +22,7 @@
 .. module:: compiler_flags
 	:synopsis: Abstract base class for tools requiring compiler flags.
 
-.. moduleauthor:: Brandon Bare
+.. moduleauthor:: Zoe Bare
 """
 
 # Required to keep lint happy.

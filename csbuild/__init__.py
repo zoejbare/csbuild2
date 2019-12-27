@@ -22,7 +22,7 @@
 .. package:: csbuild
 	:synopsis: cross-platform c/c++ build system
 
-.. moduleauthor:: Jaedyn K. Draper, Brandon M. Bare
+.. moduleauthor:: Jaedyn K. Draper, Zoe J. Bare
 .. attention:: To support CSBuild's operation, Python's import lock is DISABLED once CSBuild has started.
 This should not be a problem for most makefiles, but if you do any threading within your makefile, take note:
 anything that's imported and used by those threads should always be implemented on the main thread before that
@@ -36,7 +36,7 @@ import glob
 import traceback
 
 from . import perf_timer
-from ._utils import StrType
+from ._utils import PlatformUnicode, StrType
 
 with perf_timer.PerfTimer("csbuild module init"):
 	import sys
@@ -57,9 +57,9 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 	from ._utils import shared_globals
 
-	__author__ = "Jaedyn K. Draper, Brandon M. Bare"
+	__author__ = "Jaedyn K. Draper, Zoe J. Bare"
 	__copyright__ = 'Copyright (C) 2012-2014 Jaedyn K. Draper'
-	__credits__ = ["Jaedyn K. Draper", "Brandon M. Bare", "Jeff Grills", "Randy Culley"]
+	__credits__ = ["Jaedyn K. Draper", "Zoe J. Bare", "Jeff Grills", "Randy Culley"]
 	__license__ = 'MIT'
 
 	__maintainer__ = "Jaedyn K. Draper"
@@ -111,12 +111,18 @@ with perf_timer.PerfTimer("csbuild module init"):
 			return funcs.pop()[2]
 
 		def _runFuncs(*args, **kwargs):
+			rets = []
 			for tempToolchain, tool, func in funcs:
 				if tool is None:
-					func(*args, **kwargs)
+					rets.append(func(*args, **kwargs))
 				else:
 					with tempToolchain.Use(tool):
-						func.__get__(tool)(*args, **kwargs)
+						rets.append(func.__get__(tool)(*args, **kwargs))
+			if len(rets) == 1:
+				return rets[0]
+			elif len(rets) > 1:
+				return MultiDataContext(rets)
+			return None
 
 		return _runFuncs
 
@@ -164,7 +170,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	sys.modules["csbuild"] = Csbuild()
 
 	# pylint: disable=wrong-import-position
-	from ._build.context_manager import ContextManager
+	from ._build.context_manager import ContextManager, MultiDataContext
 	from ._build import project_plan, project, input_file
 
 	from . import _build, log
@@ -187,9 +193,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		'enum' representing the available project types.
 		"""
-		Application = 0
-		SharedLibrary = 1
-		StaticLibrary = 2
+		Stub = 0
+		Application = 1
+		SharedLibrary = 2
+		StaticLibrary = 3
 
 	class ScopeDef(object):
 		"""
@@ -207,15 +214,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		LinkLibs = 0
 		LinkIntermediateObjects = 1
 
-	class RunMode( object ):
-		"""
-		'enum' representing the way csbuild has been invoked
-		"""
-		Normal = 0
-		Help = 1
-		Version = 2
-		GenerateSolution = 3
-		QUALAP = 4
+	RunMode = shared_globals.RunMode
 
 	class BuildFailureException(Exception):
 		"""
@@ -253,6 +252,26 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:rtype: int
 		"""
 		return shared_globals.runMode
+
+	@TypeChecked(_return=StrType)
+	def GetSolutionArgs():
+		"""
+		Get the value passed to the --solution-args option.
+
+		:return: Solution args string.
+		:rtype: str
+		"""
+		return shared_globals.solutionArgs
+
+	@TypeChecked(_return=StrType)
+	def GetSolutionPath():
+		"""
+		Get the root path when generating projects.
+
+		:return: Root solution path.
+		:rtype: str
+		"""
+		return shared_globals.solutionPath
 
 	@TypeChecked(_return=StrType)
 	def GetSystemArchitecture():
@@ -296,7 +315,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				# Architecture type is unknown, so use whatever was returned by platform.machine().
 				_standardArchName = machine
 
-		return _standardArchName
+		return PlatformUnicode(_standardArchName)
 
 	@TypeChecked(name=String, projectType=int)
 	def SetOutput(name, projectType=ProjectType.Application):
@@ -338,6 +357,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 			names.add(tool.__name__)
 		shared_globals.allToolchains.add(name)
 
+		if shared_globals.runMode == RunMode.GenerateSolution:
+			tools = list(tools)
+			tools.extend(list(shared_globals.allGeneratorTools))
+
 		currentPlan.EnterContext(("toolchain", (name,)))
 
 		checkers = kwargs.get("checkers", {})
@@ -352,6 +375,27 @@ with perf_timer.PerfTimer("csbuild module init"):
 		for tool in tools:
 			if tool.supportedArchitectures is not None:
 				shared_globals.allArchitectures.update(tool.supportedArchitectures)
+
+	@TypeChecked(name=String, projectTools=list, solutionTool=(_classType, _typeType))
+	def RegisterProjectGenerator(name, projectTools, solutionTool):
+		"""
+		Register a new toolchain to be used by the project for building
+
+		:param name: The name of the toolchain, which will be used to reference it
+		:type name: str, bytes
+		:param projectTools: List of tools to be used to make individual project files
+		:type projectTools: list[class]
+		:param solutionTool: tool to generate the final solution file
+		:type solutionTool: class
+		"""
+
+		for tool in projectTools:
+			shared_globals.allGeneratorTools.add(tool)
+		shared_globals.allGenerators[name] = shared_globals.GeneratorData(set(projectTools), solutionTool)
+
+		if shared_globals.runMode == RunMode.GenerateSolution:
+			for tool in projectTools:
+				sys.modules["csbuild"].Toolchain(*shared_globals.allToolchains).AddTool(tool)
 
 	@TypeChecked(name=String)
 	def RegisterToolchainGroup(name, *toolchains):
@@ -466,7 +510,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param outputDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type outputDirectory: str
 		"""
-		currentPlan.SetValue("outputDir", outputDirectory)
+		currentPlan.SetValue("outputDir", os.path.abspath(outputDirectory) if outputDirectory else "")
 
 	def SetIntermediateDirectory(intermediateDirectory):
 		"""
@@ -475,7 +519,33 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param intermediateDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type intermediateDirectory: str
 		"""
-		currentPlan.SetValue("intermediateDir", intermediateDirectory)
+		currentPlan.SetValue("intermediateDir", os.path.abspath(intermediateDirectory) if intermediateDirectory else "")
+
+	def AddExcludeFiles(*files):
+		"""
+		Manually exclude source files from the build.
+
+		:param files: Files to exclude
+		:type files: str
+		"""
+		fixedUpFiles = set()
+		for f in files:
+			for match in glob.glob(os.path.abspath(f)):
+				fixedUpFiles.add(match)
+		currentPlan.UnionSet("excludeFiles", fixedUpFiles)
+
+	def AddExcludeDirectories(*dirs):
+		"""
+		Manually exclude source directories from the build.
+
+		:param dirs: Directories to exclude
+		:type dirs: str
+		"""
+		fixedUpDirs = set()
+		for f in dirs:
+			for match in glob.glob(os.path.abspath(f)):
+				fixedUpDirs.add(match)
+		currentPlan.UnionSet("excludeDirs", fixedUpDirs)
 
 	def AddSourceFiles(*files):
 		"""
@@ -490,6 +560,19 @@ with perf_timer.PerfTimer("csbuild module init"):
 				fixedUpFiles.add(match)
 		currentPlan.UnionSet("sourceFiles", fixedUpFiles)
 
+	def AddSourceDirectories(*dirs):
+		"""
+		Manually add source directories to the build.
+
+		:param dirs: Directories to add
+		:type dirs: str
+		"""
+		fixedUpDirs = set()
+		for f in dirs:
+			for match in glob.glob(os.path.abspath(f)):
+				fixedUpDirs.add(match)
+		currentPlan.UnionSet("sourceDirs", fixedUpDirs)
+
 	class Scope(ContextManager):
 		"""
 		Enter a scope. Settings within this scope will be passed on to libraries that include this lib for intermediate,
@@ -500,8 +583,14 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type scopeTypes: ScopeDef
 		"""
 		def __init__(self, *scopeTypes):
+			allScopes = (
+				ScopeDef.Intermediate,
+				ScopeDef.Final,
+				ScopeDef.Children,
+				ScopeDef.All
+			)
 			for scopeType in scopeTypes:
-				assert scopeType == Csbuild.ScopeDef.Intermediate or scopeType == Csbuild.ScopeDef.Final, "Invalid scope type"
+				assert scopeType in allScopes, "Invalid scope type"
 			ContextManager.__init__(self, (("scope", scopeTypes),))
 
 	class Toolchain(ContextManager):
@@ -682,6 +771,24 @@ with perf_timer.PerfTimer("csbuild module init"):
 			global currentPlan
 			currentPlan = self._prevPlan
 			return False
+
+	def OnBuildStarted(func):
+		"""
+		Decorator that registers an OnBuildStarted event hook.
+		:param func: Function that accepts a single parameter with type list[csbuild._build.project.Project],
+			containing all projects that will be built in this run.
+		:type func: Callable
+		"""
+		shared_globals.buildStartedHooks.add(func)
+
+	def OnBuildFinished(func):
+		"""
+		Decorator that registers an OnBuildFinished event hook.
+		:param func: function that accepts a single parameter with type list[csbuild._build.project.Project],
+			containing all projects built in this run
+		:type func: Callable
+		"""
+		shared_globals.buildFinishedHooks.add(func)
 
 	def Run():
 		"""

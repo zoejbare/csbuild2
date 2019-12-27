@@ -30,9 +30,11 @@ from __future__ import unicode_literals, division, print_function
 from csbuild._testing.functional_test import FunctionalTest
 from csbuild.tools.linkers.linker_base import LibraryError
 from csbuild._utils import PlatformBytes
+
 import os
-import subprocess
 import platform
+import subprocess
+import time
 
 def Touch(fname):
 	"""
@@ -47,6 +49,10 @@ def Touch(fname):
 		os.chmod(fname, oldPermissions | writeBit)
 	try:
 		with open(fname, 'a'):
+			# Mac has terrible filesystem time resolution, so we have to force a sleep
+			# in order for changes to be picked up.
+			if platform.system() == "Darwin":
+				time.sleep(1)
 			os.utime(fname, None)
 	finally:
 		if isReadOnly:
