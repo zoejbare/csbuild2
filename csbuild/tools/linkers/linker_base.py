@@ -88,22 +88,26 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:raises LibraryError: If a library is not found
 		"""
 		log.Linker("Verifying libraries for {}...", project)
+
+		# Make all the library directory paths are absolute after the macro formatter has been run on them.
+		self._libraryDirectories = ordered_set.OrderedSet(
+			[os.path.abspath(directory) for directory in self._libraryDirectories]
+		)
+
 		if self._libraries:
 			self._actualLibraryLocations = self._findLibraries(project, self._libraries)
 
 			if self._actualLibraryLocations is None:
 				raise LibraryError(project)
 
-		self._actualLibraryLocations.update(
-			{
-				dependProject.outputName : os.path.join(
-					dependProject.outputDir,
-					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
-				)
-				for dependProject in project.dependencies if project.projectType != csbuild.ProjectType.Application
-			}
-		)
-
+		for dependProject in project.dependencies:
+			outputExt = self._getOutputExtension(dependProject.projectType)
+			if outputExt is not None:
+				self._actualLibraryLocations[dependProject.outputName] = \
+					os.path.join(
+						dependProject.outputDir,
+						"{}{}".format(dependProject.outputName, outputExt)
+					)
 
 	################################################################################
 	### Static makefile methods
@@ -112,7 +116,8 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 	@staticmethod
 	def AddLibraries(*libs):
 		"""
-		Add libraries to be linked against. These can be provided as either 'foo' or 'libfoo.a'/'libfoo.lib' as is appropriate for the platform.
+		Add libraries to be linked against. These can be provided as either 'foo' or 'libfoo.a'/'libfoo.lib'
+		as is appropriate for the platform.
 
 		:param libs: List of libraries
 		:type libs: str
@@ -127,7 +132,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:param dirs: Directories to scan
 		:type dirs: str
 		"""
-		csbuild.currentPlan.UnionSet("libraryDirectories", [os.path.abspath(directory) for directory in dirs])
+		csbuild.currentPlan.UnionSet("libraryDirectories", [d for d in dirs])
 
 	@staticmethod
 	def AddLinkerFlags(*flags):
@@ -225,8 +230,15 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		"""
-		log.Linker("Linking {}{}...", inputProject.outputName, self._getOutputExtension(inputProject.projectType))
-		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject))
+		log.Linker(
+			"Linking {}{} ({}-{}-{})...",
+			inputProject.outputName,
+			self._getOutputExtension(inputProject.projectType),
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName
+		)
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFiles), env=self._getEnv(inputProject), cwd=inputProject.outputDir)
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFiles)
 		return self._getOutputFiles(inputProject)

@@ -69,11 +69,20 @@ def PathHook(_):
 		pass
 	else:
 		edit_done = True
-		if argv[0].endswith('_jb_unittest_runner.py') or argv[0].endswith("pydevd.py"):
+		isTestRunner = False
+		if argv[0].endswith("pydevd.py"):
+			for arg in argv:
+				if arg.endswith('_jb_unittest_runner.py'):
+					isTestRunner = True
+					break
+		elif argv[0].endswith('_jb_unittest_runner.py'):
+			isTestRunner = True
+
+		if isTestRunner:
 			import signal
-			import time
 
 			def _exitsig(sig, _):
+				from csbuild import log
 				if sig == signal.SIGINT:
 					log.Error("Keyboard interrupt received. Aborting test run.")
 				else:
@@ -89,15 +98,6 @@ def PathHook(_):
 			os.environ[PlatformString("PYTHONPATH")] = os.pathsep.join(sys.path)
 			os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-			sys.modules['__main__'].__file__ = ''
-
-			from csbuild import log
-			from csbuild._utils import shared_globals, terminfo
-
-			shared_globals.startTime = time.time()
-
-			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
-			shared_globals.showCommands = True
 	raise ImportError  # let the real import machinery do its work
 
 

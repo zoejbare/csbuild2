@@ -28,8 +28,10 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
+import os
 
 from ...toolchain import Tool
+from ..._utils import ordered_set
 
 class HasDebugLevel(Tool):
 	"""
@@ -135,3 +137,71 @@ class HasDebugRuntime(Tool):
 		:type debugRuntime: bool
 		"""
 		csbuild.currentPlan.SetValue("debugRuntime", debugRuntime)
+
+
+class HasIncludeDirectories(Tool):
+	"""
+	Helper class to add C++ include directories.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
+
+	@staticmethod
+	def AddIncludeDirectories(*dirs):
+		"""
+		Add directories to search for headers in.
+
+		:param dirs: list of directories
+		:type dirs: str
+		"""
+		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(d) for d in dirs if d])
+
+	def GetIncludeDirectories(self):
+		"""
+		Get the list of include directories.
+
+		:return: include dirs
+		:rtype: ordered_set.OrderedSet[str]
+		"""
+		return self._includeDirectories
+
+	def SetupForProject(self, project):
+		self._includeDirectories = ordered_set.OrderedSet(
+			[directory for directory in self._includeDirectories]
+		)
+
+class HasDefines(Tool):
+	"""
+	Helper class to add C++ defines and undefines.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
+		self._undefines = projectSettings.get("undefines", ordered_set.OrderedSet())
+
+	@staticmethod
+	def AddDefines(*defines):
+		"""
+		Add preprocessor defines to the current project.
+
+		:param defines: List of defines.
+		:type defines: str
+		"""
+		csbuild.currentPlan.UnionSet("defines", defines)
+
+	@staticmethod
+	def AddUndefines(*undefines):
+		"""
+		Add preprocessor undefines to the current project.
+
+		:param undefines: List of undefines.
+		:type undefines: str
+		"""
+		csbuild.currentPlan.UnionSet("undefines", undefines)

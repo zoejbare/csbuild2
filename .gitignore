@@ -5,7 +5,11 @@
 **/.idea
 .csbuild
 /__pycache__/
+build
+csbuild.egg-info
+dist
 
 # Specific files
 failedLints.txt
 result.xml
+MANIFEST

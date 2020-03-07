@@ -58,33 +58,32 @@ class GccLinker(LinkerBase):
 	####################################################################################################################
 
 	def _getOutputFiles(self, project):
-		return tuple({os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType))})
+		return tuple({ os.path.join(project.outputDir, project.outputName + self._getOutputExtension(project.projectType)) })
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
 			cmdExe = self._getArchiverName()
 			cmd = ["rcs"] \
-				+ self._linkerFlags \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
 			useResponseFile = self._useResponseFileWithArchiver()
 		else:
 			cmdExe = self._getBinaryLinkerName()
-			cmd = ["-L/"] \
-				+ self._getDefaultArgs(project) \
+			cmd = self._getDefaultArgs(project) \
+				+ self._getCustomArgs() \
 				+ self._getArchitectureArgs(project) \
 				+ self._getSystemArgs(project) \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._getLibraryPathArgs(project) \
+				+ self._getRpathArgs() \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
-				+ self._getEndGroupArgs() \
-				+ self._linkerFlags
+				+ self._getEndGroupArgs()
 			useResponseFile = self._useResponseFileWithArchiver()
 
 		if useResponseFile:
-			responseFile = response_file.ResponseFile(project, project.outputName, cmd)
+			responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
 
 			if shared_globals.showCommands:
 				log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
@@ -108,8 +107,12 @@ class GccLinker(LinkerBase):
 				ret[lib] = abspath
 				shortLibs.remove(lib)
 
+			elif os.path.splitext(lib)[1]:
+				shortLibs.remove(lib)
+				longLibs.append(lib)
+
 		if platform.system() == "Windows":
-			nullOut = '"{}"'.format(os.path.join(project.csbuildDir, "null"))
+			nullOut = os.path.join(project.csbuildDir, "null")
 		else:
 			nullOut = "/dev/null"
 
@@ -122,9 +125,9 @@ class GccLinker(LinkerBase):
 			# is possible! Still better than doing a pass per file like we used to.
 			while True:
 				cmd = [self._getLdName(), "--verbose", "-M", "-o", nullOut] + \
+					  ["-L"+path for path in self._getLibrarySearchDirectories()] + \
 					  ["-l"+lib for lib in shortLibs] + \
-					  ["-l:"+lib for lib in longLibs] + \
-					  ["-L"+path for path in self._getLibrarySearchDirectories()]
+					  ["-l:"+lib for lib in longLibs]
 				returncode, out, err = commands.Run(cmd, None, None)
 				if returncode != 0:
 					lines = err.splitlines()
@@ -175,7 +178,7 @@ class GccLinker(LinkerBase):
 			except AssertionError:
 				# Fallback to doing the traditional regex check when the link map check failes.
 				# All bfd- and gold-compatible linkers should have this.
-				succeedRegex = re.compile("(?:.*ld): Attempt to open (.*) succeeded")
+				succeedRegex = re.compile("(?:.*ld(?:.exe)?): Attempt to open (.*) succeeded")
 				for line in err.splitlines():
 					match = succeedRegex.match(line)
 					if match:
@@ -195,9 +198,10 @@ class GccLinker(LinkerBase):
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {
+			csbuild.ProjectType.Application: "",
 			csbuild.ProjectType.SharedLibrary: ".so",
 			csbuild.ProjectType.StaticLibrary: ".a",
-		}.get(projectType, "")
+		}.get(projectType, None)
 
 		return outputExt
 
@@ -210,7 +214,7 @@ class GccLinker(LinkerBase):
 		return "ld"
 
 	def _getBinaryLinkerName(self):
-		return "gcc"
+		return "g++"
 
 	def _getArchiverName(self):
 		return "ar"
@@ -222,15 +226,22 @@ class GccLinker(LinkerBase):
 		return True
 
 	def _getDefaultArgs(self, project):
-		args = []
+		args = ["-L/"]
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args += ["-shared", "-fPIC"]
+			args.extend([
+					"-shared",
+					"-fPIC"
+			])
 		return args
 
+	def _getCustomArgs(self):
+		return sorted(ordered_set.OrderedSet(self._linkerFlags))
+
 	def _getOutputFileArgs(self, project):
+		outFile = self._getOutputFiles(project)[0]
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			return [self._getOutputFiles(project)[0]]
-		return ["-o", self._getOutputFiles(project)[0]]
+			return [outFile]
+		return ["-o", outFile]
 
 	def _getInputFileArgs(self, inputFiles):
 		return [f.filename for f in inputFiles]
@@ -238,6 +249,9 @@ class GccLinker(LinkerBase):
 	def _getLibraryPathArgs(self, project):
 		_ignore(project)
 		return []
+
+	def _getRpathArgs(self):
+		return ["-Wl,-R{}".format(os.path.dirname(lib)) for lib in self._actualLibraryLocations.values()]
 
 	def _getLibraryArgs(self):
 		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]

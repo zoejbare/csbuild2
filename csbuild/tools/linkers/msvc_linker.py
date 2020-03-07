@@ -31,9 +31,11 @@ import os
 import csbuild
 
 from .linker_base import LinkerBase
+from ..common import FindLibraries
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel
 from ... import log
+from ..._utils import ordered_set, response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 
@@ -43,7 +45,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	"""
 	supportedPlatforms = {"Windows"}
 	supportedArchitectures = {"x86", "x64", "arm"}
-	inputGroups = {".obj"}
+	inputGroups = {".obj", ".o"}
 	outputFiles = {".exe", ".lib", ".dll"}
 	crossProjectDependencies = {".lib"}
 
@@ -62,9 +64,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def _getOutputFiles(self, project):
 		outputPath = os.path.join(project.outputDir, project.outputName)
 		outputFiles = {
+			csbuild.ProjectType.Application: ["{}.exe".format(outputPath)],
 			csbuild.ProjectType.StaticLibrary: ["{}.lib".format(outputPath)],
 			csbuild.ProjectType.SharedLibrary: ["{}.lib".format(outputPath), "{}.dll".format(outputPath)],
-			csbuild.ProjectType.Application: ["{}.exe".format(outputPath)],
 		}[project.projectType]
 
 		# Output files when not building a static library.
@@ -83,70 +85,40 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			linkerPath = os.path.join(self.vcvarsall.binPath, "lib.exe")
+			cmdExe = os.path.join(self.vcvarsall.binPath, "lib.exe")
+			cmd = self._getDefaultArgs(project) \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles)
+
 		else:
-			linkerPath = os.path.join(self.vcvarsall.binPath, "link.exe")
-		cmd = [linkerPath] \
-			+ self._getOutputFileArgs(project) \
-			+ self._getDefaultArgs(project) \
-			+ self._linkerFlags \
-			+ self._getLibraryArgs(project) \
-			+ self._getInputFileArgs(inputFiles)
-		return [arg for arg in cmd if arg]
+			cmdExe = os.path.join(self.vcvarsall.binPath, "link.exe")
+			cmd = self._getDefaultArgs(project) \
+				+ self._getCustomArgs() \
+				+ self._getOutputFileArgs(project) \
+				+ self._getInputFileArgs(inputFiles) \
+				+ self._getLibraryArgs(project)
+
+		responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
+
+		if shared_globals.showCommands:
+			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
+
+		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def _findLibraries(self, project, libs):
-		notFound = set()
-		found = {}
 		allLibraryDirectories = [x for x in self._libraryDirectories] + self.vcvarsall.libPaths
 
-		for libraryName in libs:
-			if os.access(libraryName, os.F_OK):
-				abspath = os.path.abspath(libraryName)
-				log.Info("... found {}".format(abspath))
-				found[libraryName] = abspath
-			else:
-				for libraryDir in allLibraryDirectories:
-					# Add the ".lib" extension if it's not already there.
-					filename = "{}.lib".format(libraryName) if not libraryName.endswith(".lib") else libraryName
-
-					# Try searching for the library name as it is.
-					log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
-					fullPath = os.path.join(libraryDir, filename)
-
-					# Check if the file exists at the current path.
-					if os.access(fullPath, os.F_OK):
-						log.Info("... found {}".format(fullPath))
-						found[libraryName] = fullPath
-						break
-
-					# If the library couldn't be found, simulate posix by adding the "lib" prefix.
-					filename = "lib{}".format(filename)
-
-					log.Info("Looking for library {} in directory {}...".format(filename, libraryDir))
-					fullPath = os.path.join(libraryDir, filename)
-
-					# Check if the modified filename exists at the current path.
-					if os.access(fullPath, os.F_OK):
-						log.Info("... found {}".format(fullPath))
-						found[libraryName] = fullPath
-						break
-
-				if libraryName not in found:
-					# Failed to find the library in any of the provided directories.
-					log.Error('Failed to find library "{}".'.format(libraryName))
-					notFound.add(libraryName)
-
-		return None if notFound else found
-
+		return FindLibraries([x for x in libs], allLibraryDirectories, [".lib"])
 
 	def _getOutputExtension(self, projectType):
 		# These are extensions of the files that can be output from the linker or librarian.
 		# The library extensions should represent the file types that can actually linked against.
 		ext = {
+			csbuild.ProjectType.Application: ".exe",
 			csbuild.ProjectType.SharedLibrary: ".lib",
 			csbuild.ProjectType.StaticLibrary: ".lib",
 		}
-		return ext.get(projectType, ".exe")
+		return ext.get(projectType, None)
 
 	def SetupForProject(self, project):
 		MsvcToolBase.SetupForProject(self, project)
@@ -163,6 +135,17 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			"/NOLOGO",
 			"/MACHINE:{}".format(project.architectureName.upper()),
 		]
+
+		# Add the subsystem argument if specified.
+		if self.msvcSubsystem:
+			subsystemArg = ["/SUBSYSTEM:{}".format(self.msvcSubsystem)]
+
+			# The subsystem version is optional.
+			if self.msvcSubsystemVersion:
+				subsystemArg.append(",{}.{}".format(self.msvcSubsystemVersion[0], self.msvcSubsystemVersion[1]))
+
+			args.append("".join(subsystemArg))
+
 		# Arguments for any project that is not a static library.
 		if project.projectType != csbuild.ProjectType.StaticLibrary:
 			args.extend([
@@ -174,6 +157,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			if project.projectType == csbuild.ProjectType.SharedLibrary:
 				args.append("/DLL")
 		return args
+
+	def _getCustomArgs(self):
+		return sorted(ordered_set.OrderedSet(self._linkerFlags))
 
 	def _getLibraryArgs(self, project):
 		# Static libraries don't require the default libraries to be linked, so only add them when building an application or shared library.
@@ -204,7 +190,8 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.append("/IMPLIB:{}.lib".format(outputPath))
-		if self._debugLevel != DebugLevel.Disabled:
+
+		if project.projectType != csbuild.ProjectType.StaticLibrary and self._debugLevel != DebugLevel.Disabled:
 			args.append("/PDB:{}.pdb".format(outputPath))
 
 		return args

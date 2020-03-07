@@ -36,11 +36,8 @@ import imp
 import math
 import multiprocessing
 import time
-import encodings
-import importlib
-import pkgutil
 import threading
-import traceback
+import collections
 
 from . import recompile
 from . import project_plan, project, input_file
@@ -179,17 +176,21 @@ def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, d
 					extension = os.path.splitext(inputFiles.filename)[1]
 					fileList = ordered_set.OrderedSet([inputFiles])
 
-				if not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
-					return tuple(buildProject.GetLastResult(inputFiles)), True
+				lastResult = buildProject.GetLastResult(inputFiles)
+				if lastResult is not None \
+						and not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
+					return tuple(lastResult), True
 		else:
 			if isinstance(inputFiles, ordered_set.OrderedSet):
 				fileList = inputFiles
 			else:
 				fileList = ordered_set.OrderedSet([inputFiles])
 
-			filesNeedingBuild = [f for f in fileList if not f.upToDate]
-			if not filesNeedingBuild:
-				return tuple(buildProject.GetLastResult(inputFiles)), True
+			lastResult = buildProject.GetLastResult(inputFiles)
+			if lastResult is not None:
+				filesNeedingBuild = [f for f in fileList if not f.upToDate]
+				if not filesNeedingBuild:
+					return tuple(lastResult), True
 
 
 	with perf_timer.PerfTimer("Tool execution"):
@@ -316,7 +317,7 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 
 		for outputExtension in extensionsToCheck:
 			isActive = buildProject.toolchain.IsOutputActive(outputExtension)
-			log.Info("Checking if {} is still active... {}", outputExtension, "yes" if isActive else "no")
+			log.Info("Checking if {} is still active... {}", outputExtension if outputExtension else "<no extension>", "yes" if isActive else "no")
 
 			# If this was the last file being built of its extension, check whether we can pass it and maybe others to relevant group input tools
 			if not isActive:
@@ -587,6 +588,7 @@ def _clean(projectCleanList, keepArtifactsAndDirectories):
 						if os.access(artifact, os.F_OK):
 							log.Info("Removing {}", artifact)
 							os.remove(artifact)
+				cleanProject.lastRunArtifacts = collections.OrderedDict()
 
 			if not keepArtifactsAndDirectories:
 				_rmDirIfPossible(cleanProject.csbuildDir)
@@ -854,12 +856,20 @@ def Run():
 		if args.generate_solution:
 
 			shared_globals.runMode = csbuild.RunMode.GenerateSolution
+			shared_globals.solutionGeneratorType = args.generate_solution
+
 			if args.solution_path:
-				shared_globals.solutionPath = args.solutionPath
+				shared_globals.solutionPath = args.solution_path
 			else:
 				shared_globals.solutionPath = "./Solutions/{}/".format(args.generate_solution)
 
 			shared_globals.solutionPath = os.path.abspath(shared_globals.solutionPath)
+
+			if not os.access(shared_globals.solutionPath, os.F_OK):
+				os.makedirs(shared_globals.solutionPath)
+
+			if args.solution_args:
+				shared_globals.solutionArgs = args.solution_args
 
 			if args.solution_name:
 				solutionName = args.solution_name
@@ -876,6 +886,9 @@ def Run():
 				if not os.access(shared_globals.solutionPath, os.F_OK):
 					os.makedirs(shared_globals.solutionPath)
 				solutionTool.GenerateSolution(shared_globals.solutionPath, solutionName, projectList)
+
+			for tool in shared_globals.allGeneratorTools:
+				csbuild.Toolchain(*shared_globals.allToolchains).AddTool(tool)
 
 		_execfile(mainFile, makefileDict, makefileDict)
 
@@ -1034,17 +1047,22 @@ def Run():
 		_clean(projectBuildList, args.rebuild)
 
 	if not args.clean or args.rebuild:
-
 		shared_globals.commandOutputThread = threading.Thread(target=commands.PrintStaggeredRealTimeOutput)
 		shared_globals.commandOutputThread.start()
+
+		log.Build("Executing build start hooks")
+		for hook in shared_globals.buildStartedHooks:
+			hook(projectBuildList)
+
 		failures = _build(args.jobs, projectBuildList)
 
-		log.Build("Executing build completion hooks on")
+		log.Build("Executing build completion hooks")
 		for hook in shared_globals.buildFinishedHooks:
 			hook(projectBuildList)
 
 	with perf_timer.PerfTimer("Waiting on logging to shut down"):
 		log.StopLogThread()
+
 	totaltime = time.time() - preparationStart
 	log.Build("Total execution took {}".format(FormatTime(totaltime)))
 	system.Exit(failures)

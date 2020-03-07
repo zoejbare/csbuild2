@@ -37,6 +37,10 @@ class AndroidGccAssembler(GccAssembler, AndroidToolBase):
 	"""
 	supportedArchitectures = AndroidToolBase.supportedArchitectures
 
+	def __init__(self, projectSettings):
+		GccAssembler.__init__(self, projectSettings)
+		AndroidToolBase.__init__(self, projectSettings)
+
 
 	####################################################################################################################
 	### Methods implemented from base classes

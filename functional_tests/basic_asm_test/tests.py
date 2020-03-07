@@ -22,7 +22,7 @@
 .. module:: tests
 	:synopsis: Basic test of assembler tools
 
-.. moduleauthor:: Jaedyn K. Draper
+.. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function

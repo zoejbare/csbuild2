@@ -32,26 +32,31 @@ import os
 from .cpp_compiler_base import CppCompilerBase
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
+from ... import log
+from ..._utils import ordered_set, response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
+
+def _ignore(_):
+	pass
 
 class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 	"""
 	MSVC compiler tool implementation.
 	"""
-	supportedPlatforms = {"Windows"}
-	supportedArchitectures = {"x86", "x64"}
-	outputFiles = {".obj"}
+	supportedPlatforms = { "Windows" }
+	supportedArchitectures = { "x86", "x64" }
+	outputFiles = { ".obj" }
+
+	def __init__(self, projectSettings):
+		MsvcToolBase.__init__(self, projectSettings)
+		CppCompilerBase.__init__(self, projectSettings)
 
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
-
-	def __init__(self, projectSettings):
-		MsvcToolBase.__init__(self, projectSettings)
-		CppCompilerBase.__init__(self, projectSettings)
 
 	def _getEnv(self, project):
 		return self.vcvarsall.env
@@ -68,19 +73,24 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		return tuple(outputFiles)
 
 	def _getCommand(self, project, inputFile, isCpp):
-		compilerPath = os.path.join(self.vcvarsall.binPath, "cl.exe")
-		extraFlags = self._cxxFlags if isCpp else self._cFlags
-		cmd = [compilerPath]  \
-			+ self._getDefaultArgs() \
+		cmdExe = os.path.join(self.vcvarsall.binPath, "cl.exe")
+		cmd = self._getDefaultArgs() \
+			+ self._getCustomArgs(project, isCpp) \
 			+ self._getPreprocessorArgs() \
 			+ self._getDebugArgs() \
 			+ self._getOptimizationArgs() \
 			+ self._getRuntimeLinkageArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ extraFlags \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
-		return [arg for arg in cmd if arg]
+
+		inputFileBasename = os.path.basename(inputFile.filename)
+		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
+
+		if shared_globals.showCommands:
+			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
+
+		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def SetupForProject(self, project):
 		MsvcToolBase.SetupForProject(self, project)
@@ -96,6 +106,10 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		if self._optLevel == OptimizationLevel.Disabled:
 			args.append("/RTC1")
 		return args
+
+	def _getCustomArgs(self, project, isCpp):
+		_ignore(project)
+		return list(ordered_set.OrderedSet(self._globalFlags) | ordered_set.OrderedSet(self._cxxFlags if isCpp else self._cFlags))
 
 	def _getDebugArgs(self):
 		arg = {
@@ -130,10 +144,10 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		return args
 
 	def _getOutputFileArgs(self, project, inputFile):
-		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
-		args = ["/Fo{}".format("{}.obj".format(outputPath))]
+		outputFiles = self._getOutputFiles(project, inputFile)
+		args = ["/Fo{}".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".obj"]]
 
 		if self._debugLevel in [DebugLevel.ExternalSymbols, DebugLevel.ExternalSymbolsPlus]:
-			args.append("/Fd{}".format("{}.pdb".format(outputPath)))
+			args.extend(["/Fd{}".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".pdb"]])
 
 		return args

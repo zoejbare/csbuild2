@@ -34,7 +34,7 @@ import os
 from abc import ABCMeta, abstractmethod
 
 from csbuild import log
-from ..._utils.decorators import MetaClass
+from ..._utils.decorators import MetaClass, TypeChecked
 from ..._utils import PlatformString
 from ...toolchain import Tool
 from ... import commands
@@ -178,7 +178,10 @@ class _InstallDataPost2017(_BaseInstallData):
 
 	@staticmethod
 	def FindInstallations():
-		vsWhereFilePath = os.path.join(os.environ["ProgramFiles(x86)"], "Microsoft Visual Studio", "Installer", "vswhere.exe")
+		progFilesX86Path = os.getenv("ProgramFiles(x86)")
+		assert progFilesX86Path, "Failed to find the \"Program Files (x86)\" path"
+
+		vsWhereFilePath = os.path.join(progFilesX86Path, "Microsoft Visual Studio", "Installer", "vswhere.exe")
 
 		if not os.access(vsWhereFilePath, os.F_OK):
 			# The file doesn't exist, so Visual Studio 2017 (or newer) hasn't been installed.
@@ -196,15 +199,26 @@ class _InstallDataPost2017(_BaseInstallData):
 		# Load the install data from json.
 		foundInstallations = json.loads(output)
 
+		installDataMap = {}
 		installDataList = []
 
 		# Parse the install information.
 		for install in foundInstallations:
-			version = ".".join(install["installationVersion"].split(".")[:2])
+			version = install["installationVersion"].split(".")[0]
 			displayName = install["displayName"]
 			path = install["installationPath"]
 
-			installDataList.append(_InstallDataPost2017(version, displayName, path))
+			if version not in installDataMap:
+				installDataMap.update({ version: [] })
+
+			installDataMap[version].append(_InstallDataPost2017(version, displayName, path))
+
+		# Sort the versions by latest to oldest.
+		sortedKeys = reversed(sorted(installDataMap.keys()))
+
+		for versionKey in sortedKeys:
+			installsForVersion = installDataMap[versionKey]
+			installDataList.extend(installsForVersion)
 
 		return installDataList
 
@@ -239,10 +253,10 @@ class _InstallDataPre2017(_BaseInstallData):
 	@staticmethod
 	def FindInstallations():
 		vsVersionMacros = [
-			("14.0", "VS140COMNTOOLS", "Visual Studio 2015"),
-			("12.0", "VS120COMNTOOLS", "Visual Studio 2013"),
-			("11.0", "VS110COMNTOOLS", "Visual Studio 2012"),
-			("10.0", "VS100COMNTOOLS", "Visual Studio 2010"),
+			("14", "VS140COMNTOOLS", "Visual Studio 2015"),
+			("12", "VS120COMNTOOLS", "Visual Studio 2013"),
+			("11", "VS110COMNTOOLS", "Visual Studio 2012"),
+			("10", "VS100COMNTOOLS", "Visual Studio 2010"),
 		]
 
 		installDataList = []
@@ -264,14 +278,14 @@ class _InstallDataPre2017(_BaseInstallData):
 		storeArg = ""
 		winSdkArg = ""
 
-		if self.version == "14.0":
+		if self.version == "14":
 			# Only Visual Studio 2015 supports the specifying the Windows SDK version and the "store" argument.
 			winSdkArg = archInfo.winSdkVersion or ""
 
 			if archInfo.universalApp:
 				storeArg = "store"
 
-		elif self.version != "12.0":
+		elif self.version != "12":
 			# Visual Studio versions prior to 2013 did not have x64-specific tools for x86 and arm.
 			vcvarsArch = {
 				"amd64_x86": "x86",
@@ -305,9 +319,12 @@ class MsvcToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-		self._vsVersion = None
-		self._winSdkVersion = None
-		self._universalApp = False
+		self._vsVersion = projectSettings.get("vsVersion", None)
+		self._winSdkVersion = projectSettings.get("winSdkVersion", None)
+		self._msvcUniversalApp = projectSettings.get("msvcUniversalApp", False)
+		self._msvcSubsystem = projectSettings.get("msvcSubsystem", None)
+		self._msvcSubsystemVersion = projectSettings.get("msvcSubsystemVersion", None)
+
 		self._vcvarsall = None
 		self._selectedInstall = None
 		self._allInstalls = []
@@ -332,12 +349,29 @@ class MsvcToolBase(Tool):
 
 
 	@property
-	def universalApp(self):
+	def msvcUniversalApp(self):
 		"""
 		:return: Returns the universal app build flag.
 		:rtype: bool
 		"""
-		return self._universalApp
+		return self._msvcUniversalApp
+
+	@property
+	def msvcSubsystem(self):
+		"""
+		:return: Returns the MSVC linker subsystem argument.
+		:rtype: str
+		"""
+		return self._msvcSubsystem
+
+
+	@property
+	def msvcSubsystemVersion(self):
+		"""
+		:return: Returns the version number to use with the subsystem argument.
+		:rtype: tuple[int, int]
+		"""
+		return self._msvcSubsystemVersion
 
 
 	@property
@@ -349,35 +383,75 @@ class MsvcToolBase(Tool):
 		return self._vcvarsall
 
 
-	def SetVisualStudioVersion(self, version):
+	@staticmethod
+	@TypeChecked(version=str)
+	def SetVisualStudioVersion(version):
 		"""
 		Set the version of Visual Studio to use.
 
-		:param version: Visual studio version (e.g., "11.0", "12.0", "14.0", etc)
+		:param version: Visual studio version
+			"10" => Visual Studio 2010
+			"11" => Visual Studio 2012
+			"12" => Visual Studio 2013
+			"14" => Visual Studio 2015
+			"15" => Visual Studio 2017
+			"16" => Visual Studio 2019
 		:type version: str
 		"""
-		self._vsVersion = version
+		csbuild.currentPlan.SetValue("vsVersion", version)
 
 
-	def SetWindowsSdkVersion(self, version):
+	@staticmethod
+	@TypeChecked(version=str)
+	def SetWindowsSdkVersion(version):
 		"""
 		Set the Windows SDK version to build against (only applies to Visual Studio "14.0" and up).
 
 		:param version: Windows SDK version (e.g., "8.1", "10.0.15063.0", etc)
 		:type version: str
 		"""
-		self._winSdkVersion = version
+		csbuild.currentPlan.SetValue("winSdkVersion", version)
 
 
-	def SetUniversalAppBuild(self, universalApp):
+	@staticmethod
+	@TypeChecked(isUniversalApp=bool)
+	def SetMsvcUniversalAppBuild(isUniversalApp):
 		"""
 		Set the boolean to determine if the enviroment is setup to build Universal Windows Apps for the Windows Store
 		(only applies to Visual Studio "14.0" and up).
 
-		:param universalApp: Build for universal apps.
-		:type universalApp: bool
+		:param isUniversalApp: Build for universal apps.
+		:type isUniversalApp: bool
 		"""
-		self._universalApp = universalApp
+		csbuild.currentPlan.SetValue("msvcUniversalApp", isUniversalApp)
+
+
+	@staticmethod
+	@TypeChecked(subsystem=str)
+	def SetMsvcSubsystem(subsystem):
+		"""
+		Set the MSVC linker subsystem argument.
+
+		:param subsystem: MSVC linker subsystem argument.
+		:type subsystem: str
+		"""
+		csbuild.currentPlan.SetValue("msvcSubsystem", subsystem)
+
+
+	@staticmethod
+	@TypeChecked(major=int, minor=int)
+	def SetMsvcSubsystemVersion(major, minor):
+		"""
+		Set the version number to use with the subsystem argument.
+
+		:param major: Subsystem major version.
+		:type major: int
+
+		:param minor: Subsystem minor version.
+		:type minor: int
+		"""
+		if isinstance(major, int) and isinstance(minor, int):
+			csbuild.currentPlan.SetValue("msvcSubsystemVersion", (major, minor))
 
 
 	def SetupForProject(self, project):
@@ -420,7 +494,7 @@ class MsvcToolBase(Tool):
 
 		# Only run vcvarsall.bat if we haven't already for the selected architecture.
 		if vcvarsArch not in Vcvarsall.Instances:
-			archInfo = _ArchitectureInfo(currentArch, project.architectureName, vcvarsArch, self._winSdkVersion, self._universalApp)
+			archInfo = _ArchitectureInfo(currentArch, project.architectureName, vcvarsArch, self._winSdkVersion, self._msvcUniversalApp)
 
 			self._findInstallations()
 			self._setupEnvironment(archInfo)
@@ -469,7 +543,7 @@ class MsvcToolBase(Tool):
 				if vcvarsall:
 					self._selectedInstall = installData
 					log.Build(
-						"Selected {}{}".format(
+						"Building for {}{}".format(
 							self._selectedInstall.displayName,
 							" using Windows SDK {}".format(vcvarsall.winSdkVersion) if vcvarsall.winSdkVersion else ""
 						)

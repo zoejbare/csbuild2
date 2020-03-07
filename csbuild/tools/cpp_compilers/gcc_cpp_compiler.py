@@ -35,6 +35,7 @@ from .cpp_compiler_base import CppCompilerBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
 from ... import log
 from ..._utils import response_file, shared_globals
+from ..._utils.ordered_set import OrderedSet
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
@@ -55,13 +56,14 @@ class GccCppCompiler(CppCompilerBase):
 	####################################################################################################################
 
 	def _getOutputFiles(self, project, inputFile):
+		intDirPath = project.GetIntermediateDirectory(inputFile)
 		filename = os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o"
-		return os.path.join(project.GetIntermediateDirectory(inputFile), filename)
+		return tuple({ os.path.join(intDirPath, filename) })
 
 	def _getCommand(self, project, inputFile, isCpp):
-		cmdExe = self._getComplierName(isCpp)
-		extraFlags = self._cxxFlags if isCpp else self._cFlags
+		cmdExe = self._getComplierName(project, isCpp)
 		cmd = self._getDefaultArgs(project) \
+			+ self._getCustomArgs(project, isCpp) \
 			+ self._getArchitectureArgs(project) \
 			+ self._getOptimizationArgs() \
 			+ self._getDebugArgs() \
@@ -69,11 +71,10 @@ class GccCppCompiler(CppCompilerBase):
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
-			+ self._getInputFileArgs(inputFile) \
-			+ extraFlags
+			+ self._getInputFileArgs(inputFile)
 
 		inputFileBasename = os.path.basename(inputFile.filename)
-		responseFile = response_file.ResponseFile(project, inputFileBasename, cmd)
+		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
 
 		if shared_globals.showCommands:
 			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
@@ -85,7 +86,8 @@ class GccCppCompiler(CppCompilerBase):
 	### Internal methods
 	####################################################################################################################
 
-	def _getComplierName(self, isCpp):
+	def _getComplierName(self, project, isCpp):
+		_ignore(project)
 		return "g++" if isCpp else "gcc"
 
 	def _getDefaultArgs(self, project):
@@ -94,17 +96,22 @@ class GccCppCompiler(CppCompilerBase):
 			args.append("-fPIC")
 		return args
 
+	def _getCustomArgs(self, project, isCpp):
+		_ignore(project)
+		return list(OrderedSet(self._globalFlags) | OrderedSet(self._cxxFlags if isCpp else self._cFlags))
+
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", inputFile.filename]
 
 	def _getOutputFileArgs(self, project, inputFile):
-		return ["-o", self._getOutputFiles(project, inputFile)]
+		outputFiles = self._getOutputFiles(project, inputFile)
+		return ["-o", outputFiles[0]]
 
 	def _getPreprocessorArgs(self):
 		return ["-D{}".format(d) for d in self._defines] + ["-U{}".format(u) for u in self._undefines]
 
 	def _getIncludeDirectoryArgs(self):
-		return ["-I" + d for d in self._includeDirectories]
+		return ["-I{}".format(d) for d in self._includeDirectories]
 
 	def _getDebugArgs(self):
 		if self._debugLevel != DebugLevel.Disabled:

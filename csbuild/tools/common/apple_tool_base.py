@@ -47,9 +47,9 @@ def _noLogOnRun(shared, msg):
 	_ignore(msg)
 
 
-class AppleToolInfo(object):
+class AppleHostToolInfo(object):
 	"""
-	Class for maintaining data output by Xcode tools.
+	Class for maintaining data output by Xcode tools installed on the host OS.
 	"""
 	Instance = None
 
@@ -103,23 +103,10 @@ class AppleToolBase(Tool):
 
 		self._toolInfo = None
 
+
 	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
-
-	def SetupForProject(self, project):
-		Tool.SetupForProject(self, project)
-
-		# Create the mac tool info if the singleton doesn't already exist.
-		if not AppleToolInfo.Instance:
-			AppleToolInfo.Instance = AppleToolInfo()
-
-		self._toolInfo = AppleToolInfo.Instance
-
-
-	################################################################################
 	### Static makefile methods
-	################################################################################
+	####################################################################################################################
 
 	@staticmethod
 	def AddFrameworkDirectories(*dirs):
@@ -129,7 +116,7 @@ class AppleToolBase(Tool):
 		:param dirs: List of directories
 		:type dirs: str
 		"""
-		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
+		csbuild.currentPlan.UnionSet("frameworkDirectories", [os.path.abspath(directory) for directory in dirs])
 
 	@staticmethod
 	def AddFrameworks(*frameworks):
@@ -140,6 +127,20 @@ class AppleToolBase(Tool):
 		:type frameworks: str
 		"""
 		csbuild.currentPlan.UnionSet("frameworks", frameworks)
+
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
+	def SetupForProject(self, project):
+		Tool.SetupForProject(self, project)
+
+		# Create the mac tool info if the singleton doesn't already exist.
+		if not AppleHostToolInfo.Instance:
+			AppleHostToolInfo.Instance = AppleHostToolInfo()
+
+		self._toolInfo = AppleHostToolInfo.Instance
 
 
 @MetaClass(ABCMeta)
@@ -153,15 +154,12 @@ class MacOsToolBase(AppleToolBase):
 	def __init__(self, projectSettings):
 		AppleToolBase.__init__(self, projectSettings)
 
-		self._macOsVersionMin = None
+		self._macOsVersionMin = projectSettings.get("macOsVersionMin", None)
 
-	@property
-	def macOsVersionMin(self):
-		"""
-		:return: Returns the minimum version of macOS to build for.
-		:rtype: str
-		"""
-		return self._macOsVersionMin if self._macOsVersionMin else self._toolInfo.defaultMacOsSdkVersion
+
+	####################################################################################################################
+	### Internal methods
+	####################################################################################################################
 
 	def SetMacOsVersionMin(self, version):
 		"""
@@ -170,4 +168,4 @@ class MacOsToolBase(AppleToolBase):
 		:param version: macOS version (e.g., "10.8", "10.9", "10.10", etc)
 		:type version: str
 		"""
-		self._macOsVersionMin = version
+		self._macOsVersionMin = csbuild.currentPlan.SetValue("macOsVersionMin", version)

@@ -41,23 +41,22 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 	inputFiles={".asm"}
 	outputFiles = {".obj"}
 
+	def __init__(self, projectSettings):
+		MsvcToolBase.__init__(self, projectSettings)
+		AssemblerBase.__init__(self, projectSettings)
+
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
-
-	def __init__(self, projectSettings):
-		MsvcToolBase.__init__(self, projectSettings)
-		AssemblerBase.__init__(self, projectSettings)
 
 	def _getEnv(self, project):
 		return self.vcvarsall.env
 
 	def _getOutputFiles(self, project, inputFile):
 		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
-		outputFiles = ["{}.obj".format(outputPath)]
 
-		return tuple(outputFiles)
+		return tuple({ "{}.obj".format(outputPath) })
 
 	def _getCommand(self, project, inputFile):
 		assemblerPath = self._getExecutablePath(project)
@@ -95,7 +94,5 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 		return args
 
 	def _getOutputFileArgs(self, project, inputFile):
-		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
-		args = ["/Fo", "{}.obj".format(outputPath)]
-
-		return args
+		outputFiles = self._getOutputFiles(project, inputFile)
+		return ["/Fo", outputFiles[0]]

@@ -27,8 +27,9 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import sys
 import math
+import subprocess
+import sys
 
 if sys.version_info[0] >= 3:
 	BytesType = bytes
@@ -116,3 +117,13 @@ class MultiBreak(Exception):
 	Simple exception type to quickly break out of deeply nested loops.
 	"""
 	pass
+
+
+def GetCommandLineString():
+	"""
+	Get the command line arguments used to invoke csbuild.
+
+	:return: Command line arguments as a string.
+	:rtype: str
+	"""
+	return subprocess.list2cmdline(sys.argv[1:])

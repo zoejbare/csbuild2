@@ -32,63 +32,15 @@ from csbuild._testing.functional_test import FunctionalTest
 import os
 import unittest
 
-@unittest.skipUnless("ANDROID_NDK_ROOT" in os.environ and "ANDROID_SDK_HOME" in os.environ, "ANDROID_NDK_ROOT and/or ANDROID_SDK_HOME not defined")
+@unittest.skipUnless("ANDROID_NDK_ROOT" in os.environ and "ANDROID_HOME" in os.environ, "ANDROID_NDK_ROOT and/or ANDROID_HOME not defined")
 class AndroidTest(FunctionalTest):
-	"""Android test"""
+	"""Android functional test"""
 
 	# pylint: disable=invalid-name
 	def setUp(self): # pylint: disable=arguments-differ
 		self.outputFile = "out/hello_world.so"
 		outDir = "out"
 		FunctionalTest.setUp(self, outDir=outDir)
-
-	def testGccX86CompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=x86", "--toolchain=android-gcc"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
-
-	def testGccX64CompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=x64", "--toolchain=android-gcc"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
-
-	def testGccArmCompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=arm", "--toolchain=android-gcc"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
-
-	def testGccArm64CompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=arm64", "--toolchain=android-gcc"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
-
-	def testGccMipsCompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=mips", "--toolchain=android-gcc"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
-
-	def testGccMips64CompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=mips64", "--toolchain=android-gcc"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
 
 	def testClangX86CompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
@@ -117,22 +69,6 @@ class AndroidTest(FunctionalTest):
 	def testClangArm64CompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
 		testArgs = ["--project=hello_world", "--arch=arm64", "--toolchain=android-clang"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
-
-	def testClangMipsCompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=mips", "--toolchain=android-clang"]
-		self.cleanArgs = testArgs
-		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
-
-		self.assertTrue(os.access(self.outputFile, os.F_OK))
-
-	def testClangMips64CompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=mips64", "--toolchain=android-clang"]
 		self.cleanArgs = testArgs
 		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
 
