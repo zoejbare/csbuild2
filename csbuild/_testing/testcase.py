@@ -36,6 +36,22 @@ from xml.etree import ElementTree
 from xml.dom import minidom
 
 
+initialized = False
+
+
+def _init():
+	"""Initialize some test environment data"""
+	global initialized
+	if not initialized:
+		from .._utils import shared_globals, terminfo
+
+		initialized = True
+		shared_globals.startTime = time.time()
+
+		shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
+		shared_globals.showCommands = True
+
+
 class TestCase(unittest.TestCase):
 	"""
 	Thin wrapper around python unittest to provide more details on test progress
@@ -49,6 +65,7 @@ class TestCase(unittest.TestCase):
 	def __init__(self, methodName):
 		super(TestCase, self).__init__(methodName)
 		self.success = True
+		_init()
 
 	def run(self, result=None):
 		"""

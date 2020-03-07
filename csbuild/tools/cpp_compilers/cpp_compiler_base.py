@@ -32,17 +32,22 @@ import csbuild
 
 from abc import ABCMeta, abstractmethod
 
-from ..common.tool_traits import HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasStaticRuntime
+from ..common.tool_traits import \
+	HasDebugLevel, \
+	HasDebugRuntime, \
+	HasDefines, \
+	HasIncludeDirectories, \
+	HasOptimizationLevel, \
+	HasStaticRuntime
 
 from ... import commands, log
-from ..._utils import ordered_set
 from ..._utils.decorators import MetaClass
 
 def _ignore(_):
 	pass
 
 @MetaClass(ABCMeta)
-class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasStaticRuntime):
+class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDirectories, HasOptimizationLevel, HasStaticRuntime):
 	"""
 	Base class for C++ compilers
 
@@ -57,14 +62,14 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	################################################################################
 
 	def __init__(self, projectSettings):
-		self._includeDirectories = projectSettings.get("includeDirectories", ordered_set.OrderedSet())
-		self._defines = projectSettings.get("defines", ordered_set.OrderedSet())
-		self._undefines = projectSettings.get("undefines", ordered_set.OrderedSet())
+		self._globalFlags = projectSettings.get("globalFlags", [])
 		self._cFlags = projectSettings.get("cFlags", [])
 		self._cxxFlags = projectSettings.get("cxxFlags", [])
 
 		HasDebugLevel.__init__(self, projectSettings)
 		HasDebugRuntime.__init__(self, projectSettings)
+		HasDefines.__init__(self, projectSettings)
+		HasIncludeDirectories.__init__(self, projectSettings)
 		HasOptimizationLevel.__init__(self, projectSettings)
 		HasStaticRuntime.__init__(self, projectSettings)
 
@@ -74,41 +79,21 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	################################################################################
 
 	@staticmethod
-	def AddIncludeDirectories(*dirs):
+	def AddCompilerFlags(*flags):
 		"""
-		Add directories to search for headers in
+		Add compiler flags that are applid to both C and C++ files.
 
-		:param dirs: list of directories
-		:type dirs: str
+		:param flags: List of flags
+		:type flags: str
 		"""
-		csbuild.currentPlan.UnionSet("includeDirectories", [os.path.abspath(directory) for directory in dirs])
-
-	@staticmethod
-	def AddDefines(*defines):
-		"""
-		Add preprocessor defines to the current project.
-
-		:param defines: List of defines.
-		:type defines: str
-		"""
-		csbuild.currentPlan.UnionSet("defines", defines)
+		csbuild.currentPlan.ExtendList("globalFlags", flags)
 
 	@staticmethod
-	def AddUndefines(*undefines):
+	def AddCompilerCcFlags(*flags):
 		"""
-		Add preprocessor undefines to the current project.
+		Add compiler C flags.
 
-		:param undefines: List of undefines.
-		:type undefines: str
-		"""
-		csbuild.currentPlan.UnionSet("undefines", undefines)
-
-	@staticmethod
-	def AddCompilerCFlags(*flags):
-		"""
-		Add compiler c flags.
-
-		:param flags: List of c flags
+		:param flags: List of C flags
 		:type flags: str
 		"""
 		csbuild.currentPlan.ExtendList("cFlags", flags)
@@ -116,26 +101,12 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	@staticmethod
 	def AddCompilerCxxFlags(*flags):
 		"""
-		Add compiler cxx flags.
+		Add compiler C++ flags.
 
-		:param flags: List of cxx flags
+		:param flags: List of C++ flags
 		:type flags: str
 		"""
 		csbuild.currentPlan.ExtendList("cxxFlags", flags)
-
-
-	################################################################################
-	### Public API
-	################################################################################
-
-	def GetIncludeDirectories(self):
-		"""
-		Get the list of include directories
-
-		:return: include dirs
-		:rtype: ordered_set.OrderedSet[str]
-		"""
-		return self._includeDirectories
 
 
 	################################################################################
@@ -153,7 +124,7 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 
 	@abstractmethod
 	def _getOutputFiles(self, project, inputFile):
-		return ""
+		return ("", )
 
 	@abstractmethod
 	def _getCommand(self, project, inputFile, isCpp):
@@ -165,12 +136,15 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 	################################################################################
 
 	def SetupForProject(self, project):
+		HasIncludeDirectories.SetupForProject(self, project)
+
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			self._defines.add("CSB_SHARED_LIBRARY=1")
 		elif project.projectType == csbuild.ProjectType.StaticLibrary:
 			self._defines.add("CSB_STATIC_LIBRARY=1")
 		else:
 			self._defines.add("CSB_APPLICATION=1")
+
 		self._defines.add("CSB_TARGET_{}=1".format(project.targetName.upper()))
 
 	def Run(self, inputProject, inputFile):
@@ -186,10 +160,16 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasOptimizationLevel, HasS
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
 		"""
-		log.Build("Compiling {}...", os.path.basename(inputFile.filename))
+		log.Build(
+			"Compiling {} ({}-{}-{})...",
+			os.path.basename(inputFile.filename),
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName
+		)
 
 		_, extension = os.path.splitext(inputFile.filename)
-		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile, extension in {".cpp", ".cc", ".cxx"}), env=self._getEnv(inputProject))
+		returncode, _, _ = commands.Run(self._getCommand(inputProject, inputFile, extension in {".cpp", ".cc", ".cxx", ".mm"}), env=self._getEnv(inputProject))
 		if returncode != 0:
 			raise csbuild.BuildFailureException(inputProject, inputFile)
 		return self._getOutputFiles(inputProject, inputFile)

@@ -32,7 +32,7 @@ import os
 import csbuild
 
 from .gcc_cpp_compiler import GccCppCompiler
-from ..common.android_tool_base import AndroidToolBase, AndroidStlLibType
+from ..common.android_tool_base import AndroidToolBase
 from ..._build.input_file import  InputFile
 
 class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
@@ -68,7 +68,9 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 			# Add it directly to the project's list of input files.
 			project.inputFiles[".c"].add(InputFile(nativeAppGlueSourcePath))
 
-	def _getComplierName(self, isCpp):
+	def _getComplierName(self, project, isCpp):
+		assert self._androidInfo.gccPath, "No Android gcc executable found for architecture: {}".format(project.architectureName)
+		assert self._androidInfo.gppPath, "No Android g++ executable found for architecture: {}".format(project.architectureName)
 		return self._androidInfo.gppPath if isCpp else self._androidInfo.gccPath
 
 	def _getDefaultArgs(self, project):
@@ -93,14 +95,15 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 		return ["-march={}".format(buildArchName)] if buildArchName else []
 
 	def _getSystemArgs(self, project, isCpp):
-		stlIncPaths = {
-			AndroidStlLibType.Gnu: self._androidInfo.libStdCppIncludePaths,
-			AndroidStlLibType.LibCpp: self._androidInfo.libCppIncludePaths,
-			AndroidStlLibType.StlPort: self._androidInfo.stlPortIncludePaths,
-		}.get(self._androidStlLibType, None)
-		assert stlIncPaths, "Invalid Android STL library type: {}".format(self._androidStlLibType)
-
 		args = []
+
+		if isCpp:
+			# Add each include path for the selected version of STL.
+			for path in self._androidInfo.stlIncludePaths:
+				args.extend([
+					"-isystem",
+					path,
+				])
 
 		# Add the sysroot include paths.
 		for path in self._androidInfo.systemIncludePaths:
@@ -108,14 +111,6 @@ class AndroidGccCppCompiler(GccCppCompiler, AndroidToolBase):
 				"-isystem",
 				path,
 			])
-
-		if isCpp:
-			# Add each include path for the selected version of STL.
-			for path in stlIncPaths:
-				args.extend([
-					"-isystem",
-					path,
-				])
 
 		if self._androidNativeAppGlue:
 			args.extend([

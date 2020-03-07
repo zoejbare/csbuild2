@@ -230,7 +230,7 @@ class DummyProjectGenerator(Tool):
 		assert self._qux is True
 		assert self._quux is True
 		outStr = "\n".join([inputFile.filename for inputFile in inputFiles])
-		outFile = os.path.join(inputProject.outputDir, inputProject.outputName + "_" + inputProject.targetName + ".proj")
+		outFile = os.path.join(csbuild.GetSolutionPath(), inputProject.outputName + "_" + inputProject.targetName + ".proj")
 		with open(outFile, "w") as f:
 			f.write(outStr)
 			f.flush()

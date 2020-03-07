@@ -156,7 +156,13 @@ class JavaArchiverBase(JavaToolBase):
 		:return: Tuple of files created by the tool - all files must have an extension in the outputFiles list.
 		:rtype: tuple[str]
 		"""
-		log.Linker("Archiving {}.jar...", inputProject.outputName)
+		log.Linker(
+			"Archiving {} ({}-{}-{}).jar...",
+			inputProject.outputName,
+			inputProject.toolchainName,
+			inputProject.architectureName,
+			inputProject.targetName
+		)
 
 		classRootPath = os.path.join(inputProject.intermediateDir, self._javaClassRootDirName)
 

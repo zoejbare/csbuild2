@@ -50,11 +50,14 @@ class GeneratorData(object):
 allGenerators = {}
 allGeneratorTools = set()
 
+solutionGeneratorType = ""
+
 runPerfReport = None
 
 toolchainGroups = {}
 
 solutionPath = ""
+solutionArgs = ""
 
 class RunMode(object):
 	"""
@@ -100,6 +103,7 @@ startTime = 0
 totalBuilds = 0
 completedBuilds = 0
 
+buildStartedHooks = set()
 buildFinishedHooks = set()
 
 class InMemoryOnlySettings(object):

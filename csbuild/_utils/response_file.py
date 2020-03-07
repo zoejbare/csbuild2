@@ -32,12 +32,6 @@ from . import PlatformBytes
 import os
 import platform
 import threading
-import sys
-
-if sys.version_info >= (3,3,0):
-	from shlex import quote
-else:
-	from pipes import quote
 
 class ResponseFile(object):
 	"""
@@ -55,7 +49,7 @@ class ResponseFile(object):
 	_lock = threading.Lock()
 
 	def __init__(self, project, name, cmd):
-		dirPath = os.path.join(project.csbuildDir, "cmd", project.outputName, project.architectureName, project.targetName)
+		dirPath = os.path.join(project.csbuildDir, "cmd", project.outputName, project.toolchainName, project.architectureName, project.targetName)
 		fileMode = 438 # Octal 0666
 		flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
 
@@ -71,11 +65,16 @@ class ResponseFile(object):
 					os.makedirs(dirPath)
 
 		self._filePath = os.path.join(dirPath, name)
-		self._commandList = [arg for arg in cmd if arg]
+		self._commandList = [
+			"\"{}\"".format(arg)
+				if " " in arg and "\"" not in arg
+					else arg
+			for arg in cmd if arg
+		]
 
 		f = os.open(self._filePath, flags, fileMode)
 
-		os.write(f, PlatformBytes(" ".join([arg.replace("\\", r"\\") for arg in self._commandList])))
+		os.write(f, PlatformBytes("\n".join([arg.replace("\\", r"\\") for arg in self._commandList])))
 		os.fsync(f)
 		os.close(f)
 
@@ -99,8 +98,8 @@ class ResponseFile(object):
 
 	def AsString(self):
 		"""
-		Get the full string of the command arguments, quoted as necessary.
+		Get the full string of the command arguments.
 		:return: Original command list as string.
 		:rtype: str
 		"""
-		return " ".join([quote(arg) for arg in self._commandList])
+		return " ".join(self._commandList)

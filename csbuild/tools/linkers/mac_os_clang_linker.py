@@ -28,30 +28,42 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
+import os
 
 from .clang_linker import ClangLinker
 
+from ..common import FindLibraries
 from ..common.apple_tool_base import MacOsToolBase
 
 class MacOsClangLinker(MacOsToolBase, ClangLinker):
 	"""
 	Clang compiler implementation
 	"""
-
-	outputFiles = {"", ".a", ".dylib"}
-	crossProjectDependencies = {".a", ".dylib"}
-
-	####################################################################################################################
-	### Methods implemented from base classes
-	####################################################################################################################
+	supportedPlatforms = { "Darwin" }
+	outputFiles = { "", ".a", ".dylib" }
+	crossProjectDependencies = { ".a", ".dylib" }
 
 	def __init__(self, projectSettings):
 		MacOsToolBase.__init__(self, projectSettings)
 		ClangLinker.__init__(self, projectSettings)
 
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
 	def SetupForProject(self, project):
 		MacOsToolBase.SetupForProject(self, project)
 		ClangLinker.SetupForProject(self, project)
+
+	def _findLibraries(self, project, libs):
+		sysLibDirs = [
+			"/usr/local/lib",
+			"/usr/lib",
+		]
+		allLibraryDirectories = [x for x in self._libraryDirectories] + sysLibDirs
+
+		return FindLibraries([x for x in libs], allLibraryDirectories, [".dylib", ".so", ".a"])
 
 	def _getDefaultArgs(self, project):
 		baseArgs = ClangLinker._getDefaultArgs(self, project)
@@ -64,6 +76,19 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 		return baseArgs + [
 			libraryBuildArg
 		]
+
+	def _getRpathArgs(self):
+		# TODO: We should make the default rpath configurable between @executable_path, @loader_path, and @rpath.
+		args = [
+			"-Xlinker", "-rpath",
+			"-Xlinker", "@executable_path",
+		]
+		for lib in self._actualLibraryLocations.values():
+			args.extend([
+				"-Xlinker", "-rpath",
+				"-Xlinker", os.path.dirname(lib),
+			])
+		return args
 
 	def _getLibraryArgs(self):
 		libArgs = [lib for lib in self._actualLibraryLocations.values()]

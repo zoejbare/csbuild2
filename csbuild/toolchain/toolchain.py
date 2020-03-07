@@ -157,7 +157,7 @@ class Toolchain(object):
 					"""
 					global currentToolId
 					lastToolId = currentToolId
-					currentToolId = id(cls)
+					currentToolId = [id(x) for x in cls.mro()]
 					oldClass = _getLastClass()
 					_threadSafeClassTrackr.lastClass = cls
 					try:
@@ -340,34 +340,38 @@ class Toolchain(object):
 						:rtype: any
 						:raises KeyError: if the key is not present in the dictionary within the calling class's scope
 						"""
-						key = "{}!{}".format(currentToolId, item)
-						if key not in self._settingsDict:
-							raise KeyError(item)
-						return self._settingsDict[key]
+						for toolId in currentToolId:
+							key = "{}!{}".format(toolId, item)
+							if key in self._settingsDict:
+								return self._settingsDict[key]
+						raise KeyError(item)
 
 					def items(self):
 						"""
 						Iterate the key,value tuple pairs in the dictionary
 						"""
 						for key, value in self._settingsDict.items():
-							if key.startswith("{}!".format(currentToolId)):
-								yield key.split("!", 1)[1], value
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield key.split("!", 1)[1], value
 
 					def keys(self):
 						"""
 						Iterate the keys in the dictionary
 						"""
 						for key in self._settingsDict.keys():
-							if key.startswith("{}!".format(currentToolId)):
-								yield key.split("!", 1)[1]
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield key.split("!", 1)[1]
 
 					def __iter__(self):
 						"""
 						Iterate the keys in the dictionary
 						"""
 						for key in self._settingsDict.keys():
-							if key.startswith("{}!".format(currentToolId)):
-								yield key.split("!", 1)[1]
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield key.split("!", 1)[1]
 
 					def __contains__(self, item):
 						"""
@@ -377,8 +381,11 @@ class Toolchain(object):
 						:return: true if in, false otherwise
 						:rtype: bool
 						"""
-						key = "{}!{}".format(currentToolId, item)
-						return key in self._settingsDict
+						for toolId in currentToolId:
+							key = "{}!{}".format(toolId, item)
+							if key in self._settingsDict:
+								return True
+						return False
 
 					def get(self, item, default):
 						"""
@@ -390,18 +397,20 @@ class Toolchain(object):
 						:return: the value, or default
 						:rtype: any
 						"""
-						key = "{}!{}".format(currentToolId, item)
-						if key not in self._settingsDict:
-							return default
-						return self._settingsDict[key]
+						for toolId in currentToolId:
+							key = "{}!{}".format(toolId, item)
+							if key in self._settingsDict:
+								return self._settingsDict[key]
+						return default
 
 					def values(self):
 						"""
 						Iterate the values in the dictionary
 						"""
 						for key, value in self._settingsDict.items():
-							if key.startswith("{}!".format(currentToolId)):
-								yield value
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									yield value
 
 					def __len__(self):
 						"""
@@ -411,8 +420,10 @@ class Toolchain(object):
 						"""
 						length = 0
 						for key in self._settingsDict.keys():
-							if key.startswith("{}!".format(currentToolId)):
-								length += 1
+							for toolId in currentToolId:
+								if key.startswith("{}!".format(toolId)):
+									length += 1
+									break
 						return length
 
 				class ToolchainTemplate(object):

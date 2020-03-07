@@ -38,7 +38,7 @@ class NotReady(Exception):
 
 class MemoObject(object):
 	"""
-	An object within the memo, with facitilites for thread-safe writes and blocking reads.
+	An object within the memo, with facilities for thread-safe writes and blocking reads.
 	These are write-once structures. Once written they cannot be changed. This allows optimizations on reads
 	once the write has persisted.
 	"""

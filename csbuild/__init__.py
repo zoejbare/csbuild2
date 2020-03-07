@@ -36,7 +36,7 @@ import glob
 import traceback
 
 from . import perf_timer
-from ._utils import StrType
+from ._utils import PlatformUnicode, StrType
 
 with perf_timer.PerfTimer("csbuild module init"):
 	import sys
@@ -193,9 +193,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		'enum' representing the available project types.
 		"""
-		Application = 0
-		SharedLibrary = 1
-		StaticLibrary = 2
+		Stub = 0
+		Application = 1
+		SharedLibrary = 2
+		StaticLibrary = 3
 
 	class ScopeDef(object):
 		"""
@@ -253,6 +254,26 @@ with perf_timer.PerfTimer("csbuild module init"):
 		return shared_globals.runMode
 
 	@TypeChecked(_return=StrType)
+	def GetSolutionArgs():
+		"""
+		Get the value passed to the --solution-args option.
+
+		:return: Solution args string.
+		:rtype: str
+		"""
+		return shared_globals.solutionArgs
+
+	@TypeChecked(_return=StrType)
+	def GetSolutionPath():
+		"""
+		Get the root path when generating projects.
+
+		:return: Root solution path.
+		:rtype: str
+		"""
+		return shared_globals.solutionPath
+
+	@TypeChecked(_return=StrType)
 	def GetSystemArchitecture():
 		"""
 		Get the standard name for the architecture of the system currently running csbuild.
@@ -294,7 +315,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				# Architecture type is unknown, so use whatever was returned by platform.machine().
 				_standardArchName = machine
 
-		return _standardArchName
+		return PlatformUnicode(_standardArchName)
 
 	@TypeChecked(name=String, projectType=int)
 	def SetOutput(name, projectType=ProjectType.Application):
@@ -370,7 +391,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		for tool in projectTools:
 			shared_globals.allGeneratorTools.add(tool)
-		shared_globals.allGenerators[name] = shared_globals.GeneratorData(projectTools, solutionTool)
+		shared_globals.allGenerators[name] = shared_globals.GeneratorData(set(projectTools), solutionTool)
 
 		if shared_globals.runMode == RunMode.GenerateSolution:
 			for tool in projectTools:
@@ -489,7 +510,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param outputDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type outputDirectory: str
 		"""
-		currentPlan.SetValue("outputDir", outputDirectory)
+		currentPlan.SetValue("outputDir", os.path.abspath(outputDirectory) if outputDirectory else "")
 
 	def SetIntermediateDirectory(intermediateDirectory):
 		"""
@@ -498,7 +519,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param intermediateDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type intermediateDirectory: str
 		"""
-		currentPlan.SetValue("intermediateDir", intermediateDirectory)
+		currentPlan.SetValue("intermediateDir", os.path.abspath(intermediateDirectory) if intermediateDirectory else "")
 
 	def AddExcludeFiles(*files):
 		"""
@@ -562,8 +583,14 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type scopeTypes: ScopeDef
 		"""
 		def __init__(self, *scopeTypes):
+			allScopes = (
+				ScopeDef.Intermediate,
+				ScopeDef.Final,
+				ScopeDef.Children,
+				ScopeDef.All
+			)
 			for scopeType in scopeTypes:
-				assert scopeType in (Csbuild.ScopeDef.Intermediate, Csbuild.ScopeDef.Final), "Invalid scope type"
+				assert scopeType in allScopes, "Invalid scope type"
 			ContextManager.__init__(self, (("scope", scopeTypes),))
 
 	class Toolchain(ContextManager):
@@ -744,6 +771,15 @@ with perf_timer.PerfTimer("csbuild module init"):
 			global currentPlan
 			currentPlan = self._prevPlan
 			return False
+
+	def OnBuildStarted(func):
+		"""
+		Decorator that registers an OnBuildStarted event hook.
+		:param func: Function that accepts a single parameter with type list[csbuild._build.project.Project],
+			containing all projects that will be built in this run.
+		:type func: Callable
+		"""
+		shared_globals.buildStartedHooks.add(func)
 
 	def OnBuildFinished(func):
 		"""

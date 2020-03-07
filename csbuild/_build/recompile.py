@@ -26,7 +26,7 @@
 from __future__ import unicode_literals, division, print_function
 
 from . import project, input_file
-from .._utils import memo, ordered_set
+from .._utils import memo, ordered_set, shared_globals
 from ..toolchain import CompileChecker
 from .._utils.decorators import TypeChecked
 from .. import perf_timer, log
@@ -128,7 +128,7 @@ class Deferred(object):
 		"""
 		return len([item for item in self._values if not item.Unlocked()]) == 0
 
-def CheckCompilabilityForFile(buildProject, checker, inputFile, valueMemo):
+def CheckCompilabilityForFile(buildProject, checker, inputFile, valueMemo, allDeps):
 	"""
 	Check compatibility for a single file
 
@@ -140,6 +140,8 @@ def CheckCompilabilityForFile(buildProject, checker, inputFile, valueMemo):
 	:type inputFile: input_file.InputFile
 	:param valueMemo: memo to collect memoized values from
 	:type valueMemo: memo.Memo
+	:param allDeps: All processed dependencies for a given set of checked files used to avoid redundant processing when there are recursive includes.
+	:type allDeps: set[str]
 	:return: A value with a blocking Get() and not-blocking TryGet()
 	:rtype: any
 	"""
@@ -169,12 +171,16 @@ def CheckCompilabilityForFile(buildProject, checker, inputFile, valueMemo):
 
 		# Now walk the dependencies
 		deps = [input_file.InputFile(dep) for dep in checker.GetDependencies(buildProject, inputFile)]
+		deps = [dep for dep in deps if dep.filename not in allDeps]
 		if not deps:
 			return values[0]
 
+		# Update the complete dependency list with all the new dependencies found for the current input file.
+		allDeps.update([dep.filename for dep in deps])
+
 		for dep in deps:
 			# For each dependency, recurse and add the result (completed or not) to our values.
-			nestedItem = CheckCompilabilityForFile(buildProject, checker, dep, valueMemo)
+			nestedItem = CheckCompilabilityForFile(buildProject, checker, dep, valueMemo, allDeps)
 			values.append(nestedItem)
 
 		ret = Deferred(checker, item, values)
@@ -202,11 +208,14 @@ def ShouldRecompile(buildProject, checker, inputFiles):
 	:rtype: bool
 	"""
 	with perf_timer.PerfTimer("Filter for recompile"):
+		if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
+			# All files should be "compiled" when generating a solution.
+			return True
 		log.Info("Checking if we should compile {}", inputFiles)
 		baseline = checker.GetRecompileBaseline(buildProject, inputFiles)
 		if baseline is None:
 			return True
-		values = [CheckCompilabilityForFile(buildProject, checker, f, checker.memo) for f in inputFiles]
+		values = [CheckCompilabilityForFile(buildProject, checker, f, checker.memo, set()) for f in inputFiles]
 
 		with perf_timer.PerfTimer("Cross-thread Final Resolution"):
 			return checker.ShouldRecompile(checker.CondenseRecompileChecks([value.Get() for value in values]), baseline)
