@@ -75,7 +75,7 @@ FILE_FORMAT_VERSION_INFO = {
 	Version.Vs2013: VsInstallInfo("Visual Studio 2013", "12.00", "2013", "v120"),
 	Version.Vs2015: VsInstallInfo("Visual Studio 2015", "12.00", "14", "v140"),
 	Version.Vs2017: VsInstallInfo("Visual Studio 2017", "12.00", "15", "v141"),
-	Version.Vs2019: VsInstallInfo("Visual Studio 2019", "12.00", "16", "v141"),
+	Version.Vs2019: VsInstallInfo("Visual Studio 2019", "12.00", "16", "v142"),
 }
 
 CPP_SOURCE_FILE_EXTENSIONS = CppCompilerBase.inputFiles
