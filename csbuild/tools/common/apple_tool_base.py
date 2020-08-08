@@ -33,8 +33,8 @@ import subprocess
 
 from abc import ABCMeta
 
-from ..._utils import ordered_set
 from ..._utils.decorators import MetaClass
+from ..._utils.ordered_set import OrderedSet
 from ...toolchain import Tool
 from ... import commands
 
@@ -98,18 +98,18 @@ class AppleToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-		self._frameworkDirectories = projectSettings.get("frameworkDirectories", ordered_set.OrderedSet())
-		self._frameworks = projectSettings.get("frameworks", ordered_set.OrderedSet())
+		self._frameworkDirectories = projectSettings.get("frameworkDirectories", OrderedSet())
+		self._frameworks = projectSettings.get("frameworks", OrderedSet())
 
 		# Add the default library framework locations.
-		self._frameworkDirectories.update({
+		self._frameworkDirectories.update(OrderedSet([
 			x
 			for x in [
 				"/Library/Frameworks",
 				os.path.expanduser("~/Library/Frameworks"),
 			]
 			if os.access(x, os.F_OK)
-		})
+		]))
 
 		self._toolInfo = None
 
