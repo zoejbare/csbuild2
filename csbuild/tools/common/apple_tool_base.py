@@ -102,14 +102,14 @@ class AppleToolBase(Tool):
 		self._frameworks = projectSettings.get("frameworks", OrderedSet())
 
 		# Add the default library framework locations.
-		self._frameworkDirectories.update(OrderedSet([
+		self._frameworkDirectories.update([
 			x
 			for x in [
 				"/Library/Frameworks",
 				os.path.expanduser("~/Library/Frameworks"),
 			]
 			if os.access(x, os.F_OK)
-		]))
+		])
 
 		self._toolInfo = None
 
