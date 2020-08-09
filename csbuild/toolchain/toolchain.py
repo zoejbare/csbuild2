@@ -804,7 +804,7 @@ class Toolchain(object):
 									with Use(dummy):
 										return getattr(self, name)
 
-							if lastClass:
+							if lastClass: # pylint: disable=bad-option-value,no-else-raise
 								# If we only have one class to look at, we can shortcut a little bit.
 								# Also we can give access to instance methods and instance data that we can't give access to with
 								# multiple classes in view.
@@ -835,7 +835,7 @@ class Toolchain(object):
 											val = cls2.__dict__[name]
 											break
 									assert val is not sentinel, "this shouldn't happen"
-									if isinstance(val, property):
+									if isinstance(val, property): # pylint: disable=no-else-return
 										# pylint: disable=no-member
 										return val.__get__(self)
 									elif isinstance(val, (staticmethod, classmethod)):
@@ -905,7 +905,7 @@ class Toolchain(object):
 												break
 
 										assert func is not None, "this shouldn't happen"
-										if isinstance(func, (types.FunctionType, types.MethodType, property)):
+										if isinstance(func, (types.FunctionType, types.MethodType, property)): # pylint: disable=bad-option-value,no-else-raise
 											raise InvalidFunctionCall(
 												"Function call is invalid. '{}' is an instance method and is being called on a toolchain with more than one tool in its view. "
 												"Only staticmethods and classmethods are automatically bundled, non-static methods must be called with toolchain.Tool(FooTool).BarMethod()"

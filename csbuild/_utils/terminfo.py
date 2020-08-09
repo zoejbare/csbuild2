@@ -124,11 +124,9 @@ class TermInfo(object):
 				(_, _, _, _, _, left, _, right, _, _, _) = struct.unpack("hhhhHhhhhhh", csbi.raw)
 				return right - left
 			return 0
-
-		else:
-			if TermInfo._cursesValid:
-				return curses.tigetnum('cols')
-			return 0
+		if TermInfo._cursesValid:
+			return curses.tigetnum('cols')
+		return 0
 
 
 	@staticmethod
@@ -141,10 +139,9 @@ class TermInfo(object):
 		"""
 		if platform.system() == "Windows":
 			return TermInfo._colorSupported
-		else:
-			if TermInfo._cursesValid:
-				return curses.tigetnum("colors") >= 8
-			return False
+		if TermInfo._cursesValid:
+			return curses.tigetnum("colors") >= 8
+		return False
 
 
 	@staticmethod

@@ -261,11 +261,10 @@ def _writeLog(color, level, msg, destination=sys.stdout):
 						match = _tagNameMatch.match(piece)
 						if match or piece == "</&>":
 							continue
-						else:
-							try:
-								destination.write(piece)
-							except UnicodeEncodeError:
-								destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
+						try:
+							destination.write(piece)
+						except UnicodeEncodeError:
+							destination.write(piece.encode("ascii", "replace").decode("ascii", "replace"))
 			else:
 				try:
 					destination.write(msg)
@@ -359,7 +358,7 @@ def _formatMsg(msg, *args, **kwargs):
 	if showTime is not None:
 		del kwargs["showTime"]
 
-	if not isinstance(msg, BytesType) and not isinstance(msg, StrType):
+	if not isinstance(msg, BytesType) and not isinstance(msg, StrType): # pylint: disable=no-else-return
 		return repr(msg)
 	elif args or kwargs:
 		return msg.format(*args, **kwargs)

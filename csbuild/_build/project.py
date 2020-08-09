@@ -134,7 +134,7 @@ class Project(object):
 				return toConvert
 
 			def _convertItem(toConvert):
-				if isinstance(toConvert, list):
+				if isinstance(toConvert, list): # pylint: disable=no-else-return
 					return _convertList(toConvert)
 				elif isinstance(toConvert, (dict, collections.OrderedDict)):
 					return _convertDict(toConvert)

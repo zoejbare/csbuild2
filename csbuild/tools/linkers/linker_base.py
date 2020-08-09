@@ -132,7 +132,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:param dirs: Directories to scan
 		:type dirs: str
 		"""
-		csbuild.currentPlan.UnionSet("libraryDirectories", [d for d in dirs])
+		csbuild.currentPlan.UnionSet("libraryDirectories", list(dirs))
 
 	@staticmethod
 	def AddLinkerFlags(*flags):
@@ -229,6 +229,8 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:type inputFiles: list[input_file.InputFile]
 		:return: tuple of files created by the tool - all files must have an extension in the outputFiles list
 		:rtype: tuple[str]
+
+		:raises BuildFailureException: Build process exited with an error.
 		"""
 		log.Linker(
 			"Linking {}{} ({}-{}-{})...",

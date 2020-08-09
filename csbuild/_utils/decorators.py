@@ -234,7 +234,7 @@ def Overload(**argtypes):
 						# pick the correct matching passed-in argument
 						if i < len(args):
 							elem = args[i]
-						elif name in kwargs:
+						elif name in kwargs: # pylint: disable=bad-option-value,consider-using-get
 							elem = kwargs[name]
 
 						# If the specified argument type is object, everything matches at the lowest priority
@@ -296,8 +296,8 @@ def Overload(**argtypes):
 						elif result != returntype:
 							raise TypeError("Function {} returned invalid return value {}; expected {}".format(oldFunc.__name__, type(result), returntype))
 					return result
-				else:
-					raise TypeError("No overload of {} found that matches the given arguments: {} {}".format(oldFunc.__name__, args if args else "", kwargs if kwargs else ""))
+
+				raise TypeError("No overload of {} found that matches the given arguments: {} {}".format(oldFunc.__name__, args if args else "", kwargs if kwargs else ""))
 
 			# Back to the outer wrapper now! Everything from here down only happens once per instance of the decorator.
 			# Create a persistent overload list as a part of /this/ function
@@ -498,7 +498,7 @@ class TestTypeCheck(testcase.TestCase):
 
 	def testOldAndNewClasses(self):
 		"""Test that both old-style and new-style classes are accepted and work properly"""
-		class _oldClass:  # pylint: disable=old-style-class
+		class _oldClass: # pylint: disable=bad-option-value,old-style-class,no-init
 			pass
 
 		class _newClass(object):

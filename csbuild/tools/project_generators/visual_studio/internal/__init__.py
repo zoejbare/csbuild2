@@ -182,7 +182,7 @@ def _constructRelPath(filePath, rootPath):
 
 def _getItemRootFolderName(filePath):
 	fileExt = os.path.splitext(filePath)[1]
-	if fileExt in CPP_SOURCE_FILE_EXTENSIONS:
+	if fileExt in CPP_SOURCE_FILE_EXTENSIONS: # pylint: disable=no-else-return
 		return "C/C++ source files"
 	elif fileExt in CPP_HEADER_FILE_EXTENSIONS:
 		return "C/C++ header files"
@@ -377,8 +377,8 @@ class VsProject(object):
 			# Merge the data from the generator.
 			if generator:
 				self.platformGenerator[buildSpec] = generator
-				self.platformIncludePaths[buildSpec].extend([x for x in generator.includeDirectories])
-				self.platformDefines[buildSpec].extend([x for x in generator.defines])
+				self.platformIncludePaths[buildSpec].extend(list(generator.includeDirectories))
+				self.platformDefines[buildSpec].extend(list(generator.defines))
 
 				projectData = generator.projectData
 
@@ -1170,8 +1170,7 @@ def UpdatePlatformHandlers(handlers): # pylint: disable=missing-docstring
 				continue
 
 			# Limit the key tuple to 3 elements.
-			elif len(key) > 3:
-				key = key[:3]
+			key = key[:3]
 
 			# It's valid for the 3rd element to be a string initially, but for the mappings, we'll need it in a list.
 			if isinstance(key[2], str):

@@ -155,6 +155,8 @@ class JavaArchiverBase(JavaToolBase):
 
 		:return: Tuple of files created by the tool - all files must have an extension in the outputFiles list.
 		:rtype: tuple[str]
+
+		:raises BuildFailureException: Build process exited with an error.
 		"""
 		log.Linker(
 			"Archiving {} ({}-{}-{}).jar...",

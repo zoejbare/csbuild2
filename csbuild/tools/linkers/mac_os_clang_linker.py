@@ -61,9 +61,9 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 			"/usr/local/lib",
 			"/usr/lib",
 		]
-		allLibraryDirectories = [x for x in self._libraryDirectories] + sysLibDirs
+		allLibraryDirectories = list(self._libraryDirectories) + sysLibDirs
 
-		return FindLibraries([x for x in libs], allLibraryDirectories, [".dylib", ".so", ".a"])
+		return FindLibraries(libs, allLibraryDirectories, [".dylib", ".so", ".a"])
 
 	def _getDefaultArgs(self, project):
 		baseArgs = ClangLinker._getDefaultArgs(self, project)
@@ -91,7 +91,7 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 		return args
 
 	def _getLibraryArgs(self):
-		libArgs = [lib for lib in self._actualLibraryLocations.values()]
+		libArgs = list(self._actualLibraryLocations.values())
 		frameworkDirArgs = ["-F{}".format(path) for path in self._frameworkDirectories]
 		frameworkArgs = []
 		for framework in self._frameworks:

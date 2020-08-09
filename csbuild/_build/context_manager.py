@@ -226,7 +226,7 @@ class ContextManager(object):
 					rets = []
 					for func in funcs:
 						rets.append(func(*args, **kwargs))
-					if len(rets) == 1:
+					if len(rets) == 1: # pylint: disable=no-else-return
 						return rets[0]
 					elif len(rets) > 1:
 						return MultiDataContext(rets)
@@ -243,9 +243,9 @@ class ContextManager(object):
 						obj(*args, **kwargs)
 
 				return _wrapCsbuildMethod
-			else:
-				if isinstance(obj, (_classType, _typeType)) and issubclass(obj, ContextManager):
-					return NestedContext(obj, self)
-				return obj
+
+			if isinstance(obj, (_classType, _typeType)) and issubclass(obj, ContextManager):
+				return NestedContext(obj, self)
+			return obj
 
 		return object.__getattribute__(self, name)

@@ -85,11 +85,11 @@ class TestCase(unittest.TestCase):
 		unittest.TestCase.run(self, result)
 		if self.success:
 			log.Test("	  ... <&DGREEN>[</&><&GREEN>Success!</&><&DGREEN>]")
-			TestCase._currentTestCase[1] += 1
+			TestCase._currentTestCase[1] += 1 # pylint: disable=unsupported-assignment-operation
 			TestCase._totalSuccess += 1
 		else:
 			log.Test("	  ... <&DRED>[</&><&RED>Failed!</&><&DRED>]")
-			TestCase._currentTestCase[2] += 1
+			TestCase._currentTestCase[2] += 1 # pylint: disable=unsupported-assignment-operation
 			TestCase._totalFail += 1
 			TestCase._failedTestNames.append("{}.<&CYAN>{}</&>".format(self.__class__.__name__, self._testMethodName))
 

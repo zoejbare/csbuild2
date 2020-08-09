@@ -254,7 +254,7 @@ class FunctionalTest(TestCase):
 		commandThread.join()
 
 		ansiEscape = re.compile(r'\x1b[^m]*m')
-		returncode, output, errors = _shared.ret
+		returncode, output, errors = _shared.ret # pylint: disable=unpacking-non-sequence
 		output = ansiEscape.sub("", output)
 		errors = ansiEscape.sub("", errors)
 		return returncode, output, errors
