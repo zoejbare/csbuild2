@@ -159,9 +159,9 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 		return cmd
 
 	def _findLibraries(self, project, libs):
-		allLibraryDirectories = [x for x in self._libraryDirectories] + self._ps3SystemLibPaths
+		allLibraryDirectories = list(self._libraryDirectories) + self._ps3SystemLibPaths
 
-		return FindLibraries([x for x in libs], allLibraryDirectories, [".sprx", ".prx", ".a"])
+		return FindLibraries(libs, allLibraryDirectories, [".sprx", ".prx", ".a"])
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {

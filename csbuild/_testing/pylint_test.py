@@ -135,7 +135,12 @@ class TestPylint(testcase.TestCase):
 					return None
 			return pkg
 
+		# Ignore python virtual environments.
+		fileDiscardRegex = re.compile(r"venv[\d\s\w]*[\\/]", 0)
+
 		def _shouldRelint(filename):
+			if fileDiscardRegex.match(filename):
+				return False
 			if filename in failedLints:
 				return True
 			if filename in relintMemo:

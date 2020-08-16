@@ -118,9 +118,9 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 
 	def _findLibraries(self, project, libs):
 		targetLibPath = os.path.join(self._psVitaSdkPath, "target", "lib")
-		allLibraryDirectories = [x for x in self._libraryDirectories] + [targetLibPath]
+		allLibraryDirectories = list(self._libraryDirectories) + [targetLibPath]
 
-		return FindLibraries([x for x in libs], allLibraryDirectories, [".suprx", ".a"])
+		return FindLibraries(libs, allLibraryDirectories, [".suprx", ".a"])
 
 	def _getOutputExtension(self, projectType):
 		outputExt = {
