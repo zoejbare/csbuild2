@@ -720,8 +720,8 @@ class PerfTimer(object):
 				for threadId, report in threadreports.items():
 					if threadId == threading.current_thread().ident:
 						continue
-					else:
-						_printReportHtml(report, "Worker Thread {}".format(threadId))
+
+					_printReportHtml(report, "Worker Thread {}".format(threadId))
 
 				_printReportHtml(threadreports[threading.current_thread().ident], "Main Thread")
 				if len(threadreports) != 1:
@@ -847,8 +847,8 @@ class PerfTimer(object):
 			for threadId, report in threadreports.items():
 				if threadId == threading.current_thread().ident:
 					continue
-				else:
-					_printReport(report, "Worker Thread {}".format(threadId))
+
+				_printReport(report, "Worker Thread {}".format(threadId))
 
 			_printReport(threadreports[threading.current_thread().ident], "Main Thread")
 			if len(threadreports) != 1:

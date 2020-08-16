@@ -228,7 +228,7 @@ class ContextManager(object):
 						rets.append(func(*args, **kwargs))
 					if len(rets) == 1:
 						return rets[0]
-					elif len(rets) > 1:
+					if len(rets) > 1:
 						return MultiDataContext(rets)
 					return None
 
@@ -243,9 +243,9 @@ class ContextManager(object):
 						obj(*args, **kwargs)
 
 				return _wrapCsbuildMethod
-			else:
-				if isinstance(obj, (_classType, _typeType)) and issubclass(obj, ContextManager):
-					return NestedContext(obj, self)
-				return obj
+
+			if isinstance(obj, (_classType, _typeType)) and issubclass(obj, ContextManager):
+				return NestedContext(obj, self)
+			return obj
 
 		return object.__getattribute__(self, name)

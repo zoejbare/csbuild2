@@ -106,9 +106,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def _findLibraries(self, project, libs):
-		allLibraryDirectories = [x for x in self._libraryDirectories] + self.vcvarsall.libPaths
+		allLibraryDirectories = list(self._libraryDirectories) + self.vcvarsall.libPaths
 
-		return FindLibraries([x for x in libs], allLibraryDirectories, [".lib"])
+		return FindLibraries(libs, allLibraryDirectories, [".lib"])
 
 	def _getOutputExtension(self, projectType):
 		# These are extensions of the files that can be output from the linker or librarian.
@@ -177,7 +177,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			"odbc32.lib",
 			"odbccp32.lib",
 		]
-		args.extend([lib for lib in self._actualLibraryLocations.values()])
+		args.extend(list(self._actualLibraryLocations.values()))
 		return args
 
 	def _getOutputFileArgs(self, project):

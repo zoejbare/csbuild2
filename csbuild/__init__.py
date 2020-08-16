@@ -120,7 +120,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 						rets.append(func.__get__(tool)(*args, **kwargs))
 			if len(rets) == 1:
 				return rets[0]
-			elif len(rets) > 1:
+			if len(rets) > 1:
 				return MultiDataContext(rets)
 			return None
 
@@ -283,32 +283,30 @@ with perf_timer.PerfTimer("csbuild module init"):
 		"""
 		global _standardArchName
 		if _standardArchName is None:
-			def _is64Bit():
-				return True if platform.architecture()[0].lower() == "64bit" else False
-
+			is64Bit = platform.architecture()[0].lower() == "64bit"
 			x86Archs = ["x64", "x86_64", "amd64", "x86", "i386", "i686"]
 			ppcArchs = ["powerpc", "ppc64"]
 			machine = platform.machine().lower()
 
 			# x86 compatible architectures
 			if machine in x86Archs:
-				_standardArchName = "x64" if _is64Bit() else "x86"
+				_standardArchName = "x64" if is64Bit else "x86"
 
 			# ppc architectures
 			elif machine in ppcArchs:
-				_standardArchName = "ppc64" if _is64Bit() else "ppc"
+				_standardArchName = "ppc64" if is64Bit else "ppc"
 
 			# arm architectures
 			elif machine.startswith("arm"):
-				_standardArchName = "arm64" if _is64Bit() else "arm"
+				_standardArchName = "arm64" if is64Bit else "arm"
 
 			# mips architectures
 			elif machine.startswith("mips"):
-				_standardArchName = "mips64" if _is64Bit() else "mips"
+				_standardArchName = "mips64" if is64Bit else "mips"
 
 			# sparc architectures
 			elif machine.startswith("sparc"):
-				_standardArchName = "sparc64" if _is64Bit() else "sparc"
+				_standardArchName = "sparc64" if is64Bit else "sparc"
 
 			# unknown
 			else:

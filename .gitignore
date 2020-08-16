@@ -5,6 +5,7 @@
 **/.idea
 .csbuild
 /__pycache__/
+/venv*/
 build
 csbuild.egg-info
 dist

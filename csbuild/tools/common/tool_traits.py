@@ -170,9 +170,7 @@ class HasIncludeDirectories(Tool):
 		return self._includeDirectories
 
 	def SetupForProject(self, project):
-		self._includeDirectories = ordered_set.OrderedSet(
-			[directory for directory in self._includeDirectories]
-		)
+		self._includeDirectories = ordered_set.OrderedSet(self._includeDirectories)
 
 class HasDefines(Tool):
 	"""

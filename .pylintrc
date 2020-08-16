@@ -60,21 +60,16 @@ confidence=
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
 disable=
-	assignment-from-no-return,
+
+	# Shared between python2 and python3
 	bad-continuation,
 	bad-whitespace,
 	bare-except,
-	broad-except,
 	consider-using-get,
-	consider-using-in,
 	global-statement,
 	line-too-long,
-	locally-disabled,
-	no-else-return,
-	no-init,
 	no-name-in-module,
 	no-self-use,
-	protected-access,
 	redefined-argument-from-local,
 	too-few-public-methods,
 	too-many-arguments,
@@ -87,13 +82,17 @@ disable=
 	too-many-lines,
 	too-many-nested-blocks,
 	too-many-ancestors,
-	ungrouped-imports,
-	unpacking-non-sequence,
+	wrong-import-order,
+
+	# Needed for python2
+	assignment-from-no-return,
+	import-outside-toplevel,
+
+	# Needed for python3
+	unnecessary-pass,
 	unsubscriptable-object,
-	unsupported-assignment-operation,
 	useless-object-inheritance,
-	useless-return,
-	wrong-import-order
+	useless-return
 
 
 [REPORTS]
