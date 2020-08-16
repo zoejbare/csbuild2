@@ -332,6 +332,7 @@ class VsProject(object):
 		self.platformIntermediateDirPath = {}
 		self.platformIncludePaths = {}
 		self.platformDefines = {}
+		self.platformCxxLanguageStandard = {}
 
 		self.slnTypeGuid = {
 			VsProjectType.Standard: "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}",
@@ -373,12 +374,14 @@ class VsProject(object):
 				self.platformIntermediateDirPath.update({ buildSpec: "" })
 				self.platformIncludePaths.update({ buildSpec: [] })
 				self.platformDefines.update({ buildSpec: [] })
+				self.platformCxxLanguageStandard.update({ buildSpec: None })
 
 			# Merge the data from the generator.
 			if generator:
 				self.platformGenerator[buildSpec] = generator
 				self.platformIncludePaths[buildSpec].extend([x for x in generator.includeDirectories])
 				self.platformDefines[buildSpec].extend([x for x in generator.defines])
+				self.platformCxxLanguageStandard[buildSpec] = generator.cxxLanguageStandard
 
 				projectData = generator.projectData
 
@@ -434,6 +437,10 @@ class VsFileProxy(object):
 		"""
 		Check the temp file to see if it differs from the output file, then copy if they don't match.
 		"""
+		if not self.tempFilePath:
+			log.Build("[SKIPPING] {}".format(self.realFilePath))
+			return
+
 		outDirPath = os.path.dirname(self.realFilePath)
 
 		# Create the output directory if it doesn't exist.
@@ -807,17 +814,22 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 
 
 def _saveXmlFile(realFilePath, rootNode):
-	# Grab a string of the XML document we've created and save it.
-	xmlString = PlatformString(ET.tostring(rootNode))
+	if rootNode:
+		# Grab a string of the XML document we've created and save it.
+		xmlString = PlatformString(ET.tostring(rootNode))
 
-	# Use minidom to reformat the XML since ElementTree doesn't do it for us.
-	formattedXmlString = PlatformString(minidom.parseString(xmlString).toprettyxml("\t", "\n", encoding = "utf-8"))
+		# Use minidom to reformat the XML since ElementTree doesn't do it for us.
+		formattedXmlString = PlatformString(minidom.parseString(xmlString).toprettyxml("\t", "\n", encoding = "utf-8"))
 
-	tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
+		tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
 
-	# Write the temp xml file data.
-	with os.fdopen(tmpFd, "w") as f:
-		f.write(formattedXmlString)
+		# Write the temp xml file data.
+		with os.fdopen(tmpFd, "w") as f:
+			f.write(formattedXmlString)
+
+	else:
+		# No xml document was provided, so there will be no output file.
+		tempFilePath = None
 
 	fileProxy = VsFileProxy(realFilePath, tempFilePath)
 
@@ -1013,7 +1025,7 @@ def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
 			buildIntermediateDirPath = project.platformIntermediateDirPath[buildSpec]
 
 			outputExtension = platformHandler.GetOutputExtensionIfDebuggable(buildOutputType)
-			additionalOptions = platformHandler.GetIntellisenseAdditionalOptions()
+			additionalOptions = platformHandler.GetIntellisenseAdditionalOptions(project, buildSpec)
 
 			# Only include the NMakeOutput extension if the current project build has a debuggable output type.
 			# This is what Visual Studio will look for when attempting to debug.
@@ -1107,28 +1119,34 @@ def _writeFiltersVcxProj(outputRootPath, project):
 	_saveXmlFile(outputFilePath, rootXmlNode)
 
 
-def _writeUserVcxProj(outputRootPath, project):
+def _writeUserVcxProj(outputRootPath, project, preserve):
 	outputFilePath = os.path.join(outputRootPath, project.GetVcxProjFilePath(".user"))
 
-	rootXmlNode = _createRootXmlNode("Project")
-	rootXmlNode.set("ToolsVersion", "4.0")
-	rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
+	# Create the xml document if we're not explicitly preserving the old file or the old file doesn't exist.
+	if not preserve or not os.access(outputFilePath, os.F_OK):
+		rootXmlNode = _createRootXmlNode("Project")
+		rootXmlNode.set("ToolsVersion", "4.0")
+		rootXmlNode.set("xmlns", "http://schemas.microsoft.com/developer/msbuild/2003")
 
-	# Write out the user debug settings
-	if project.subType == VsProjectSubType.Normal:
-		for buildSpec in BUILD_SPECS:
-			# Skip build specs that are not supported by the project.
-			if buildSpec not in project.supportedBuildSpecs:
-				continue
+		# Write out the user debug settings
+		if project.subType == VsProjectSubType.Normal:
+			for buildSpec in BUILD_SPECS:
+				# Skip build specs that are not supported by the project.
+				if buildSpec not in project.supportedBuildSpecs:
+					continue
 
-			platformHandler = PLATFORM_HANDLERS[buildSpec]
-			platformHandler.WriteUserDebugPropertyGroup(rootXmlNode, project, buildSpec, _getVsConfigName(buildSpec))
+				platformHandler = PLATFORM_HANDLERS[buildSpec]
+				platformHandler.WriteUserDebugPropertyGroup(rootXmlNode, project, buildSpec, _getVsConfigName(buildSpec))
+
+	else:
+		# No output file needed.
+		rootXmlNode = None
 
 	# Write out the XML file.
 	_saveXmlFile(outputFilePath, rootXmlNode)
 
 
-def _writeProjectFiles(rootProject, outputRootPath):
+def _writeProjectFiles(rootProject, outputRootPath, preserveUserFiles):
 	global PLATFORM_HANDLERS
 	global BUILD_SPECS
 	global MAKEFILE_PATH
@@ -1151,7 +1169,7 @@ def _writeProjectFiles(rootProject, outputRootPath):
 		if project.projType == VsProjectType.Standard:
 			_writeMainVcxProj(outputRootPath, project, globalPlatformHandlers)
 			_writeFiltersVcxProj(outputRootPath, project)
-			_writeUserVcxProj(outputRootPath, project)
+			_writeUserVcxProj(outputRootPath, project, preserveUserFiles)
 
 
 def UpdatePlatformHandlers(handlers): # pylint: disable=missing-docstring
@@ -1222,6 +1240,7 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 	_createRegenerateBatchFile(outputRootPath)
 
 	rootProject = _buildProjectHierarchy(generators)
+	preserveUserFiles = True # TODO: This should eventually be set from a command line switch.
 
 	_writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
-	_writeProjectFiles(rootProject, outputRootPath)
+	_writeProjectFiles(rootProject, outputRootPath, preserveUserFiles)

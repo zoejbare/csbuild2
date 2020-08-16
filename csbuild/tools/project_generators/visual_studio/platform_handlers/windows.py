@@ -58,14 +58,25 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		}.get(projectOutputType, None)
 
 	@staticmethod
-	def GetIntellisenseAdditionalOptions(): # pylint: disable=redundant-returns-doc
+	def GetIntellisenseAdditionalOptions(project, buildSpec): # pylint: disable=redundant-returns-doc
 		"""
 		Get any additional NMake options to configure intellisense.
+
+		:param project: Visual Studio project data.
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:return: Additional NMake options.
 		:rtype: str or None
 		"""
-		return "-include $(UM_IncludePath)"
+		cxxStandard = project.platformCxxLanguageStandard[buildSpec]
+		args = [
+			"-include $(UM_IncludePath)",
+			"-std:{}".format(cxxStandard) if cxxStandard else None
+		]
+		return " ".join([x for x in args if x])
 
 	def WriteConfigPropertyGroup(self, parentXmlNode, project, buildSpec, vsConfig):
 		"""

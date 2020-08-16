@@ -205,3 +205,47 @@ class HasDefines(Tool):
 		:type undefines: str
 		"""
 		csbuild.currentPlan.UnionSet("undefines", undefines)
+
+
+class HasCcLanguageStandard(Tool):
+	"""
+	Helper class to set the C language standard to a tool.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._ccStandard = projectSettings.get("ccLanguageStandard", None)
+
+	@staticmethod
+	def SetCcLanguageStandard(standard):
+		"""
+		Set the C language standard.
+
+		:param standard: C language standard.
+		:type standard: str
+		"""
+		csbuild.currentPlan.SetValue("ccLanguageStandard", standard)
+
+
+class HasCxxLanguageStandard(Tool):
+	"""
+	Helper class to set the C++ language standard to a tool.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._cxxStandard = projectSettings.get("cxxLanguageStandard", None)
+
+	@staticmethod
+	def SetCxxLanguageStandard(standard):
+		"""
+		Set the C++ language standard.
+
+		:param standard: C++ language standard.
+		:type standard: str
+		"""
+		csbuild.currentPlan.SetValue("cxxLanguageStandard", standard)

@@ -67,16 +67,6 @@ class VsNsightTegraPlatformHandler(VsBasePlatformHandler):
 			csbuild.ProjectType.Application: ".apk",
 		}.get(projectOutputType, None)
 
-	@staticmethod
-	def GetIntellisenseAdditionalOptions():
-		"""
-		Get any additional NMake options to configure intellisense.
-
-		:return: Additional NMake options.
-		:rtype: str
-		"""
-		return ""
-
 	def WriteGlobalHeader(self, parentXmlNode, project):
 		"""
 		Write any top-level information about this platform at the start of the project file.
