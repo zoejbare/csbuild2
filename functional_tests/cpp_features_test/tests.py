@@ -58,7 +58,7 @@ class CppFeaturesTest(FunctionalTest):
 
 		# MSVC doesn't have a setting for the C language standard.
 		if platform.system() != "Windows":
-			self.assertIsNot(re.compile(R"^.* (-std=c11 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-std=c11\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -71,9 +71,9 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--project=cxx_standard")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^.* (/std:c\+\+14 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/std:c\+\+14\s", re.M).search(out), None)
 		else:
-			self.assertIsNot(re.compile(R"^.* (-std=c\+\+14 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-std=c\+\+14\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -86,13 +86,13 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--project=hello_world", "--target=nosymbols_noopt_dynamic_release")
 
 		if platform.system() == "Windows":
-			self.assertIs(re.compile(R"^.* (/Z7 |/Zi |/ZI )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/Od )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/MD )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIs(re.compile(R"/Z7\s|/Zi\s|/ZI\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/Od\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/MD\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/DIMPLICIT_DEFINE\s", re.M).search(out), None)
 		else:
-			self.assertIs(re.compile(R"^.* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (-O0 )", re.M).search(out), None)
+			self.assertIs(re.compile(R"-g\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-O0\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -105,14 +105,14 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--project=hello_world", "--target=embeddedsymbols_sizeopt_static_release")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^.* (/Z7 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/O1 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/MT )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/DEXPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/Z7\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/O1\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/MT\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/DIMPLICIT_DEFINE\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/DEXPLICIT_DEFINE\s", re.M).search(out), None)
 		else:
-			self.assertIsNot(re.compile(R"^.* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (-Os )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-g\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-Os\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -125,14 +125,14 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--project=hello_world", "--target=externalsymbols_speedopt_dynamic_debug")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^.* (/Zi )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/O2 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/MDd )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/UIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/Zi\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/O2\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/MDd\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/DIMPLICIT_DEFINE\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/UIMPLICIT_DEFINE\s", re.M).search(out), None)
 		elif platform.system() == "Linux":
-			self.assertIsNot(re.compile(R"^.* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (-Ofast )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-g\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-Ofast\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -145,15 +145,15 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, _ = self.assertMakeSucceeds("--show-commands", "--project=hello_world", "--target=externalplussymbols_maxopt_static_debug")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^.* (/ZI )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/Ox )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/MTd )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/DIMPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/DEXPLICIT_DEFINE )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/UIMPLICIT_DEFINE )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/ZI\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/Ox\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/MTd\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/DIMPLICIT_DEFINE\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/DEXPLICIT_DEFINE\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/UIMPLICIT_DEFINE\s", re.M).search(out), None)
 		elif platform.system() == "Linux":
-			self.assertIsNot(re.compile(R"^.* (-g )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (-O3 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-g\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-O3\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
@@ -166,10 +166,10 @@ class CppFeaturesTest(FunctionalTest):
 		_, out, err = self.assertMakeSucceeds("--show-commands", "--project=hello_world", "--target=custom_options")
 
 		if platform.system() == "Windows":
-			self.assertIsNot(re.compile(R"^.* (/W4 )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (/STACK:1048576 )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/W4\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"/STACK:1048576\s", re.M).search(out), None)
 			self.assertIn("warning C4101: 'unused': unreferenced local variable", out)
 		else:
-			self.assertIsNot(re.compile(R"^.* (-Wunused-variable )", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"^.* (-shared-libgcc )", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-Wunused-variable\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-shared-libgcc\s", re.M).search(out), None)
 			self.assertIsNot(re.compile(R"warning: unused variable .unused. \[-Wunused-variable\]").search(err), None)
