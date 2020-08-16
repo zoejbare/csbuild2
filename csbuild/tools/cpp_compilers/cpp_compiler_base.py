@@ -84,6 +84,12 @@ class CppCompilerBase(HasDebugLevel,
 		HasCcLanguageStandard.__init__(self, projectSettings)
 		HasCxxLanguageStandard.__init__(self, projectSettings)
 
+		self._projectTypeDefines = {
+			csbuild.ProjectType.Application: "CSB_APPLICATION=1",
+			csbuild.ProjectType.SharedLibrary: "CSB_SHARED_LIBRARY=1",
+			csbuild.ProjectType.StaticLibrary: "CSB_STATIC_LIBRARY=1",
+		}
+
 
 	################################################################################
 	### Static makefile methods
@@ -156,14 +162,8 @@ class CppCompilerBase(HasDebugLevel,
 		HasCcLanguageStandard.SetupForProject(self, project)
 		HasCxxLanguageStandard.SetupForProject(self, project)
 
-		projectTypeDefines = {
-			csbuild.ProjectType.Application: "CSB_APPLICATION=1",
-			csbuild.ProjectType.SharedLibrary: "CSB_SHARED_LIBRARY=1",
-			csbuild.ProjectType.StaticLibrary: "CSB_STATIC_LIBRARY=1",
-		}
-
-		if project.projectType in projectTypeDefines:
-			self._defines.add(projectTypeDefines[project.projectType])
+		if project.projectType in self._projectTypeDefines:
+			self._defines.add(self._projectTypeDefines[project.projectType])
 
 		self._defines.add("CSB_TARGET_{}=1".format(project.targetName.upper()))
 
