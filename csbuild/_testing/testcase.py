@@ -52,12 +52,19 @@ def _init():
 		shared_globals.showCommands = True
 
 
+class _TestContainer(object):
+	def __init__(self, className):
+		self.className = className
+		self.successCount = 0
+		self.failureCount = 0
+
+
 class TestCase(unittest.TestCase):
 	"""
 	Thin wrapper around python unittest to provide more details on test progress
 	"""
 	_runTestCases = set()
-	_currentTestCase = None
+	_currentTestCase = None # type: _TestContainer
 	_totalSuccess = 0
 	_totalFail = 0
 	_failedTestNames = []
@@ -78,18 +85,18 @@ class TestCase(unittest.TestCase):
 		if self.__class__.__name__ not in TestCase._runTestCases:
 			TestCase.PrintSingleResult()
 			TestCase._runTestCases.add(self.__class__.__name__)
-			TestCase._currentTestCase = [self.__class__.__name__, 0, 0]
+			TestCase._currentTestCase = _TestContainer(self.__class__.__name__)
 			log.Test("RUNNING TEST SUITE: <&CYAN>{}</&>", self.__class__.__name__)
 
 		log.Test("   Running test:	 {}.<&CYAN>{}</&> ...", self.__class__.__name__, self._testMethodName)
 		unittest.TestCase.run(self, result)
 		if self.success:
 			log.Test("	  ... <&DGREEN>[</&><&GREEN>Success!</&><&DGREEN>]")
-			TestCase._currentTestCase[1] += 1 # pylint: disable=unsupported-assignment-operation
+			TestCase._currentTestCase.successCount += 1
 			TestCase._totalSuccess += 1
 		else:
 			log.Test("	  ... <&DRED>[</&><&RED>Failed!</&><&DRED>]")
-			TestCase._currentTestCase[2] += 1 # pylint: disable=unsupported-assignment-operation
+			TestCase._currentTestCase.failureCount += 1
 			TestCase._totalFail += 1
 			TestCase._failedTestNames.append("{}.<&CYAN>{}</&>".format(self.__class__.__name__, self._testMethodName))
 
@@ -109,12 +116,12 @@ class TestCase(unittest.TestCase):
 		from .. import log
 		if TestCase._currentTestCase is not None:
 			txt = "{} <&GREEN>{}</&> test{} succeeded".format(
-				TestCase._currentTestCase[0],
-				TestCase._currentTestCase[1],
-				"s" if TestCase._currentTestCase[1] != 1 else ""
+				TestCase._currentTestCase.className,
+				TestCase._currentTestCase.successCount,
+				"s" if TestCase._currentTestCase.successCount != 1 else ""
 			)
-			if TestCase._currentTestCase[2] > 0:
-				txt += ", <&RED>{}</&> failed".format(TestCase._currentTestCase[2])
+			if TestCase._currentTestCase.failureCount > 0:
+				txt += ", <&RED>{}</&> failed".format(TestCase._currentTestCase.failureCount)
 			else:
 				txt += "!"
 			txt += "\n----------------------------------------------------------------------"

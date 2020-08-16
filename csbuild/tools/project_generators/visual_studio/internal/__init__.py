@@ -182,13 +182,13 @@ def _constructRelPath(filePath, rootPath):
 
 def _getItemRootFolderName(filePath):
 	fileExt = os.path.splitext(filePath)[1]
-	if fileExt in CPP_SOURCE_FILE_EXTENSIONS: # pylint: disable=no-else-return
+	if fileExt in CPP_SOURCE_FILE_EXTENSIONS:
 		return "C/C++ source files"
-	elif fileExt in CPP_HEADER_FILE_EXTENSIONS:
+	if fileExt in CPP_HEADER_FILE_EXTENSIONS:
 		return "C/C++ header files"
-	elif fileExt in ASM_FILE_EXTENSIONS:
+	if fileExt in ASM_FILE_EXTENSIONS:
 		return "Assembly files"
-	elif not fileExt:
+	if not fileExt:
 		return "Unknown files"
 
 	fileTypeName = fileExt[1:].capitalize()

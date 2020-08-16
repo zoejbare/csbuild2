@@ -134,13 +134,13 @@ class Project(object):
 				return toConvert
 
 			def _convertItem(toConvert):
-				if isinstance(toConvert, list): # pylint: disable=no-else-return
+				if isinstance(toConvert, list):
 					return _convertList(toConvert)
-				elif isinstance(toConvert, (dict, collections.OrderedDict)):
+				if isinstance(toConvert, (dict, collections.OrderedDict)):
 					return _convertDict(toConvert)
-				elif isinstance(toConvert, (set, ordered_set.OrderedSet)):
+				if isinstance(toConvert, (set, ordered_set.OrderedSet)):
 					return _convertSet(toConvert)
-				elif isinstance(toConvert, (StrType, BytesType)):
+				if isinstance(toConvert, (StrType, BytesType)):
 					return self.FormatMacro(toConvert)
 				return toConvert
 

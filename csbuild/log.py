@@ -358,9 +358,9 @@ def _formatMsg(msg, *args, **kwargs):
 	if showTime is not None:
 		del kwargs["showTime"]
 
-	if not isinstance(msg, BytesType) and not isinstance(msg, StrType): # pylint: disable=no-else-return
+	if not isinstance(msg, BytesType) and not isinstance(msg, StrType):
 		return repr(msg)
-	elif args or kwargs:
+	if args or kwargs:
 		return msg.format(*args, **kwargs)
 	return msg
 

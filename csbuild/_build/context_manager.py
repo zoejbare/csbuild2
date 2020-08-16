@@ -226,9 +226,9 @@ class ContextManager(object):
 					rets = []
 					for func in funcs:
 						rets.append(func(*args, **kwargs))
-					if len(rets) == 1: # pylint: disable=no-else-return
+					if len(rets) == 1:
 						return rets[0]
-					elif len(rets) > 1:
+					if len(rets) > 1:
 						return MultiDataContext(rets)
 					return None
 

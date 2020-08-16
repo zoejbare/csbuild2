@@ -230,12 +230,11 @@ def Overload(**argtypes):
 					for i, name in enumerate(func.__varNames__):
 						argtype = func.__types__.get(name)
 
-						elem = NOT_SET
 						# pick the correct matching passed-in argument
 						if i < len(args):
 							elem = args[i]
-						elif name in kwargs: # pylint: disable=bad-option-value,consider-using-get
-							elem = kwargs[name]
+						else:
+							elem = kwargs.get(name, NOT_SET)
 
 						# If the specified argument type is object, everything matches at the lowest priority
 						if argtype is object:

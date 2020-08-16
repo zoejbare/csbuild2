@@ -222,7 +222,7 @@ class FunctionalTest(TestCase):
 		log.SetCallbackQueue(callbackQueue)
 
 		class _shared(object):
-			ret = None
+			ret = (0, "", "")
 
 		def _runCommand():
 			cmd = [sys.executable, os.path.abspath("make.py")]
@@ -254,7 +254,7 @@ class FunctionalTest(TestCase):
 		commandThread.join()
 
 		ansiEscape = re.compile(r'\x1b[^m]*m')
-		returncode, output, errors = _shared.ret # pylint: disable=unpacking-non-sequence
+		returncode, output, errors = _shared.ret
 		output = ansiEscape.sub("", output)
 		errors = ansiEscape.sub("", errors)
 		return returncode, output, errors
