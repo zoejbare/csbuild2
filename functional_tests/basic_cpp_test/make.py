@@ -51,7 +51,8 @@ with csbuild.Project("hello_world", "hello_world"):
 	csbuild.SetUserData("libraryName", "libhello")
 
 	with csbuild.Target("shared"):
-		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("shared/{userData.libraryName}.so"))
+		csbuild.Platform("Darwin").AddLibraries(os.path.abspath("shared/{userData.libraryName}.dylib"))
+		csbuild.Platform("Linux").AddLibraries(os.path.abspath("shared/{userData.libraryName}.so"))
 		csbuild.Platform("Windows").AddLibraries(os.path.abspath("shared/{userData.libraryName}.lib"))
 
 	with csbuild.Target("static"):
