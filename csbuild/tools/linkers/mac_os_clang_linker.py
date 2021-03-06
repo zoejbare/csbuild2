@@ -107,3 +107,13 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 
 	def _useResponseFileWithArchiver(self):
 		return False
+
+	def _getOutputExtension(self, projectType):
+		outputExt = {
+			csbuild.ProjectType.SharedLibrary: ".dylib",
+		}.get(projectType, None)
+
+		if outputExt is None:
+			outputExt = ClangLinker._getOutputExtension(self, projectType)
+
+		return outputExt

@@ -312,7 +312,7 @@ class Project(object):
 		:return: Unique intermediate directory path.
 		:rtype: str
 		"""
-		directory = os.path.join(self.intermediateDir, inputFile.uniqueDirectoryId)
+		directory = os.path.join(self.intermediateDir, self.name, inputFile.uniqueDirectoryId)
 
 		#TODO: Investigate a lock-free solution to creating this directory.
 		if not os.access(directory, os.F_OK):

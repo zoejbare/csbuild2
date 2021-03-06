@@ -65,9 +65,15 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		}.get(projectOutputType, None)
 
 	@staticmethod
-	def GetIntellisenseAdditionalOptions():
+	def GetIntellisenseAdditionalOptions(project, buildSpec):
 		"""
 		Get any additional NMake options to configure intellisense.
+
+		:param project: Visual Studio project data.
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:return: Additional NMake options.
 		:rtype: str or None

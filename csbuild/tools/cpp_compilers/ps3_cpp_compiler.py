@@ -82,6 +82,7 @@ class Ps3CppCompiler(Ps3BaseTool, CppCompilerBase):
 		cmd = self._getCustomArgs(isCpp) \
 			+ self._getOptimizationArgs() \
 			+ self._getDebugArgs() \
+			+ self._getLanguageStandardArgs(isCpp) \
 			+ self._getPreprocessorArgs(project) \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
@@ -148,3 +149,8 @@ class Ps3CppCompiler(Ps3BaseTool, CppCompilerBase):
 			OptimizationLevel.Max: "3",
 		}
 		return ["-O{}".format(arg.get(self._optLevel, "0"))]
+
+	def _getLanguageStandardArgs(self, isSourceCpp):
+		# No argument for the C language standard.
+		arg = "-Xstd={}".format(self._cxxStandard) if self._cxxStandard and isSourceCpp else None
+		return [arg]

@@ -38,7 +38,9 @@ from ..common.tool_traits import \
 	HasDefines, \
 	HasIncludeDirectories, \
 	HasOptimizationLevel, \
-	HasStaticRuntime
+	HasStaticRuntime, \
+	HasCcLanguageStandard, \
+	HasCxxLanguageStandard \
 
 from ... import commands, log
 from ..._utils.decorators import MetaClass
@@ -47,7 +49,16 @@ def _ignore(_):
 	pass
 
 @MetaClass(ABCMeta)
-class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDirectories, HasOptimizationLevel, HasStaticRuntime):
+class CppCompilerBase(
+	HasDebugLevel,
+	HasDebugRuntime,
+	HasDefines,
+	HasIncludeDirectories,
+	HasOptimizationLevel,
+	HasStaticRuntime,
+	HasCcLanguageStandard,
+	HasCxxLanguageStandard
+):
 	"""
 	Base class for C++ compilers
 
@@ -72,6 +83,14 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 		HasIncludeDirectories.__init__(self, projectSettings)
 		HasOptimizationLevel.__init__(self, projectSettings)
 		HasStaticRuntime.__init__(self, projectSettings)
+		HasCcLanguageStandard.__init__(self, projectSettings)
+		HasCxxLanguageStandard.__init__(self, projectSettings)
+
+		self._projectTypeDefines = {
+			csbuild.ProjectType.Application: "CSB_APPLICATION=1",
+			csbuild.ProjectType.SharedLibrary: "CSB_SHARED_LIBRARY=1",
+			csbuild.ProjectType.StaticLibrary: "CSB_STATIC_LIBRARY=1",
+		}
 
 
 	################################################################################
@@ -136,14 +155,17 @@ class CppCompilerBase(HasDebugLevel, HasDebugRuntime, HasDefines, HasIncludeDire
 	################################################################################
 
 	def SetupForProject(self, project):
+		HasDebugLevel.SetupForProject(self, project)
+		HasDebugRuntime.SetupForProject(self, project)
+		HasDefines.SetupForProject(self, project)
 		HasIncludeDirectories.SetupForProject(self, project)
+		HasOptimizationLevel.SetupForProject(self, project)
+		HasStaticRuntime.SetupForProject(self, project)
+		HasCcLanguageStandard.SetupForProject(self, project)
+		HasCxxLanguageStandard.SetupForProject(self, project)
 
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			self._defines.add("CSB_SHARED_LIBRARY=1")
-		elif project.projectType == csbuild.ProjectType.StaticLibrary:
-			self._defines.add("CSB_STATIC_LIBRARY=1")
-		else:
-			self._defines.add("CSB_APPLICATION=1")
+		if project.projectType in self._projectTypeDefines:
+			self._defines.add(self._projectTypeDefines[project.projectType])
 
 		self._defines.add("CSB_TARGET_{}=1".format(project.targetName.upper()))
 
