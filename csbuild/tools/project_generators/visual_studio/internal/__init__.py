@@ -437,10 +437,6 @@ class VsFileProxy(object):
 		"""
 		Check the temp file to see if it differs from the output file, then copy if they don't match.
 		"""
-		if not self.tempFilePath:
-			log.Build("[SKIPPING] {}".format(self.realFilePath))
-			return
-
 		outDirPath = os.path.dirname(self.realFilePath)
 
 		# Create the output directory if it doesn't exist.
@@ -827,13 +823,11 @@ def _saveXmlFile(realFilePath, rootNode):
 		with os.fdopen(tmpFd, "w") as f:
 			f.write(formattedXmlString)
 
+		VsFileProxy(realFilePath, tempFilePath).Check()
+
 	else:
 		# No xml document was provided, so there will be no output file.
-		tempFilePath = None
-
-	fileProxy = VsFileProxy(realFilePath, tempFilePath)
-
-	fileProxy.Check()
+		log.Build("[SKIPPING] {}".format(realFilePath))
 
 
 def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
