@@ -49,14 +49,16 @@ def _ignore(_):
 	pass
 
 @MetaClass(ABCMeta)
-class CppCompilerBase(HasDebugLevel,
-					HasDebugRuntime,
-					HasDefines,
-					HasIncludeDirectories,
-					HasOptimizationLevel,
-					HasStaticRuntime,
-					HasCcLanguageStandard,
-					HasCxxLanguageStandard):
+class CppCompilerBase(
+	HasDebugLevel,
+	HasDebugRuntime,
+	HasDefines,
+	HasIncludeDirectories,
+	HasOptimizationLevel,
+	HasStaticRuntime,
+	HasCcLanguageStandard,
+	HasCxxLanguageStandard
+):
 	"""
 	Base class for C++ compilers
 
