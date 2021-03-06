@@ -810,24 +810,19 @@ def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo)
 
 
 def _saveXmlFile(realFilePath, rootNode):
-	if rootNode:
-		# Grab a string of the XML document we've created and save it.
-		xmlString = PlatformString(ET.tostring(rootNode))
+	# Grab a string of the XML document we've created and save it.
+	xmlString = PlatformString(ET.tostring(rootNode))
 
-		# Use minidom to reformat the XML since ElementTree doesn't do it for us.
-		formattedXmlString = PlatformString(minidom.parseString(xmlString).toprettyxml("\t", "\n", encoding = "utf-8"))
+	# Use minidom to reformat the XML since ElementTree doesn't do it for us.
+	formattedXmlString = PlatformString(minidom.parseString(xmlString).toprettyxml("\t", "\n", encoding = "utf-8"))
 
-		tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
+	tmpFd, tempFilePath = tempfile.mkstemp(prefix="vs_vcxproj_")
 
-		# Write the temp xml file data.
-		with os.fdopen(tmpFd, "w") as f:
-			f.write(formattedXmlString)
+	# Write the temp xml file data.
+	with os.fdopen(tmpFd, "w") as f:
+		f.write(formattedXmlString)
 
-		VsFileProxy(realFilePath, tempFilePath).Check()
-
-	else:
-		# No xml document was provided, so there will be no output file.
-		log.Build("[SKIPPING] {}".format(realFilePath))
+	VsFileProxy(realFilePath, tempFilePath).Check()
 
 
 def _writeMainVcxProj(outputRootPath, project, globalPlatformHandlers):
@@ -1132,12 +1127,13 @@ def _writeUserVcxProj(outputRootPath, project, preserve):
 				platformHandler = PLATFORM_HANDLERS[buildSpec]
 				platformHandler.WriteUserDebugPropertyGroup(rootXmlNode, project, buildSpec, _getVsConfigName(buildSpec))
 
+		# Write out the XML file.
+		_saveXmlFile(outputFilePath, rootXmlNode)
+
 	else:
 		# No output file needed.
-		rootXmlNode = None
+		log.Build("[SKIPPING] {}".format(outputFilePath))
 
-	# Write out the XML file.
-	_saveXmlFile(outputFilePath, rootXmlNode)
 
 
 def _writeProjectFiles(rootProject, outputRootPath, preserveUserFiles):
