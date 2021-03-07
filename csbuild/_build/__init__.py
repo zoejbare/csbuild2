@@ -644,7 +644,7 @@ def Run():
 			csbuild.AddDefines("NDEBUG")
 
 		with csbuild.Target("debug"):
-			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetOptimizationLevel(OptimizationLevel.Disabled)
 			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
 			csbuild.SetDebugRuntime(True)
 			csbuild.AddDefines("_DEBUG")
