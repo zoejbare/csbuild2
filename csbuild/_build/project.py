@@ -103,7 +103,7 @@ class Project(object):
 
 			log.Build("Preparing build tasks for {}", self)
 
-			#: type: list[Tool]
+			#: type: set[Tool]
 			self.tools = projectSettings["tools"] - projectSettings.get("disabledTools", set())
 			self.checkers = projectSettings.get("checkers", {})
 
