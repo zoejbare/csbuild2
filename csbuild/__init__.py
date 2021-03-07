@@ -361,14 +361,16 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		currentPlan.EnterContext(("toolchain", (name,)))
 
-		checkers = kwargs.get("checkers", {})
-		if checkers:
-			currentPlan.UpdateDict("checkers", checkers)
+		try:
+			checkers = kwargs.get("checkers", {})
+			if checkers:
+				currentPlan.UpdateDict("checkers", checkers)
 
-		currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
-		currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False, checkers=checkers))
-		currentPlan.defaultArchitectureMap[name] = defaultArchitecture
-		currentPlan.LeaveContext()
+			currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
+			currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False, checkers=checkers))
+			currentPlan.defaultArchitectureMap[name] = defaultArchitecture
+		finally:
+			currentPlan.LeaveContext()
 
 		for tool in tools:
 			if tool.supportedArchitectures is not None:

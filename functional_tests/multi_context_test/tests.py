@@ -32,9 +32,9 @@ from csbuild._testing.functional_test import FunctionalTest
 class MultiContextTest(FunctionalTest):
 	"""Multi context test"""
 	# pylint: disable=invalid-name
-	def test(self):
+	def runTest(self, projectName):
 		"""Multi context test"""
-		self.assertMakeSucceeds("--ao", "--aa", "--at")
+		self.assertMakeSucceeds("--ao", "--aa", "--at", "--project", projectName)
 
 		for i in range(1, 11):
 			# debug/foo - both create this output scheme
@@ -86,3 +86,14 @@ class MultiContextTest(FunctionalTest):
 		self.assertFileContents("./out/LastThree/release/bar/AddDoubles4/Foo.third", "110")
 
 		self.cleanArgs = ["--ao", "--aa", "--at"]
+
+
+	def testWithSyntax(self):
+		"""Run the test using the 'with' syntax"""
+		self.runTest("TestProject")
+
+
+	def testChaining(self):
+		"""Run the test using chained context managers"""
+		self.runTest("TestProjectChained")
+

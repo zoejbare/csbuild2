@@ -608,6 +608,7 @@ def Run():
 	Run the build! This is the main entry point for csbuild.
 	"""
 	shared_globals.startTime = time.time()
+	
 	with perf_timer.PerfTimer("Argument Parsing"):
 		mainFileDir = ""
 		mainFile = sys.modules['__main__'].__file__
@@ -630,6 +631,30 @@ def Run():
 		else:
 			log.Error("csbuild cannot be run from the interactive console.")
 			system.Exit(1)
+			
+		from ..tools.common.tool_traits import HasOptimizationLevel
+		OptimizationLevel = HasOptimizationLevel.OptimizationLevel
+		from ..tools.common.tool_traits import HasDebugLevel
+		DebugLevel = HasDebugLevel.DebugLevel
+		#Create the default targets...
+		with csbuild.Target("release"):
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.Disabled)
+			csbuild.SetDebugRuntime(False)
+			csbuild.AddDefines("NDEBUG")
+
+		with csbuild.Target("debug"):
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
+			csbuild.SetDebugRuntime(True)
+			csbuild.AddDefines("_DEBUG")
+
+		with csbuild.Target("fastdebug"):
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
+			csbuild.SetDebugRuntime(True)
+			csbuild.AddDefines("_DEBUG")
+			csbuild.AddDefines("_FASTDEBUG")
 
 		epilog = "    ------------------------------------------------------------    \n\nProjects available in this makefile (listed in build order):\n\n"
 
@@ -637,7 +662,7 @@ def Run():
 		i = 1
 		j = 0
 
-		maxcols = min(math.floor(len(shared_globals.sortedProjects) / 4), 4)
+		maxcols = 4#min(math.floor(len(shared_globals.sortedProjects) / 4), 4)
 
 		for proj in shared_globals.sortedProjects:
 			projtable[j].append(proj.name)
@@ -670,9 +695,11 @@ def Run():
 		i = 1
 		j = 0
 
-		maxcols = min(math.floor(len(shared_globals.allTargets) / 4), 4)
+		maxcols = 4#min(math.floor(len(shared_globals.allTargets) / 4), 4)
 
-		for targ in shared_globals.allTargets:
+		for targ in sorted(shared_globals.allTargets):
+			if targ == csbuild.currentPlan.defaultTarget:
+				targ += " (default)"
 			targtable[j].append(targ)
 			if i < maxcols:
 				i += 1
@@ -696,17 +723,58 @@ def Run():
 					epilog += "  "
 				epilog += "\n"
 
+		epilog += "\nAvailable solution generators:\n\n"
+
+		gentable = [[]]
+		i = 1
+		j = 0
+
+		maxcols = 4#min(math.floor(len(shared_globals.allGenerators) / 4), 4)
+
+		for gen in sorted(shared_globals.allGenerators.keys()):
+			gentable[j].append(gen)
+			if i < maxcols:
+				i += 1
+			else:
+				gentable.append([])
+				i = 1
+				j += 1
+
+		if gentable:
+			maxlens = [15] * len(gentable[0])
+			for col in gentable:
+				for subindex, item in enumerate(col):
+					maxlens[subindex] = max(maxlens[subindex], len(item))
+
+			for col in gentable:
+				for subindex, item in enumerate(col):
+					epilog += "  "
+					epilog += item
+					for _ in range(maxlens[subindex] - len(item)):
+						epilog += " "
+					epilog += "  "
+				epilog += "\n"
+
 		parser = shared_globals.parser = argparse.ArgumentParser(
 			prog = mainFile, epilog = epilog, formatter_class = argparse.RawDescriptionHelpFormatter)
 
 		parser.add_argument('--version', action = "store_true", help = "Print version information and exit")
 
 		group = parser.add_mutually_exclusive_group()
-		group.add_argument('-t', '--target', action='append', help = 'Target(s) for build', default=[])
+		group.add_argument('-t', '--target', action='append', help = 'Target(s) for build. (May be specified multiple times.)', default=[])
 		group.add_argument('--at', "--all-targets", action = "store_true", help = "Build all targets")
 
 		parser.add_argument("-p", "--project",
-							action="append", help = "Build only the specified project. May be specified multiple times.")
+							action="append", help = "Build only the specified project. (May be specified multiple times.)",)
+
+		group = parser.add_mutually_exclusive_group()
+		group.add_argument('-o', '--toolchain', help = "Toolchain(s) to use for compiling. (May be specified multiple times.)",
+			default=[], action = "append")
+		group.add_argument("--ao", '--all-toolchains', help="Build with all toolchains", action = "store_true")
+
+		group = parser.add_mutually_exclusive_group()
+		group.add_argument("-a", "--architecture", "--arch", help = 'Architecture(s) to compile for each toolchain. (May be specified multiple times.)', action = "append",)
+		group.add_argument("--aa", "--all-architectures", "--all-arch", action = "store_true", help = "Build all architectures supported by this toolchain")
 
 		group = parser.add_mutually_exclusive_group()
 		group.add_argument('-c', '--clean', action = "store_true", help = 'Clean the target build')
@@ -738,21 +806,6 @@ def Run():
 		#parser.add_argument('--prefix', help = "install prefix (default /usr/local)", action = "store")
 		#parser.add_argument('--libdir', help = "install location for libraries (default {prefix}/lib)", action = "store")
 		#parser.add_argument('--incdir', help = "install prefix (default {prefix}/include)", action = "store")
-
-		group = parser.add_mutually_exclusive_group()
-		group.add_argument('-o', '--toolchain', help = "Toolchain to use for compiling.",
-			default=[], action = "append")
-		group.add_argument("--ao", '--all-toolchains', help="Build with all toolchains", action = "store_true")
-
-		group = parser.add_mutually_exclusive_group()
-
-		#for toolchainName, toolchainArchStrings in shared_globals.allToolchainArchStrings.items():
-		#	archStringLong = "--" + toolchainArchStrings[0]
-		#	archStringShort = "--" + toolchainArchStrings[1]
-		#	parser.add_argument(archStringLong, archStringShort, help = "Architecture to compile for the {} toolchain.".format(toolchainName), action = "append")
-
-		group.add_argument("-a", "--architecture", "--arch", help = 'Architecture to compile for each toolchain.', action = "append")
-		group.add_argument("--aa", "--all-architectures", "--all-arch", action = "store_true", help = "Build all architectures supported by this toolchain")
 
 		parser.add_argument("--stop-on-error", help = "Stop compilation after the first error is encountered.", action = "store_true")
 		#parser.add_argument('--no-precompile', help = "Disable precompiling globally, affects all projects",
@@ -842,30 +895,6 @@ def Run():
 			shared_globals.colorSupported = False
 		else:
 			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
-
-		from ..tools.common.tool_traits import HasOptimizationLevel
-		OptimizationLevel = HasOptimizationLevel.OptimizationLevel
-		from ..tools.common.tool_traits import HasDebugLevel
-		DebugLevel = HasDebugLevel.DebugLevel
-		#Create the default targets...
-		with csbuild.Target("release"):
-			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
-			csbuild.SetDebugLevel(DebugLevel.Disabled)
-			csbuild.SetDebugRuntime(False)
-			csbuild.AddDefines("NDEBUG")
-
-		with csbuild.Target("debug"):
-			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
-			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
-			csbuild.SetDebugRuntime(True)
-			csbuild.AddDefines("_DEBUG")
-
-		with csbuild.Target("fastdebug"):
-			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
-			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
-			csbuild.SetDebugRuntime(True)
-			csbuild.AddDefines("_DEBUG")
-			csbuild.AddDefines("_FASTDEBUG")
 
 		if args.generate_solution:
 

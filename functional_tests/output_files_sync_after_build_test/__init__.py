@@ -19,24 +19,10 @@
 # SOFTWARE.
 
 """
-.. package:: functional_tests
-	:synopsis: Set of functional tests for csbuild, just contains directories with tests in it
-		This file only exists to perform test loading.
+.. package:: output_files_sync_after_build_test
+	:synopsis: Tests that output files are synced to disk immediately on build finish
 
 .. moduleauthor:: Jaedyn K. Draper
 """
 
 from __future__ import unicode_literals, division, print_function
-import os
-import imp
-
-def load_tests(loader, tests, _pattern): #pylint: disable=invalid-name
-	"""Load tests"""
-
-	for testdir in os.listdir("functional_tests"):
-		if os.path.isdir(os.path.join("functional_tests", testdir)):
-			modulepath = os.path.abspath(os.path.join("functional_tests", testdir, "tests.py"))
-			if os.access(modulepath, os.F_OK):
-				tests.addTests(loader.loadTestsFromModule(imp.load_source("functional_tests.{}.tests".format(testdir), modulepath)))
-
-	return tests

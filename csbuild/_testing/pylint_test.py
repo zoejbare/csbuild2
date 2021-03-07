@@ -32,6 +32,7 @@ import sys
 import traceback
 import threading
 import re
+import pylint
 
 from . import testcase
 from .. import log
@@ -67,8 +68,10 @@ class TestPylint(testcase.TestCase):
 			data = ansiEscape.sub('', data)
 			for line in data.splitlines():
 				match = re.match(R".:\s*(\d+),\s*\d+: (.+)", line)
+				if not match:
+					match = re.match(R".+:(\d+):\d+: (.+)", line)
 				if match:
-					out.append('  File "{}", line {}, in pylint\n    {}'.format(module, match.group(1), match.group(2)))
+					out.append('  File "{}", line {}, in pylint\n    {}'.format(os.path.abspath(module), match.group(1), match.group(2)))
 				else:
 					# Recent versions of pylint annoyingly print these lines about the config file to stderr and while
 					# there is an option internally to silence these messages, there is no switch available externally

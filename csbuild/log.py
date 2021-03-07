@@ -61,7 +61,9 @@ def _printProgressBar():
 			textSize = 42
 
 			perc = 1 if totalBuilds == 0 else float(completeBuilds)/float(totalBuilds)
-			if perc > _lastPerc:
+			if perc == 0:
+				_sep = "-"
+			elif perc > _lastPerc:
 				_sep = ">"
 			elif perc < _lastPerc:
 				_sep = "<"
@@ -148,6 +150,11 @@ def _printProgressBar():
 			if shared_globals.colorSupported:
 				sys.stdout.flush()
 				terminfo.TermInfo.ResetColor()
+
+			if perc == 0:
+				if shared_globals.colorSupported:
+					sys.stdout.flush()
+					terminfo.TermInfo.SetColor(Color.DYELLOW)
 
 			sys.stdout.write(_sep)
 
