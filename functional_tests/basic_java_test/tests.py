@@ -27,12 +27,12 @@
 
 from __future__ import unicode_literals, division, print_function
 
+from csbuild.commands import Run
 from csbuild._testing.functional_test import FunctionalTest
-from csbuild._utils import PlatformBytes
+from csbuild._utils import PlatformString
 
 import os
 import platform
-import subprocess
 import time
 import unittest
 
@@ -70,19 +70,15 @@ class BasicJavaTest(FunctionalTest):
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		javaExe = "java{}".format(".exe" if platform.system() == "Windows" else "")
+		self.assertIn("JAVA_HOME", os.environ, "JAVA_HOME must be defined in the environment if the Java binaries are not available from the system path")
+		javaExe = os.path.join(os.environ["JAVA_HOME"], "bin", "java{}".format(".exe" if platform.system() == "Windows" else ""))
 
 		# Verify the Java executable can be found since it's required for running the JAR output for this test.
-		try:
-			subprocess.call([javaExe], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		except:
-			self.assertIn("JAVA_HOME", os.environ, "JAVA_HOME must be defined in the environment if the Java binaries are not available from the system path")
-			javaExe = os.path.join(os.environ["JAVA_HOME"], "bin", javaExe)
-			self.assertFileExists(javaExe)
-
+		self.assertFileIsExecutable(javaExe)
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--toolchain=oracle-java")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
-		out = subprocess.check_output([javaExe, "-jar", self.outputFile])
+		ret, out, _ = Run([javaExe, "-jar", self.outputFile])
 
-		self.assertEqual(out, PlatformBytes("Hello, world!"))
+		self.assertEqual(ret, 0)
+		self.assertEqual(out, PlatformString("Hello, world!"))
