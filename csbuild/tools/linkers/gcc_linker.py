@@ -164,6 +164,8 @@ class GccLinker(LinkerBase):
 						if inGroup:
 							continue
 						loading = True
+						if not line[5:].endswith(".so") and not line[5:].endswith(".a"):
+							continue
 						matches.append(line[5:])
 					elif line == "START GROUP":
 						inGroup = True
@@ -171,21 +173,19 @@ class GccLinker(LinkerBase):
 						inGroup = False
 					elif loading:
 						break
-
+				print(str(matches))
 				assert len(matches) == len(shortLibs) + len(longLibs)
 				assert len(matches) + len(ret) == len(libs)
 
 			except AssertionError:
 				# Fallback to doing the traditional regex check when the link map check failes.
 				# All bfd- and gold-compatible linkers should have this.
-				succeedRegex = re.compile("(?:.*ld(?:.exe)?): Attempt to open (.*) succeeded")
+				succeedRegex = re.compile("(?:.*ld(?:.exe)?): Attempt to open (.*)\.(so|a) succeeded")
 				for line in err.splitlines():
 					match = succeedRegex.match(line)
 					if match:
 						matches.append(match.group(1))
-
-				assert len(matches) == len(shortLibs) + len(longLibs)
-				assert len(matches) + len(ret) == len(libs)
+				print(str(matches))
 
 			for i, lib in enumerate(shortLibs):
 				ret[lib] = matches[i]

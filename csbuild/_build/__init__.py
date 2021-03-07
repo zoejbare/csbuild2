@@ -843,15 +843,29 @@ def Run():
 		else:
 			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 
+		from ..tools.common.tool_traits import HasOptimizationLevel
+		OptimizationLevel = HasOptimizationLevel.OptimizationLevel
+		from ..tools.common.tool_traits import HasDebugLevel
+		DebugLevel = HasDebugLevel.DebugLevel
 		#Create the default targets...
 		with csbuild.Target("release"):
-			pass
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.Disabled)
+			csbuild.SetDebugRuntime(False)
+			csbuild.AddDefines("NDEBUG")
 
 		with csbuild.Target("debug"):
-			pass
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
+			csbuild.SetDebugRuntime(True)
+			csbuild.AddDefines("_DEBUG")
 
 		with csbuild.Target("fastdebug"):
-			pass
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
+			csbuild.SetDebugRuntime(True)
+			csbuild.AddDefines("_DEBUG")
+			csbuild.AddDefines("_FASTDEBUG")
 
 		if args.generate_solution:
 
