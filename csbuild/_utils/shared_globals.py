@@ -67,7 +67,8 @@ class RunMode(object):
 	Help = 1
 	Version = 2
 	GenerateSolution = 3
-	QUALAP = 4
+	GenerateDependencyGraph = 4
+	QUALAP = 5
 
 runMode = None
 

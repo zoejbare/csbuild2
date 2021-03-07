@@ -32,9 +32,9 @@ from csbuild._testing.functional_test import FunctionalTest
 class ToolchainGroupsTest(FunctionalTest):
 	"""Toolchain groups test"""
 	# pylint: disable=invalid-name
-	def test(self):
+	def runTest(self, projectName):
 		"""Toolchain groups test"""
-		self.assertMakeSucceeds("--ao", "-v")
+		self.assertMakeSucceeds("--ao", "-v", "--project", projectName)
 
 		for i in range(1, 11):
 			self.assertFileContents("./intermediate/FirstThree/AddDoubles/{}.second".format(i), str(i*2))
@@ -48,3 +48,11 @@ class ToolchainGroupsTest(FunctionalTest):
 		self.assertFileContents("./out/LastThree/AddDoubles4/Foo.third", "110")
 
 		self.cleanArgs = ["--ao"]
+
+	def testWithSyntax(self):
+		"""Test using the with syntax"""
+		self.runTest("TestProject")
+
+	def testChained(self):
+		"""Test using chained context managers"""
+		self.runTest("TestProjectChained")

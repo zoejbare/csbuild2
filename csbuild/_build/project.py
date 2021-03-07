@@ -103,8 +103,8 @@ class Project(object):
 
 			log.Build("Preparing build tasks for {}", self)
 
-			#: type: list[Tool]
-			self.tools = projectSettings["tools"]
+			#: type: set[Tool]
+			self.tools = projectSettings["tools"] - projectSettings.get("disabledTools", set())
 			self.checkers = projectSettings.get("checkers", {})
 
 			if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
@@ -333,66 +333,65 @@ class Project(object):
 		Note that even if autoDiscoverSourceFiles is disabled, this must be called again in order to update the source
 		file list after a preBuildStep.
 		"""
-		if self.projectType != csbuild.ProjectType.Stub:
-			with perf_timer.PerfTimer("File discovery"):
-				log.Info("Discovering files for {}...", self)
-				self.inputFiles = {}
+		with perf_timer.PerfTimer("File discovery"):
+			log.Info("Discovering files for {}...", self)
+			self.inputFiles = {}
 
-				searchDirectories = ordered_set.OrderedSet(self.sourceDirs)
+			searchDirectories = ordered_set.OrderedSet(self.sourceDirs)
 
-				if self.autoDiscoverSourceFiles:
-					searchDirectories |= ordered_set.OrderedSet([self.workingDirectory])
+			if self.autoDiscoverSourceFiles:
+				searchDirectories |= ordered_set.OrderedSet([self.workingDirectory])
 
-				extensionList = self.toolchain.GetSearchExtensions()
+			extensionList = self.toolchain.GetSearchExtensions()
 
-				excludeFiles = [
-					os.path.abspath(os.path.join(self.workingDirectory, filename))
-					for filename in self.excludeFiles
-				]
+			excludeFiles = [
+				os.path.abspath(os.path.join(self.workingDirectory, filename))
+				for filename in self.excludeFiles
+			]
 
-				with perf_timer.PerfTimer("Walking working dir"):
-					for sourceDir in searchDirectories:
-						log.Build("Collecting files from {}", sourceDir)
-						for root, _, filenames in os.walk(sourceDir):
-							if not filenames:
+			with perf_timer.PerfTimer("Walking working dir"):
+				for sourceDir in searchDirectories:
+					log.Build("Collecting files from {}", sourceDir)
+					for root, _, filenames in os.walk(sourceDir):
+						if not filenames:
+							continue
+						absroot = os.path.abspath(root)
+						if absroot in self.excludeDirs:
+							if absroot != self.csbuildDir:
+								log.Info("Skipping dir {}", root)
+							continue
+						if ".csbuild" in root \
+								or root.startswith(self.intermediateDir) \
+								or (root.startswith(self.outputDir) and self.outputDir != self.workingDirectory):
+							continue
+						if absroot == self.csbuildDir or absroot.startswith(self.csbuildDir):
+							continue
+						found = False
+						for testDir in self.excludeDirs:
+							if absroot.startswith(testDir):
+								found = True
 								continue
-							absroot = os.path.abspath(root)
-							if absroot in self.excludeDirs:
-								if absroot != self.csbuildDir:
-									log.Info("Skipping dir {}", root)
-								continue
-							if ".csbuild" in root \
-									or root.startswith(self.intermediateDir) \
-									or (root.startswith(self.outputDir) and self.outputDir != self.workingDirectory):
-								continue
-							if absroot == self.csbuildDir or absroot.startswith(self.csbuildDir):
-								continue
-							found = False
-							for testDir in self.excludeDirs:
-								if absroot.startswith(testDir):
-									found = True
-									continue
-							if found:
-								if not absroot.startswith(self.csbuildDir):
-									log.Info("Skipping directory {}", root)
-								continue
-							log.Info("Looking in directory {}", root)
-							with perf_timer.PerfTimer("Collecting files"):
-								for extension in extensionList:
-									log.Info("Checking for {}", extension)
-									self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
-										[
-											input_file.InputFile(
-												os.path.join(absroot, filename)
-											) for filename in filenames if os.path.splitext(filename)[1] == extension
-											and os.path.join(absroot, filename) not in self.lastRunArtifacts
-											and os.path.join(absroot, filename) not in excludeFiles
-										]
-									)
+						if found:
+							if not absroot.startswith(self.csbuildDir):
+								log.Info("Skipping directory {}", root)
+							continue
+						log.Info("Looking in directory {}", root)
+						with perf_timer.PerfTimer("Collecting files"):
+							for extension in extensionList:
+								log.Info("Checking for {}", extension)
+								self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).update(
+									[
+										input_file.InputFile(
+											os.path.join(absroot, filename)
+										) for filename in filenames if os.path.splitext(filename)[1] == extension
+										and os.path.join(absroot, filename) not in self.lastRunArtifacts
+										and os.path.join(absroot, filename) not in excludeFiles
+									]
+								)
 
-				with perf_timer.PerfTimer("Processing source files"):
-					for filename in self.sourceFiles:
-						extension = os.path.splitext(filename)[1]
-						self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(input_file.InputFile(filename))
+			with perf_timer.PerfTimer("Processing source files"):
+				for filename in self.sourceFiles:
+					extension = os.path.splitext(filename)[1]
+					self.inputFiles.setdefault(extension, ordered_set.OrderedSet()).add(input_file.InputFile(filename))
 
-				log.Info("Discovered {}", self.inputFiles)
+			log.Info("Discovered {}", self.inputFiles)

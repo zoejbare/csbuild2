@@ -412,7 +412,7 @@ class ProjectPlan(object):
 
 			self._flattenOverrides(settings, self._settings.get("overrides"), toolchainName, architectureName, targetName)
 
-			tools = settings.get("tools", [])
+			tools = settings.get("tools", set()) - settings.get("disabledTools", set())
 			for tool in tools:
 				if tool.supportedArchitectures is not None and architectureName not in tool.supportedArchitectures:
 					log.Info("Tool {} does not support architecture {}", tool.__name__, architectureName)

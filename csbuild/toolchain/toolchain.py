@@ -565,7 +565,9 @@ class Toolchain(object):
 					@TypeChecked(tool=(_typeType, _classType))
 					def DeactivateTool(self, tool):
 						"""
-						Remove the specified tool from the active tool list
+						Remove the specified tool from the active tool list. This is used internally when processing
+						null tools to ensure they don't get processed multiple times. You should NOT use this in a
+						makefile - instead, you should use RemoveTool
 
 						:param tool: tool to remove
 						:type tool: type
@@ -736,6 +738,27 @@ class Toolchain(object):
 							shared_globals.allArchitectures.update(set(tool.supportedArchitectures))
 
 						object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
+
+					@TypeChecked(tool=(_typeType, _classType))
+					def RemoveTool(self, tool):
+						"""
+						Removes a tool from the toolchain. This can be used in a makefile to remove tools within
+						certain contexts, such as on a specific platform, or to remove default tools, such as
+						the built-in C++ linker tools.
+
+						:param tool: Class inheriting from Tool
+						:type tool: type
+						"""
+						assert not runInit, "RemoveTool can't be called from this context"
+						assert tool in _classTrackr.classes, "Tool {} has not been added".format(tool)
+
+						from .. import currentPlan
+						currentPlan.AddToSet("disabledTools", tool)
+
+						_classTrackr.classes.remove(tool)
+
+						object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
+
 
 					@TypeChecked(extension=String, checker=CompileChecker)
 					def AddChecker(self, extension, checker):
@@ -1042,7 +1065,9 @@ class Toolchain(object):
 	@TypeChecked(tool=(_typeType, _classType))
 	def DeactivateTool(self, tool):
 		"""
-		Remove the specified tool from the active tool list
+		Remove the specified tool from the active tool list. This is used internally when processing
+		null tools to ensure they don't get processed multiple times. You should NOT use this in a
+		makefile - instead, you should use RemoveTool
 
 		:param tool: tool to remove
 		:type tool: type
@@ -1121,6 +1146,18 @@ class Toolchain(object):
 		Add a new tool to the toolchain. This can only be used by a toolchain initialized with
 		runInit = False to add that tool to the static method resolution; a toolchain initialized
 		with runInit = True is finalized and cannot have new tools added to it
+
+		:param tool: Class inheriting from Tool
+		:type tool: type
+		"""
+		pass
+
+	@TypeChecked(tool=(_typeType, _classType))
+	def RemoveTool(self, tool):
+		"""
+		Removes a tool from the toolchain. This can be used in a makefile to remove tools within
+		certain contexts, such as on a specific platform, or to remove default tools, such as
+		the built-in C++ linker tools.
 
 		:param tool: Class inheriting from Tool
 		:type tool: type
@@ -1360,6 +1397,13 @@ class TestToolchainMixin(testcase.TestCase):
 			derived1StaticInitialized=1,
 			derived2StaticInitialized=1,
 		)
+
+	def assertUnchanged(self):
+		"""Assert that the state dict has not changed"""
+		#Set the expected changes on our expected state and assert that the changed expected state
+		#(including the previous values in that state) matches the actual state
+		actualState = {key: val for key, val in self._sharedLocals.__dict__.items() if not key.startswith("_")}
+		self.assertEqual(self.expectedState, actualState)
 
 	def assertChanged(self, **kwargs):
 		"""Assert that the listed changes (and ONLY the listed changes) have occurred in the state dict"""

@@ -608,6 +608,7 @@ def Run():
 	Run the build! This is the main entry point for csbuild.
 	"""
 	shared_globals.startTime = time.time()
+
 	with perf_timer.PerfTimer("Argument Parsing"):
 		mainFileDir = ""
 		mainFile = sys.modules['__main__'].__file__
@@ -631,13 +632,37 @@ def Run():
 			log.Error("csbuild cannot be run from the interactive console.")
 			system.Exit(1)
 
+		from ..tools.common.tool_traits import HasOptimizationLevel
+		OptimizationLevel = HasOptimizationLevel.OptimizationLevel
+		from ..tools.common.tool_traits import HasDebugLevel
+		DebugLevel = HasDebugLevel.DebugLevel
+		#Create the default targets...
+		with csbuild.Target("release"):
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.Disabled)
+			csbuild.SetDebugRuntime(False)
+			csbuild.AddDefines("NDEBUG")
+
+		with csbuild.Target("debug"):
+			csbuild.SetOptimizationLevel(OptimizationLevel.Disabled)
+			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
+			csbuild.SetDebugRuntime(True)
+			csbuild.AddDefines("_DEBUG")
+
+		with csbuild.Target("fastdebug"):
+			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
+			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
+			csbuild.SetDebugRuntime(True)
+			csbuild.AddDefines("_DEBUG")
+			csbuild.AddDefines("_FASTDEBUG")
+
 		epilog = "    ------------------------------------------------------------    \n\nProjects available in this makefile (listed in build order):\n\n"
 
 		projtable = [[]]
 		i = 1
 		j = 0
 
-		maxcols = min(math.floor(len(shared_globals.sortedProjects) / 4), 4)
+		maxcols = 4#min(math.floor(len(shared_globals.sortedProjects) / 4), 4)
 
 		for proj in shared_globals.sortedProjects:
 			projtable[j].append(proj.name)
@@ -670,9 +695,11 @@ def Run():
 		i = 1
 		j = 0
 
-		maxcols = min(math.floor(len(shared_globals.allTargets) / 4), 4)
+		maxcols = 4#min(math.floor(len(shared_globals.allTargets) / 4), 4)
 
-		for targ in shared_globals.allTargets:
+		for targ in sorted(shared_globals.allTargets):
+			if targ == csbuild.currentPlan.defaultTarget:
+				targ += " (default)"
 			targtable[j].append(targ)
 			if i < maxcols:
 				i += 1
@@ -696,17 +723,58 @@ def Run():
 					epilog += "  "
 				epilog += "\n"
 
+		epilog += "\nAvailable solution generators:\n\n"
+
+		gentable = [[]]
+		i = 1
+		j = 0
+
+		maxcols = 4#min(math.floor(len(shared_globals.allGenerators) / 4), 4)
+
+		for gen in sorted(shared_globals.allGenerators.keys()):
+			gentable[j].append(gen)
+			if i < maxcols:
+				i += 1
+			else:
+				gentable.append([])
+				i = 1
+				j += 1
+
+		if gentable:
+			maxlens = [15] * len(gentable[0])
+			for col in gentable:
+				for subindex, item in enumerate(col):
+					maxlens[subindex] = max(maxlens[subindex], len(item))
+
+			for col in gentable:
+				for subindex, item in enumerate(col):
+					epilog += "  "
+					epilog += item
+					for _ in range(maxlens[subindex] - len(item)):
+						epilog += " "
+					epilog += "  "
+				epilog += "\n"
+
 		parser = shared_globals.parser = argparse.ArgumentParser(
 			prog = mainFile, epilog = epilog, formatter_class = argparse.RawDescriptionHelpFormatter)
 
 		parser.add_argument('--version', action = "store_true", help = "Print version information and exit")
 
 		group = parser.add_mutually_exclusive_group()
-		group.add_argument('-t', '--target', action='append', help = 'Target(s) for build', default=[])
+		group.add_argument('-t', '--target', action='append', help = 'Target(s) for build. (May be specified multiple times.)', default=[])
 		group.add_argument('--at', "--all-targets", action = "store_true", help = "Build all targets")
 
 		parser.add_argument("-p", "--project",
-							action="append", help = "Build only the specified project. May be specified multiple times.")
+							action="append", help = "Build only the specified project. (May be specified multiple times.)",)
+
+		group = parser.add_mutually_exclusive_group()
+		group.add_argument('-o', '--toolchain', help = "Toolchain(s) to use for compiling. (May be specified multiple times.)",
+			default=[], action = "append")
+		group.add_argument("--ao", '--all-toolchains', help="Build with all toolchains", action = "store_true")
+
+		group = parser.add_mutually_exclusive_group()
+		group.add_argument("-a", "--architecture", "--arch", help = 'Architecture(s) to compile for each toolchain. (May be specified multiple times.)', action = "append",)
+		group.add_argument("--aa", "--all-architectures", "--all-arch", action = "store_true", help = "Build all architectures supported by this toolchain")
 
 		group = parser.add_mutually_exclusive_group()
 		group.add_argument('-c', '--clean', action = "store_true", help = 'Clean the target build')
@@ -739,28 +807,15 @@ def Run():
 		#parser.add_argument('--libdir', help = "install location for libraries (default {prefix}/lib)", action = "store")
 		#parser.add_argument('--incdir', help = "install prefix (default {prefix}/include)", action = "store")
 
-		group = parser.add_mutually_exclusive_group()
-		group.add_argument('-o', '--toolchain', help = "Toolchain to use for compiling.",
-			default=[], action = "append")
-		group.add_argument("--ao", '--all-toolchains', help="Build with all toolchains", action = "store_true")
-
-		group = parser.add_mutually_exclusive_group()
-
-		#for toolchainName, toolchainArchStrings in shared_globals.allToolchainArchStrings.items():
-		#	archStringLong = "--" + toolchainArchStrings[0]
-		#	archStringShort = "--" + toolchainArchStrings[1]
-		#	parser.add_argument(archStringLong, archStringShort, help = "Architecture to compile for the {} toolchain.".format(toolchainName), action = "append")
-
-		group.add_argument("-a", "--architecture", "--arch", help = 'Architecture to compile for each toolchain.', action = "append")
-		group.add_argument("--aa", "--all-architectures", "--all-arch", action = "store_true", help = "Build all architectures supported by this toolchain")
-
 		parser.add_argument("--stop-on-error", help = "Stop compilation after the first error is encountered.", action = "store_true")
 		#parser.add_argument('--no-precompile', help = "Disable precompiling globally, affects all projects",
 		#	action = "store_true")
 		#parser.add_argument('--no-chunks', help = "Disable chunking globally, affects all projects",
 		#	action = "store_true")
-		#parser.add_argument('--dg', '--dependency-graph', help="Generate dependency graph", action="store_true")
-		#parser.add_argument('--with-libs', help="Include linked libraries in dependency graph", action="store_true")
+
+		parser.add_argument('--dg', '--dependency-graph', help="Generate dependency graph", action="store_true")
+		parser.add_argument('--dg-stubs', '--dependency-graph-stubs', help="Generate dependency graph with stubs", action="store_true")
+		parser.add_argument('--dg-type', '--dependency-graph-type', help="Graphviz engine to use for DG", action="store", default="dot", choices=["dot", "neato", "twopi", "circo", "fdp", "sfdp"])
 
 		parser.add_argument("--perf-report", help="Collect and show perf report at the end of execution",
 							action = "store", choices = ["tree", "flat", "html"], default = None, const = "tree", nargs = "?")
@@ -843,15 +898,8 @@ def Run():
 		else:
 			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
 
-		#Create the default targets...
-		with csbuild.Target("release"):
-			pass
-
-		with csbuild.Target("debug"):
-			pass
-
-		with csbuild.Target("fastdebug"):
-			pass
+		if args.dg:
+			shared_globals.runMode = csbuild.RunMode.GenerateDependencyGraph
 
 		if args.generate_solution:
 
@@ -1021,15 +1069,68 @@ def Run():
 						shared_globals.projectMap.setdefault(proj.toolchainName, {}) \
 							.setdefault(proj.architectureName, {}) \
 							.setdefault(proj.targetName, {})[plan.name] = proj
-						projectBuildList.append(proj)
+						if proj.projectType != csbuild.ProjectType.Stub or csbuild.GetRunMode() == csbuild.RunMode.GenerateSolution or args.dg:
+							projectBuildList.append(proj)
 
 	if not projectBuildList:
 		log.Error("No projects were found supporting the requested architecture, toolchain, target, and platform combination")
 		system.Exit(1)
 
+
 	with perf_timer.PerfTimer("Dependency resolution"):
 		for proj in projectBuildList:
 			proj.ResolveDependencies()
+
+	if args.dg:
+		builder = 'digraph G {{\n\tlayout="{}";\n\toverlap="false";\n\tsplines="spline"\n'.format(args.dg_type)
+		colors = [
+			"#ff0000", "#cc5200", "#b2742d", "#858c23", "#20802d",
+			"#00ffcc", "#39c3e6", "#205380", "#003380", "#38008c",
+			"#ff40d9", "#e53967", "#f20000", "#7f4620", "#cca300",
+			"#66ff00", "#00cc6d", "#36d9ce", "#007a99", "#0061f2",
+			"#0000f2", "#cc00ff", "#d9368d", "#7f202d", "#991400",
+			"#f28100", "#dae639", "#69bf30", "#269973", "#208079",
+			"#00a2f2", "#397ee6", "#0000e6", "#8d29a6", "#990052"
+		]
+		idx = 0
+		for buildProj in projectBuildList:
+			log.Info(buildProj.name)
+			color = colors[idx]
+			idx += 1
+			if idx == len(colors):
+				idx = 0
+
+			if buildProj.projectType == csbuild.ProjectType.Application:
+				shape = "doublecircle"
+			elif buildProj.projectType == csbuild.ProjectType.Stub:
+				if not args.dg_stubs:
+					continue
+				shape = "oval"
+				color = "#000000"
+			else:
+				shape = "component"
+
+			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name, shape, color)
+			for otherProj in buildProj.dependencies:
+				if otherProj.projectType == csbuild.ProjectType.Stub and not args.dg_stubs:
+					continue
+				builder += '\t{} -> {} [color="{}"];\n'.format(buildProj.name, otherProj.name, color)
+
+		builder += "}\n"
+		with open("depends.gv", "w") as f:
+			f.write(builder)
+		log.Build("Wrote depends.gv")
+		try:
+			# pylint: disable=import-error
+			from graphviz import Digraph
+		except:
+			log.Warn("graphviz library not found. You can open depends.gv with graphviz or a similar dot viewer to view the graph, or install graphviz with pip install graphviz.")
+		else:
+			graph = Digraph(comment="CSBuild Dependency Graph", format="png", engine=args.dg_type, filename="depends")
+			Digraph.source=property(lambda self: builder)
+			graph.render("depends.gv", view=True)
+			log.Build("Wrote depends.png")
+		return
 
 	if not args.clean or args.rebuild:
 		with perf_timer.PerfTimer("Project setup"):
