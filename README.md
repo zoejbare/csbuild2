@@ -16,7 +16,8 @@ Windows      | Python 3.8      | [![TeamCity](https://dev.aegresco.com/teamcity/
 CSBuild is a language-agnostic build system focused on maximizing developer iteration time and providing tools for enabling developers to improve their build workflow. Currently, CSBuild is undergoing a complete rewrite to address some core architecture issues with the original iteration. It gets closer every day, but hasn't quite reached feature parity with the original CSBuild.
 
 What it currently can do:
-- Build basic C++, java, objective-c, and assembly files for Windows, Mac, BSD, Linux, android, PS3, PS4, and PSVita systems
+- Build basic C++, java, objective-c, and assembly files
+- Build on Windows, Mac, BSD, Linux, android, PS3, PS4, and PSVita systems (language support varies by system)
 - Be extended with tools to work in any language
 - Support macro processing in all strings (i.e., `csbuild.SetOutputDirectory("{toolchainName}/{architectureName}/{targetName}")`)
 - Generate project files for Visual Studio 2010, 2012, 2013, 2015, 2017, and 2019.
