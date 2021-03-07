@@ -1035,7 +1035,8 @@ def Run():
 						shared_globals.projectMap.setdefault(proj.toolchainName, {}) \
 							.setdefault(proj.architectureName, {}) \
 							.setdefault(proj.targetName, {})[plan.name] = proj
-						projectBuildList.append(proj)
+						if proj.projectType != csbuild.ProjectType.Stub or csbuild.GetRunMode() == csbuild.RunMode.GenerateSolution:
+							projectBuildList.append(proj)
 
 	if not projectBuildList:
 		log.Error("No projects were found supporting the requested architecture, toolchain, target, and platform combination")

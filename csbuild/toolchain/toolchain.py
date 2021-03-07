@@ -737,6 +737,25 @@ class Toolchain(object):
 
 						object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
 
+					@TypeChecked(tool=(_typeType, _classType))
+					def RemoveTool(self, tool):
+						"""
+						Removes a tool from the toolchain.
+
+						:param tool: Class inheriting from Tool
+						:type tool: type
+						"""
+						assert not runInit, "RemoveTool can't be called from this context"
+						assert tool in _classTrackr.classes, "Tool {} has not been added".format(tool)
+
+						from .. import currentPlan
+						currentPlan.AddToSet("disabledTools", tool)
+
+						_classTrackr.classes.remove(tool)
+
+						object.__setattr__(self, "__class__", type(PlatformString("Toolchain"), tuple(_classTrackr.classes), dict(ToolchainTemplate.__dict__)))
+
+
 					@TypeChecked(extension=String, checker=CompileChecker)
 					def AddChecker(self, extension, checker):
 						"""
@@ -1127,6 +1146,16 @@ class Toolchain(object):
 		"""
 		pass
 
+	@TypeChecked(tool=(_typeType, _classType))
+	def RemoveTool(self, tool):
+		"""
+		Removes a tool from the toolchain.
+
+		:param tool: Class inheriting from Tool
+		:type tool: type
+		"""
+		pass
+
 	@TypeChecked(extension=String, checker=CompileChecker)
 	def AddChecker(self, extension, checker):
 		"""
@@ -1361,6 +1390,13 @@ class TestToolchainMixin(testcase.TestCase):
 			derived2StaticInitialized=1,
 		)
 
+	def assertUnchanged(self):
+		"""Assert that the state dict has not changed"""
+		#Set the expected changes on our expected state and assert that the changed expected state
+		#(including the previous values in that state) matches the actual state
+		actualState = {key: val for key, val in self._sharedLocals.__dict__.items() if not key.startswith("_")}
+		self.assertEqual(self.expectedState, actualState)
+
 	def assertChanged(self, **kwargs):
 		"""Assert that the listed changes (and ONLY the listed changes) have occurred in the state dict"""
 		#Set the expected changes on our expected state and assert that the changed expected state
@@ -1389,6 +1425,26 @@ class TestToolchainMixin(testcase.TestCase):
 		self.assertChanged(derived1Static = 1)
 		mixin2.Derived2Static()
 		self.assertChanged(derived2Static = 1)
+
+	def testRemoveTool(self):
+		"""Test that removing a tool works correctly"""
+		mixin2 = Toolchain({}, self._derived1, runInit=False)
+		mixin2.AddTool(self._derived2)
+		mixin2.RemoveTool(self._derived2)
+
+		self.assertEqual(mixin2.MyEnum.Foo, 1)
+		self.assertEqual(mixin2.MyEnum.Bar, 2)
+		self.assertEqual(mixin2.testStaticVar, 3)
+
+		#Assert that derived 2 was never initialized at all
+		self.assertEqual(1, self._sharedLocals.baseInitialized)
+		self.assertEqual(1, self._sharedLocals.derived1Initialized)
+		self.assertEqual(0, self._sharedLocals.derived2Initialized)
+		mixin2.Derived1Static()
+		self.assertChanged(derived1Static = 1)
+		with self.assertRaises(AttributeError):
+			mixin2.Derived2Static()
+		self.assertUnchanged()
 
 	def testPrivateFunctionCalls(self):
 		"""Test that internal private function calls work with a variety of inheritance scenarios"""
