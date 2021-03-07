@@ -138,14 +138,22 @@ class VsBasePlatformHandler(object):
 		return []
 
 	@staticmethod
-	def GetIntellisenseAdditionalOptions(): # pylint: disable=redundant-returns-doc
+	def GetIntellisenseAdditionalOptions(project, buildSpec): # pylint: disable=redundant-returns-doc
 		"""
 		Get any additional NMake options to configure intellisense.
+
+		:param project: Visual Studio project data.
+		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
+
+		:param buildSpec: Build spec being written to use with the project data.
+		:type buildSpec: tuple[str, str, str]
 
 		:return: Additional NMake options.
 		:rtype: str or None
 		"""
-		return None
+		_ignore(project)
+		_ignore(buildSpec)
+		return ""
 
 	def WriteGlobalHeader(self, parentXmlNode, project):
 		"""

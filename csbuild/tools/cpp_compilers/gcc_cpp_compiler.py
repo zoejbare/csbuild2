@@ -68,6 +68,7 @@ class GccCppCompiler(CppCompilerBase):
 			+ self._getOptimizationArgs() \
 			+ self._getDebugArgs() \
 			+ self._getSystemArgs(project, isCpp) \
+			+ self._getLanguageStandardArgs(isCpp) \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
@@ -134,3 +135,8 @@ class GccCppCompiler(CppCompilerBase):
 		_ignore(project)
 		_ignore(isCpp)
 		return []
+
+	def _getLanguageStandardArgs(self, isSourceCpp):
+		standard = self._cxxStandard if isSourceCpp else self._ccStandard
+		arg = "-std={}".format(standard) if standard else None
+		return [arg]

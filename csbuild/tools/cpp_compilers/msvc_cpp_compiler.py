@@ -80,6 +80,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 			+ self._getDebugArgs() \
 			+ self._getOptimizationArgs() \
 			+ self._getRuntimeLinkageArgs() \
+			+ self._getLanguageStandardArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
@@ -151,3 +152,8 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 			args.extend(["/Fd{}".format(filePath) for filePath in outputFiles if os.path.splitext(filePath)[1] in [".pdb"]])
 
 		return args
+
+	def _getLanguageStandardArgs(self):
+		# No argument for the C language standard.
+		arg = "/std:{}".format(self._cxxStandard) if self._cxxStandard else None
+		return [arg]

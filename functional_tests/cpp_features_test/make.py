@@ -96,6 +96,14 @@ with csbuild.Project("hello_world", "hello_world"):
 		with csbuild.Toolchain("msvc"):
 			csbuild.AddCompilerCxxFlags("/W4")
 			csbuild.AddLinkerFlags("/STACK:1048576")
-		with csbuild.Toolchain("gcc"):
+		with csbuild.Toolchain("gcc", "clang"):
 			csbuild.AddCompilerCxxFlags("-Wunused-variable")
 			csbuild.AddLinkerFlags("-shared-libgcc")
+
+with csbuild.Project("cc_standard", "cc_standard"):
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
+	csbuild.SetCcLanguageStandard("c11")
+
+with csbuild.Project("cxx_standard", "cxx_standard"):
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
+	csbuild.SetCxxLanguageStandard("c++14")

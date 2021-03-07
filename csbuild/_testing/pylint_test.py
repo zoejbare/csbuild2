@@ -33,6 +33,7 @@ import traceback
 import threading
 import re
 import pylint
+import unittest
 
 from . import testcase
 from .. import log
@@ -41,6 +42,7 @@ from .._utils import thread_pool, PlatformString, queue, PlatformUnicode
 class TestPylint(testcase.TestCase):
 	"""Test to run pylint"""
 	# pylint: disable=invalid-name
+	@unittest.skipIf(sys.version_info.major < 3, "Pylint is no longer supported on Python 2")
 	def testPyLint(self):
 		"""Run pylint on the code and ensure it passes all pylint checks"""
 
