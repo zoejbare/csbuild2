@@ -29,7 +29,6 @@ from __future__ import unicode_literals, division, print_function
 
 import platform
 import os
-import subprocess
 
 from .java_compiler_base import JavaCompilerBase
 
