@@ -37,7 +37,7 @@ setup(
 	version = csbuildVersion,
 	packages = ["csbuild"],
 	include_package_data = True,
-	author = "Jaedyn K. Draper",
+	author = "Sleeping Cat, LLC",
 	author_email = "jaedyn.pypi@jaedyn.co",
 	url = "https://github.com/SleepingCatGames/csbuild2",
 	description = "Programming language-agnostic build system",
