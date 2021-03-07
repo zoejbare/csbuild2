@@ -30,6 +30,9 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 
 from .gcc_cpp_compiler import GccCppCompiler
+from ..._utils import PlatformString
+
+import subprocess
 
 class ClangCppCompiler(GccCppCompiler):
 	"""
@@ -38,6 +41,11 @@ class ClangCppCompiler(GccCppCompiler):
 
 	def __init__(self, projectSettings):
 		GccCppCompiler.__init__(self, projectSettings)
+
+		targetTriplet = PlatformString(subprocess.check_output(["clang", "-dumpmachine"]))
+		targetSegements = targetTriplet.strip().split("-", 1)
+
+		self._targetSuffix = targetSegements[1] if targetSegements and len(targetSegements) > 1 else None
 
 
 	####################################################################################################################
@@ -68,9 +76,15 @@ class ClangCppCompiler(GccCppCompiler):
 	####################################################################################################################
 
 	def _getArchTarget(self, project):
+		if not self._targetSuffix:
+			return None
+
 		# When necessary fill in the architecture name with something clang expects.
-		architecture = {
+		targetPrefix = {
 			"x86": "i386",
 			"x64": "x86_64",
-		}.get(project.architectureName, project.architectureName)
-		return "{}-unknown-linux-unknown".format(architecture)
+		}.get(project.architectureName, None)
+		if not targetPrefix:
+			return None
+
+		return "{}-{}".format(targetPrefix, self._targetSuffix)
