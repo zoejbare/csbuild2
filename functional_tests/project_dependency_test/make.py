@@ -90,10 +90,45 @@ class Adder(AddDoubles):
 csbuild.RegisterToolchain("AddDoubles", "", Doubler, Adder)
 csbuild.SetDefaultToolchain("AddDoubles")
 
-with csbuild.Project("TestProject", "."):
+
+with csbuild.Project("TestStub", "."):
+	csbuild.SetIntermediateDirectory("intermediate/BarIntermediate")
+	csbuild.SetOutput("Bar", csbuild.ProjectType.Stub)
+
+with csbuild.Project("TestStub2", "."):
+	csbuild.SetIntermediateDirectory("intermediate/BarIntermediate")
+	csbuild.SetOutput("Bar", csbuild.ProjectType.Stub)
+
+with csbuild.Project("TestLib", ".", ["TestStub2"]):
 	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
 	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
 
-with csbuild.Project("TestProject2", ".", ["TestProject"]):
+with csbuild.Project("TestLib2", ".", ["TestStub"]):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
+with csbuild.Project("TestLib8", ".", ["TestLib2"]):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
+with csbuild.Project("TestLib3", ".", ["TestLib2"]):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
+with csbuild.Project("TestLib4", ".", ["TestStub"]):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
+with csbuild.Project("TestLib5", ".", ["TestStub"]):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
+with csbuild.Project("TestLib6", ".", ["TestLib4"]):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
+with csbuild.Project("TestLib7", ".", ["TestLib3"]):
+	csbuild.SetIntermediateDirectory("intermediate/FooIntermediate")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.StaticLibrary)
+
+with csbuild.Project("TestApp", ".", ["TestLib", "TestLib7", "TestLib6", "TestLib5", "TestStub"]):
+	csbuild.SetIntermediateDirectory("intermediate/BarIntermediate")
+	csbuild.SetOutput("Bar", csbuild.ProjectType.Application)
+
+with csbuild.Project("TestApp2", ".", ["TestLib", "TestStub"]):
 	csbuild.SetIntermediateDirectory("intermediate/BarIntermediate")
 	csbuild.SetOutput("Bar", csbuild.ProjectType.Application)

@@ -814,6 +814,8 @@ def Run():
 		#	action = "store_true")
 
 		parser.add_argument('--dg', '--dependency-graph', help="Generate dependency graph", action="store_true")
+		parser.add_argument('--dg-stubs', '--dependency-graph-stubs', help="Generate dependency graph with stubs", action="store_true")
+		parser.add_argument('--dg-type', '--dependency-graph-type', help="Graphviz engine to use for DG", action="store", default="dot", choices=["dot", "neato", "twopi", "circo", "fdp", "sfdp"])
 
 		parser.add_argument("--perf-report", help="Collect and show perf report at the end of execution",
 							action = "store", choices = ["tree", "flat", "html"], default = None, const = "tree", nargs = "?")
@@ -895,6 +897,9 @@ def Run():
 			shared_globals.colorSupported = False
 		else:
 			shared_globals.colorSupported = terminfo.TermInfo.SupportsColor()
+
+		if args.dg:
+			shared_globals.runMode = csbuild.RunMode.GenerateDependencyGraph
 
 		if args.generate_solution:
 
@@ -1064,7 +1069,7 @@ def Run():
 						shared_globals.projectMap.setdefault(proj.toolchainName, {}) \
 							.setdefault(proj.architectureName, {}) \
 							.setdefault(proj.targetName, {})[plan.name] = proj
-						if proj.projectType != csbuild.ProjectType.Stub or csbuild.GetRunMode() == csbuild.RunMode.GenerateSolution:
+						if proj.projectType != csbuild.ProjectType.Stub or csbuild.GetRunMode() == csbuild.RunMode.GenerateSolution or args.dg:
 							projectBuildList.append(proj)
 
 	if not projectBuildList:
@@ -1072,8 +1077,12 @@ def Run():
 		system.Exit(1)
 
 
+	with perf_timer.PerfTimer("Dependency resolution"):
+		for proj in projectBuildList:
+			proj.ResolveDependencies()
+
 	if args.dg:
-		builder = 'digraph G {\n\tlayout="neato";\n\toverlap="false";\n\tsplines="spline"\n'
+		builder = 'digraph G {{\n\tlayout="{}";\n\toverlap="false";\n\tsplines="spline"\n'.format(args.dg_type)
 		colors = [
 			"#ff0000", "#cc5200", "#b2742d", "#858c23", "#20802d",
 			"#00ffcc", "#39c3e6", "#205380", "#003380", "#38008c",
@@ -1090,9 +1099,21 @@ def Run():
 			idx += 1
 			if idx == len(colors):
 				idx = 0
-			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name, "box3d" if buildProj.projectType == csbuild.ProjectType.Application else "oval", color)
-			for dep in buildProj.dependencyNames:
-				otherProj = project_plan.allPlans[dep]
+
+			if buildProj.projectType == csbuild.ProjectType.Application:
+				shape = "doublecircle"
+			elif buildProj.projectType == csbuild.ProjectType.Stub:
+				if not args.dg_stubs:
+					continue
+				shape = "oval"
+				color = "#000000"
+			else:
+				shape = "component"
+
+			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name, shape, color)
+			for otherProj in buildProj.dependencies:
+				if otherProj.projectType == csbuild.ProjectType.Stub and not args.dg_stubs:
+					continue
 				builder += '\t{} -> {} [color="{}"];\n'.format(buildProj.name, otherProj.name, color)
 
 		builder += "}\n"
@@ -1100,19 +1121,16 @@ def Run():
 			f.write(builder)
 		log.Build("Wrote depends.gv")
 		try:
+			# pylint: disable=import-error
 			from graphviz import Digraph
 		except:
 			log.Warn("graphviz library not found. You can open depends.gv with graphviz or a similar dot viewer to view the graph, or install graphviz with pip install graphviz.")
 		else:
-			graph = Digraph(comment="CSBuild Dependency Graph", format="png", engine="dot", filename="depends")
+			graph = Digraph(comment="CSBuild Dependency Graph", format="png", engine=args.dg_type, filename="depends")
 			Digraph.source=property(lambda self: builder)
 			graph.render("depends.gv", view=True)
 			log.Build("Wrote depends.png")
 		return
-
-	with perf_timer.PerfTimer("Dependency resolution"):
-		for proj in projectBuildList:
-			proj.ResolveDependencies()
 
 	if not args.clean or args.rebuild:
 		with perf_timer.PerfTimer("Project setup"):
