@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. package:: basic_cpp
+.. package:: basic_cpp_test
 	:synopsis: Basic test of c++ tools
 
 .. moduleauthor:: Jaedyn K. Draper

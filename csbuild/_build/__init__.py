@@ -608,7 +608,7 @@ def Run():
 	Run the build! This is the main entry point for csbuild.
 	"""
 	shared_globals.startTime = time.time()
-	
+
 	with perf_timer.PerfTimer("Argument Parsing"):
 		mainFileDir = ""
 		mainFile = sys.modules['__main__'].__file__
@@ -631,7 +631,7 @@ def Run():
 		else:
 			log.Error("csbuild cannot be run from the interactive console.")
 			system.Exit(1)
-			
+
 		from ..tools.common.tool_traits import HasOptimizationLevel
 		OptimizationLevel = HasOptimizationLevel.OptimizationLevel
 		from ..tools.common.tool_traits import HasDebugLevel
@@ -812,8 +812,8 @@ def Run():
 		#	action = "store_true")
 		#parser.add_argument('--no-chunks', help = "Disable chunking globally, affects all projects",
 		#	action = "store_true")
-		#parser.add_argument('--dg', '--dependency-graph', help="Generate dependency graph", action="store_true")
-		#parser.add_argument('--with-libs', help="Include linked libraries in dependency graph", action="store_true")
+
+		parser.add_argument('--dg', '--dependency-graph', help="Generate dependency graph", action="store_true")
 
 		parser.add_argument("--perf-report", help="Collect and show perf report at the end of execution",
 							action = "store", choices = ["tree", "flat", "html"], default = None, const = "tree", nargs = "?")
@@ -1070,6 +1070,45 @@ def Run():
 	if not projectBuildList:
 		log.Error("No projects were found supporting the requested architecture, toolchain, target, and platform combination")
 		system.Exit(1)
+
+
+	if args.dg:
+		builder = 'digraph G {\n\tlayout="neato";\n\toverlap="false";\n\tsplines="spline"\n'
+		colors = [
+			"#ff0000", "#cc5200", "#b2742d", "#858c23", "#20802d",
+			"#00ffcc", "#39c3e6", "#205380", "#003380", "#38008c",
+			"#ff40d9", "#e53967", "#f20000", "#7f4620", "#cca300",
+			"#66ff00", "#00cc6d", "#36d9ce", "#007a99", "#0061f2",
+			"#0000f2", "#cc00ff", "#d9368d", "#7f202d", "#991400",
+			"#f28100", "#dae639", "#69bf30", "#269973", "#208079",
+			"#00a2f2", "#397ee6", "#0000e6", "#8d29a6", "#990052"
+		]
+		idx = 0
+		for buildProj in projectBuildList:
+			log.Info(buildProj.name)
+			color = colors[idx]
+			idx += 1
+			if idx == len(colors):
+				idx = 0
+			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name, "box3d" if buildProj.projectType == csbuild.ProjectType.Application else "oval", color)
+			for dep in buildProj.dependencyNames:
+				otherProj = project_plan.allPlans[dep]
+				builder += '\t{} -> {} [color="{}"];\n'.format(buildProj.name, otherProj.name, color)
+
+		builder += "}\n"
+		with open("depends.gv", "w") as f:
+			f.write(builder)
+		log.Build("Wrote depends.gv")
+		try:
+			from graphviz import Digraph
+		except:
+			log.Warn("graphviz library not found. You can open depends.gv with graphviz or a similar dot viewer to view the graph, or install graphviz with pip install graphviz.")
+		else:
+			graph = Digraph(comment="CSBuild Dependency Graph", format="png", engine="dot", filename="depends")
+			Digraph.source=property(lambda self: builder)
+			graph.render("depends.gv", view=True)
+			log.Build("Wrote depends.png")
+		return
 
 	with perf_timer.PerfTimer("Dependency resolution"):
 		for proj in projectBuildList:

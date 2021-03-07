@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. package:: cpp_feature_test
+.. package:: cpp_features_test
 	:synopsis: Basic test of c++ feature toggles
 
 .. moduleauthor:: Jaedyn K. Draper

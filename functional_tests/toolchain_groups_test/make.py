@@ -111,4 +111,3 @@ with csbuild.Project("TestProjectChained", "."):
 
 	csbuild.SetSupportedToolchains("AddDoubles", "AddDoubles2", "AddDoubles3", "AddDoubles4")
 	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
-

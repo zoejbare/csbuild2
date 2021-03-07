@@ -565,7 +565,9 @@ class Toolchain(object):
 					@TypeChecked(tool=(_typeType, _classType))
 					def DeactivateTool(self, tool):
 						"""
-						Remove the specified tool from the active tool list
+						Remove the specified tool from the active tool list. This is used internally when processing
+						null tools to ensure they don't get processed multiple times. You should NOT use this in a
+						makefile - instead, you should use RemoveTool
 
 						:param tool: tool to remove
 						:type tool: type
@@ -740,7 +742,9 @@ class Toolchain(object):
 					@TypeChecked(tool=(_typeType, _classType))
 					def RemoveTool(self, tool):
 						"""
-						Removes a tool from the toolchain.
+						Removes a tool from the toolchain. This can be used in a makefile to remove tools within
+						certain contexts, such as on a specific platform, or to remove default tools, such as
+						the built-in C++ linker tools.
 
 						:param tool: Class inheriting from Tool
 						:type tool: type
@@ -1061,7 +1065,9 @@ class Toolchain(object):
 	@TypeChecked(tool=(_typeType, _classType))
 	def DeactivateTool(self, tool):
 		"""
-		Remove the specified tool from the active tool list
+		Remove the specified tool from the active tool list. This is used internally when processing
+		null tools to ensure they don't get processed multiple times. You should NOT use this in a
+		makefile - instead, you should use RemoveTool
 
 		:param tool: tool to remove
 		:type tool: type
@@ -1149,7 +1155,9 @@ class Toolchain(object):
 	@TypeChecked(tool=(_typeType, _classType))
 	def RemoveTool(self, tool):
 		"""
-		Removes a tool from the toolchain.
+		Removes a tool from the toolchain. This can be used in a makefile to remove tools within
+		certain contexts, such as on a specific platform, or to remove default tools, such as
+		the built-in C++ linker tools.
 
 		:param tool: Class inheriting from Tool
 		:type tool: type
@@ -1425,26 +1433,6 @@ class TestToolchainMixin(testcase.TestCase):
 		self.assertChanged(derived1Static = 1)
 		mixin2.Derived2Static()
 		self.assertChanged(derived2Static = 1)
-
-	def testRemoveTool(self):
-		"""Test that removing a tool works correctly"""
-		mixin2 = Toolchain({}, self._derived1, runInit=False)
-		mixin2.AddTool(self._derived2)
-		mixin2.RemoveTool(self._derived2)
-
-		self.assertEqual(mixin2.MyEnum.Foo, 1)
-		self.assertEqual(mixin2.MyEnum.Bar, 2)
-		self.assertEqual(mixin2.testStaticVar, 3)
-
-		#Assert that derived 2 was never initialized at all
-		self.assertEqual(1, self._sharedLocals.baseInitialized)
-		self.assertEqual(1, self._sharedLocals.derived1Initialized)
-		self.assertEqual(0, self._sharedLocals.derived2Initialized)
-		mixin2.Derived1Static()
-		self.assertChanged(derived1Static = 1)
-		with self.assertRaises(AttributeError):
-			mixin2.Derived2Static()
-		self.assertUnchanged()
 
 	def testPrivateFunctionCalls(self):
 		"""Test that internal private function calls work with a variety of inheritance scenarios"""

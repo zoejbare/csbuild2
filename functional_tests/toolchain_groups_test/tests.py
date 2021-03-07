@@ -56,4 +56,3 @@ class ToolchainGroupsTest(FunctionalTest):
 	def testChained(self):
 		"""Test using chained context managers"""
 		self.runTest("TestProjectChained")
-

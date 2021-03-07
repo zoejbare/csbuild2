@@ -96,4 +96,3 @@ class MultiContextTest(FunctionalTest):
 	def testChaining(self):
 		"""Run the test using chained context managers"""
 		self.runTest("TestProjectChained")
-

@@ -32,7 +32,6 @@ import sys
 import traceback
 import threading
 import re
-import pylint
 import unittest
 
 from . import testcase
