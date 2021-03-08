@@ -27,7 +27,7 @@
 
 from __future__ import unicode_literals, division, print_function
 
-from csbuild.commands import Run
+from csbuild import commands
 from csbuild._testing.functional_test import FunctionalTest
 from csbuild._utils import PlatformString
 
@@ -78,7 +78,7 @@ class BasicJavaTest(FunctionalTest):
 		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--toolchain=oracle-java")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
-		ret, out, _ = Run([javaExe, "-jar", self.outputFile])
+		ret, out, _ = commands.Run([javaExe, "-jar", self.outputFile])
 
 		self.assertEqual(ret, 0)
 		self.assertEqual(out, PlatformString("Hello, world!"))
