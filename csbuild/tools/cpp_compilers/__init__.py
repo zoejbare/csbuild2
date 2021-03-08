@@ -29,6 +29,9 @@ from __future__ import unicode_literals, division, print_function
 
 import os
 import re
+
+from ... import log, perf_timer
+from ..._utils import shared_globals
 from ...toolchain import CompileChecker
 
 _includeRegex = re.compile(R'^\s*#\s*include\s+["<](\S+)[">]', re.M)
@@ -48,20 +51,30 @@ class CppCompileChecker(CompileChecker):
 		:param buildProject: Project encapsulating the files being built
 		:type buildProject: csbuild._build.project.Project
 		:param inputFile: The file to check
-		:type inputFile: input_file.InputFile
+		:type inputFile: str
 		:return: Set of files to depend on
 		:rtype: set[str]
 		"""
-		with open(inputFile.filename, "rb") as f:
-			contents = f.read()
-			contents = contents.decode("utf-8", "replace")
+		with perf_timer.PerfTimer("Header dependency resolution"):
+			log.Info("Checking header dependencies for {}", inputFile)
 
-		ret = set()
+			cache = shared_globals.settings.Get("cppHeaderCache", {})
+			mtime = os.path.getmtime(inputFile)
+			if inputFile in cache:
+				if mtime <= cache[inputFile]["mtime"]:
+					return cache[inputFile]["result"]
 
-		includeDirs = [os.path.dirname(inputFile.filename)] + list(buildProject.toolchain.Tool(self._compiler).GetIncludeDirectories())
-		for header in _includeRegex.findall(contents):
-			for includeDir in includeDirs:
-				maybeHeaderLoc = os.path.join(includeDir, header)
-				if os.access(maybeHeaderLoc, os.F_OK) and not os.path.isdir(maybeHeaderLoc):
-					ret.add(maybeHeaderLoc)
-		return ret
+			with open(inputFile, "rb") as f:
+				contents = f.read()
+				contents = contents.decode("utf-8", "replace")
+
+			ret = set()
+
+			includeDirs = [os.path.dirname(inputFile)] + list(buildProject.toolchain.Tool(self._compiler).GetIncludeDirectories())
+			for header in _includeRegex.findall(contents):
+				for includeDir in includeDirs:
+					maybeHeaderLoc = os.path.join(includeDir, header)
+					if os.access(maybeHeaderLoc, os.F_OK) and not os.path.isdir(maybeHeaderLoc):
+						ret.add(maybeHeaderLoc)
+			cache[inputFile] = {"mtime": mtime, "result": ret}
+			return ret

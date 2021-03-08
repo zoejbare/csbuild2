@@ -865,6 +865,8 @@ def Run():
 		parser.add_argument('--dg-stubs', '--dependency-graph-stubs', help="Generate dependency graph with stubs", action="store_true")
 		parser.add_argument('--dg-type', '--dependency-graph-type', help="Graphviz engine to use for DG", action="store", default="dot", choices=["dot", "neato", "twopi", "circo", "fdp", "sfdp"])
 
+		parser.add_argument('--clear-cache', help="Removes cached data such as header dependency caches and artifact metadata (note: will trigger a rebuild)", action="store_true")
+
 		parser.add_argument("--perf-report", help="Collect and show perf report at the end of execution",
 							action = "store", choices = ["tree", "flat", "html"], default = None, const = "tree", nargs = "?")
 
@@ -927,6 +929,10 @@ def Run():
 
 		csbDir = os.path.join(mainFileDir, ".csbuild")
 		shared_globals.settings = settings_manager.SettingsManager(os.path.join(csbDir, "settings"))
+
+		if args.clear_cache:
+			shared_globals.settings.Clear()
+			args.rebuild = True
 
 		shared_globals.verbosity = args.verbosity
 		shared_globals.showCommands = args.show_commands
@@ -1131,7 +1137,7 @@ def Run():
 			proj.ResolveDependencies()
 
 	if args.dg:
-		builder = 'digraph G {{\n\tlayout="{}";\n\toverlap="false";\n\tsplines="spline"\n'.format(args.dg_type)
+		builder = 'digraph G {{\n\tlayout="{}";\n\toverlap="false";\n\tsplines="spline";\n\tratio=0.7;\n\trankdir="LR"\n'.format(args.dg_type)
 		colors = [
 			"#ff0000", "#cc5200", "#b2742d", "#858c23", "#20802d",
 			"#00ffcc", "#39c3e6", "#205380", "#003380", "#38008c",
@@ -1142,6 +1148,7 @@ def Run():
 			"#00a2f2", "#397ee6", "#0000e6", "#8d29a6", "#990052"
 		]
 		idx = 0
+		projectsInGraph = []
 		for buildProj in projectBuildList:
 			log.Info(buildProj.name)
 			color = colors[idx]
@@ -1154,18 +1161,43 @@ def Run():
 			elif buildProj.projectType == csbuild.ProjectType.Stub:
 				if not args.dg_stubs:
 					continue
+				good = False
+				for proj in projectBuildList:
+					if buildProj in proj.dependencies:
+						good = True
+						break
+				if not good:
+					continue
+
 				shape = "oval"
 				color = "#000000"
 			else:
 				shape = "component"
 
-			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name, shape, color)
-			for otherProj in buildProj.dependencies:
+			projectsInGraph.append(buildProj)
+
+			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name.replace("-", "_"), shape, color)
+			class _shared:
+				topLevelDependencies = set(buildProj.dependencies)
+			def _recurseAndRemove(deps):
+				for dep in deps:
+					for nextDep in dep.dependencies:
+						if nextDep in _shared.topLevelDependencies:
+							_shared.topLevelDependencies.remove(nextDep)
+					_recurseAndRemove(dep.dependencies)
+			_recurseAndRemove(buildProj.dependencies)
+
+			dist = 0
+			for otherProj in _shared.topLevelDependencies:
 				if otherProj.projectType == csbuild.ProjectType.Stub and not args.dg_stubs:
 					continue
-				builder += '\t{} -> {} [color="{}"];\n'.format(buildProj.name, otherProj.name, color)
+				builder += '\t{} -> {} [color="{}";];\n'.format(buildProj.name.replace("-", "_"), otherProj.name, color)
+				dist += 1
 
-		builder += "}\n"
+		applications = [proj for proj in projectsInGraph if proj.projectType == csbuild.ProjectType.Application]
+		builder += "\t{{ rank=same; {} }}\n".format("; ".join([proj.name.replace("-", "_") for proj in applications]))
+
+		builder += "}"
 		with open("depends.gv", "w") as f:
 			f.write(builder)
 		log.Build("Wrote depends.gv")
@@ -1212,6 +1244,8 @@ def Run():
 
 	with perf_timer.PerfTimer("Waiting on logging to shut down"):
 		log.StopLogThread()
+
+	shared_globals.settings.Persist()
 
 	totaltime = time.time() - preparationStart
 	log.Build("Total execution took {}".format(FormatTime(totaltime)))

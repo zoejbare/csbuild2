@@ -818,6 +818,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 			sys.exit = system.Exit
 
 			_build.Run()
+			shared_globals.settings.Persist()
 			system.Exit(0)
 		except:
 			traceback.print_exc()

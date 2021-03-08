@@ -26,6 +26,7 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
+import shutil
 import threading
 
 import sys
@@ -36,7 +37,7 @@ try:
 	import cPickle as pickle
 except ImportError:
 	import pickle
-from .. import perf_timer
+from .. import perf_timer, log
 
 _sentinel = object()
 
@@ -65,14 +66,26 @@ class SettingsManager(object):
 		"""
 		with perf_timer.PerfTimer("SettingsManager save"):
 			#pylint: disable=not-context-manager
-			with self.lock:
-				self.settings[key] = value
-				dirFromKey = os.path.join(self.settingsDir, os.path.dirname(key))
-				if not os.access(dirFromKey, os.F_OK):
-					os.makedirs(dirFromKey)
-				with open(os.path.join(self.settingsDir, key), "wb") as f:
-					pickle.dump(value, f, 2)
-					f.flush()
+			self.settings[key] = value
+
+	def Persist(self):
+		"""
+		Write all settings back to disk
+		"""
+		for key, value in self.settings.items():
+			dirFromKey = os.path.join(self.settingsDir, os.path.dirname(key))
+			if not os.access(dirFromKey, os.F_OK):
+				os.makedirs(dirFromKey)
+			log.Info("Storing settings for {}", os.path.join(self.settingsDir, key))
+			with open(os.path.join(self.settingsDir, key), "wb") as f:
+				pickle.dump(value, f, 2)
+				f.flush()
+
+	def Clear(self):
+		"""
+		Remove all persisted settings
+		"""
+		shutil.rmtree(self.settingsDir)
 
 	def Get(self, key, default=None):
 		"""
@@ -86,26 +99,27 @@ class SettingsManager(object):
 		:rtype: any
 		"""
 		with perf_timer.PerfTimer("SettingsManager load"):
-			#pylint: disable=not-context-manager
-			with self.lock:
-				ret = self.settings.get(key, _sentinel)
+			# Double-check lock pattern
+			ret = self.settings.get(key, _sentinel)
+			if ret is _sentinel:
+				# pylint: disable=not-context-manager
+				with self.lock:
+					ret = self.settings.get(key, _sentinel)
+					if ret is _sentinel:
+						pathFromKey = os.path.join(self.settingsDir, key)
+						if not os.access(pathFromKey, os.F_OK):
+							self.settings[key] = default
+							return self.settings[key]
 
-				if ret is _sentinel:
-					pathFromKey = os.path.join(self.settingsDir, key)
-					if not os.access(pathFromKey, os.F_OK):
-						return default
+						with open(pathFromKey, "rb") as f:
+							data = f.read()
+							if sys.version_info[0] == 2:
+								data = data.replace(PlatformBytes("cUserString"), PlatformBytes("ccollections"))
+								data = data.replace(PlatformBytes("cUserList"), PlatformBytes("ccollections"))
+							ret = pickle.loads(data)
 
-					with open(pathFromKey, "rb") as f:
-						data = f.read()
-						if sys.version_info[0] == 2:
-							data = data.replace(PlatformBytes("cUserString"), PlatformBytes("ccollections"))
-							data = data.replace(PlatformBytes("cUserList"), PlatformBytes("ccollections"))
-						ret = pickle.loads(data)
-
-					self.settings[key] = ret
-
-					return self.settings[key]
-				return ret
+						self.settings[key] = ret
+			return ret
 
 	def Delete(self, key):
 		"""
