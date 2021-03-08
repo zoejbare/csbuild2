@@ -186,7 +186,7 @@ class CppCompilerBase(
 		"""
 		log.Build(
 			"Compiling {} ({}-{}-{})...",
-			os.path.basename(inputFile.filename),
+			inputFile,
 			inputProject.toolchainName,
 			inputProject.architectureName,
 			inputProject.targetName

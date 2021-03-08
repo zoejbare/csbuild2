@@ -81,7 +81,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		possibleFiles = ["{}.exp".format(outputPath), "{}.lib".format(outputPath)]
 		outputFiles.extend([filename for filename in possibleFiles if os.access(filename, os.F_OK)])
 
-		return tuple(outputFiles)
+		return tuple(set(outputFiles))
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:

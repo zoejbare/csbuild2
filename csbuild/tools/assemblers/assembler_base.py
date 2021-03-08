@@ -27,7 +27,6 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import os
 import csbuild
 
 from abc import ABCMeta, abstractmethod
@@ -127,7 +126,7 @@ class AssemblerBase(HasDefines, HasIncludeDirectories):
 		"""
 		log.Build(
 			"Assembling {} ({}-{}-{})...",
-			os.path.basename(inputFile.filename),
+			inputFile,
 			inputProject.toolchainName,
 			inputProject.architectureName,
 			inputProject.targetName

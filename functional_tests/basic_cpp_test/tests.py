@@ -68,7 +68,15 @@ class BasicCppTest(FunctionalTest):
 		else:
 			self.outputFile = "static/hello_world"
 		outDir = "static"
+
 		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--project=libhello", "--at"])
+
+		with open("libhello/libhello.cpp", "rb") as f:
+			data = f.read()
+		if b"!!!" in data:
+			# Just in case the "modify and rebuild library" test fails to clean up after itself...
+			with open("libhello/libhello.cpp", "wb") as f:
+				f.write(data.replace(b"!!!", b"!"))
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
@@ -101,16 +109,16 @@ class BasicCppTest(FunctionalTest):
 	def testRecompileDoesntCompileOrLinkAnything(self):
 		"""Test that recompiling without any changes doesn't do anything"""
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling libhello/libhello.cpp", out)
 		self.assertIn("Linking libhello", out)
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
-		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Compiling hello_world/hello.cpp", out)
+		self.assertIn("Compiling hello_world/main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-		self.assertNotIn("Compiling hello.cpp", out)
-		self.assertNotIn("Compiling main.cpp", out)
+		self.assertNotIn("Compiling hello_world/hello.cpp", out)
+		self.assertNotIn("Compiling hello_world/main.cpp", out)
 		self.assertNotIn("Linking hello_world", out)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
@@ -121,18 +129,18 @@ class BasicCppTest(FunctionalTest):
 	def testRecompileAfterTouchRebuildsOnlyOneFile(self):
 		"""Test that recompiling after touching one file builds only that file"""
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling libhello/libhello.cpp", out)
 		self.assertIn("Linking libhello", out)
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
-		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Compiling hello_world/hello.cpp", out)
+		self.assertIn("Compiling hello_world/main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
 		Touch("hello_world/hello.cpp")
 
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
-		self.assertNotIn("Compiling main.cpp", out)
+		self.assertIn("Compiling hello_world/hello.cpp", out)
+		self.assertNotIn("Compiling hello_world/main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
@@ -143,8 +151,8 @@ class BasicCppTest(FunctionalTest):
 		Touch("hello_world/main.cpp")
 
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-		self.assertNotIn("Compiling hello.cpp", out)
-		self.assertIn("Compiling main.cpp", out)
+		self.assertNotIn("Compiling hello_world/hello.cpp", out)
+		self.assertIn("Compiling hello_world/main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
@@ -155,18 +163,18 @@ class BasicCppTest(FunctionalTest):
 	def testRecompileAfterTouchingHeaderRebuildsBothFiles(self):
 		"""Test that recompiling after touching a header causes all cpp files that include it to recompile"""
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=libhello", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
+		self.assertIn("Compiling libhello/libhello.cpp", out)
 		self.assertIn("Linking libhello", out)
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
-		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Compiling hello_world/hello.cpp", out)
+		self.assertIn("Compiling hello_world/main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
 		Touch("hello_world/header.hpp")
 
 		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
-		self.assertIn("Compiling hello.cpp", out)
-		self.assertIn("Compiling main.cpp", out)
+		self.assertIn("Compiling hello_world/hello.cpp", out)
+		self.assertIn("Compiling hello_world/main.cpp", out)
 		self.assertIn("Linking hello_world", out)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
@@ -174,11 +182,41 @@ class BasicCppTest(FunctionalTest):
 
 		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
+	def testRecompileAfterChangingLibraryRelinksExecutable(self):
+		"""Test that recompiling after touching a library file causes the downstream executable to relink"""
+		_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.assertIn("Compiling libhello/libhello.cpp", out)
+		self.assertIn("Linking libhello", out)
+		self.assertIn("Compiling hello_world/hello.cpp", out)
+		self.assertIn("Compiling hello_world/main.cpp", out)
+		self.assertIn("Linking hello_world", out)
+
+		with open("libhello/libhello.cpp", "rb") as f:
+			data = f.read()
+		with open("libhello/libhello.cpp", "wb") as f:
+			f.write(data.replace(b"!", b"!!!"))
+
+		try:
+			_, out, _ = self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+			self.assertIn("Compiling libhello/libhello.cpp", out)
+			self.assertIn("Linking libhello", out)
+			self.assertNotIn("Compiling hello_world/hello.cpp", out)
+			self.assertNotIn("Compiling hello_world/main.cpp", out)
+			self.assertIn("Linking hello_world", out)
+
+			self.assertTrue(os.access(self.outputFile, os.F_OK))
+			out = subprocess.check_output([self.outputFile])
+
+			self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!!!"))
+		finally:
+			with open("libhello/libhello.cpp", "wb") as f:
+				f.write(data)
+
 	def testCompileFail(self):
 		"""Test a compile failure"""
 		self.cleanArgs = ["--project=fail_compile"]
 		self.assertMakeFails(
-			R"ERROR: Build for .*basic_cpp_test[\\/]fail_compile[\\/]main\.cpp in project fail_compile \(.*\) failed!",
+			R"ERROR: Build for fail_compile/main\.cpp in project fail_compile \(.*\) failed!",
 			"-v",
 			"--project=fail_compile",
 			"--show-commands"
@@ -188,7 +226,7 @@ class BasicCppTest(FunctionalTest):
 		"""Test a link failure"""
 		self.cleanArgs = ["--project=fail_link"]
 		self.assertMakeFails(
-			R"ERROR: Build for \{.*[\\/]static[\\/]fail_link[\\/].*[\\/]main\.(.+)\} in project fail_link \(.*\) failed!",
+			R"ERROR: Build for \{.*static/fail_link/.*/main\.(.+)\} in project fail_link \(.*\) failed!",
 			"-v",
 			"--project=fail_link",
 			"--show-commands"
