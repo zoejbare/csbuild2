@@ -166,35 +166,54 @@ def _checkDependenciesPreBuild(checkProject, tool, dependencies):
 		return True
 
 def _logThenRun(function, buildTool, buildToolchain, buildProject, inputFiles, doCompileCheck):
+	"""
+	:type buildProject: project.Project
+	"""
 	if inputFiles is not None:
-		if doCompileCheck:
-			with perf_timer.PerfTimer("Recompile checks"):
+		forceRebuild = False
+		log.Info("Checking whether to recompile {} for tool {} with cross-project dependencies {}", inputFiles, buildTool.__name__, buildTool.crossProjectDependencies)
+		for dep in buildTool.crossProjectDependencies:
+			log.Info("Checking cross-project dependency '{}'", dep)
+			for otherProj in buildProject.dependencies:
+				log.Info("Checking up-stream project {}, which has built files of type {} this run", otherProj.name, otherProj.builtThisRun.keys())
+				if dep in otherProj.builtThisRun:
+					log.Info("Found a cross-project recompile trigger, recompiling")
+					forceRebuild = True
+					break
+			if forceRebuild:
+				break
+		if not forceRebuild:
+			if doCompileCheck:
+				with perf_timer.PerfTimer("Recompile checks"):
+					if isinstance(inputFiles, ordered_set.OrderedSet):
+						extension = os.path.splitext(list(inputFiles)[0].filename)[1]
+						fileList = inputFiles
+					else:
+						extension = os.path.splitext(inputFiles.filename)[1]
+						fileList = ordered_set.OrderedSet([inputFiles])
+
+					lastResult = buildProject.GetLastResult(inputFiles)
+					if lastResult is not None \
+							and not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
+						log.Info("Previous result exists and input has not changed. Returning previous result.")
+						return tuple(lastResult), True
+			else:
 				if isinstance(inputFiles, ordered_set.OrderedSet):
-					extension = os.path.splitext(list(inputFiles)[0].filename)[1]
 					fileList = inputFiles
 				else:
-					extension = os.path.splitext(inputFiles.filename)[1]
 					fileList = ordered_set.OrderedSet([inputFiles])
 
 				lastResult = buildProject.GetLastResult(inputFiles)
-				if lastResult is not None \
-						and not recompile.ShouldRecompile(buildProject, buildProject.toolchain.GetChecker(extension), fileList):
-					return tuple(lastResult), True
-		else:
-			if isinstance(inputFiles, ordered_set.OrderedSet):
-				fileList = inputFiles
-			else:
-				fileList = ordered_set.OrderedSet([inputFiles])
-
-			lastResult = buildProject.GetLastResult(inputFiles)
-			if lastResult is not None:
-				filesNeedingBuild = [f for f in fileList if not f.upToDate]
-				if not filesNeedingBuild:
-					return tuple(lastResult), True
+				if lastResult is not None:
+					filesNeedingBuild = [f for f in fileList if not f.upToDate]
+					if not filesNeedingBuild:
+						log.Info("Previous result exists and input has not changed. Returning previous result.")
+						return tuple(lastResult), True
 
 
 	with perf_timer.PerfTimer("Tool execution"):
 		log.Info("Processing {} with {} for project {}", "null-input build" if inputFiles is None else inputFiles, buildTool.__name__, buildProject)
+
 		with buildToolchain.Use(buildTool):
 			return function(buildToolchain, buildProject, inputFiles), False
 
@@ -289,6 +308,8 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 				buildProject.AddArtifact(inputFiles, outputFile)
 
 				outputExtension = os.path.splitext(outputFile)[1]
+				if not upToDate:
+					buildProject.builtThisRun.setdefault(outputExtension, set()).add(outputFile)
 				extensionsToCheck.add(outputExtension)
 
 				if inputExtension == outputExtension:
@@ -394,11 +415,16 @@ def _buildFinished(pool, projectList, projectsWithCrossProjectDeps, buildProject
 
 		shared_globals.completedBuilds += 1
 
-		log.Info(
+		if upToDate:
+			logFn = log.Info
+		else:
+			logFn = log.Build
+		mainFileDir = os.path.dirname(sys.modules["__main__"].__file__)
+		logFn(
 			"Finished building {} => {}",
-			 "null-input for {} for project {}".format(toolUsed.__name__, buildProject) if inputFiles is None
-				else [os.path.basename(f.filename) for f in inputFiles],
-			[os.path.basename(PlatformString(outputFile)) for outputFile in outputFiles] if isinstance(outputFiles, tuple) else os.path.basename(outputFiles)
+			"null-input for {} for project {}".format(toolUsed.__name__, buildProject) if inputFiles is None else inputFiles,
+			[os.path.relpath(PlatformString(outputFile), mainFileDir).replace("\\", "/") for outputFile in outputFiles]
+				if isinstance(outputFiles, tuple) else os.path.relpath(outputFiles, mainFileDir).replace("\\", "/")
 		)
 		if shared_globals.verbosity > shared_globals.Verbosity.Verbose:
 			log.UpdateProgressBar()

@@ -127,7 +127,7 @@ class AssemblerBase(HasDefines, HasIncludeDirectories):
 		"""
 		log.Build(
 			"Assembling {} ({}-{}-{})...",
-			os.path.basename(inputFile.filename),
+			inputFile,
 			inputProject.toolchainName,
 			inputProject.architectureName,
 			inputProject.targetName
