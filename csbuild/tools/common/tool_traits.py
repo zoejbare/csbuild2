@@ -30,6 +30,7 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 import os
 
+from ... import log
 from ...toolchain import Tool
 from ..._utils import ordered_set
 
@@ -63,6 +64,18 @@ class HasDebugLevel(Tool):
 		"""
 		csbuild.currentPlan.SetValue("debugLevel", debugLevel)
 
+	@staticmethod
+	def SetDebugLevelIfUnset(debugLevel):
+		"""
+		Set a project's desired debug level. If already set, does nothing.
+
+		:param debugLevel: Project debug level.
+		:type debugLevel: :class:`csbuild.tools.common.has_debug_level.DebugLevel`
+		"""
+		if not csbuild.currentPlan.HasValue("debugLevel"):
+			log.Info("Setting default debug level.")
+			csbuild.currentPlan.SetValue("debugLevel", debugLevel)
+
 
 class HasOptimizationLevel(Tool):
 	"""
@@ -93,6 +106,18 @@ class HasOptimizationLevel(Tool):
 		:type optLevel: :class:`csbuild.tools.common.has_debug_level.OptimizationLevel`
 		"""
 		csbuild.currentPlan.SetValue("optLevel", optLevel)
+
+	@staticmethod
+	def SetOptimizationLevelIfUnset(optLevel):
+		"""
+		Set a project's desired optimization level. If already set, does nothing.
+
+		:param optLevel: Project optimization level.
+		:type optLevel: :class:`csbuild.tools.common.has_debug_level.OptimizationLevel`
+		"""
+		if not csbuild.currentPlan.HasValue("optLevel"):
+			log.Info("Setting default optimization level.")
+			csbuild.currentPlan.SetValue("optLevel", optLevel)
 
 
 class HasStaticRuntime(Tool):
@@ -137,6 +162,18 @@ class HasDebugRuntime(Tool):
 		:type debugRuntime: bool
 		"""
 		csbuild.currentPlan.SetValue("debugRuntime", debugRuntime)
+
+	@staticmethod
+	def SetDebugRuntimeIfUnset(debugRuntime):
+		"""
+		Set whether or not a project should use the debug runtime library. If already set, does nothing.
+
+		:param debugRuntime: Use the debug runtime library.
+		:type debugRuntime: bool
+		"""
+		if not csbuild.currentPlan.HasValue("debugRuntime"):
+			log.Info("Setting default debug runtime setting.")
+			csbuild.currentPlan.SetValue("debugRuntime", debugRuntime)
 
 
 class HasIncludeDirectories(Tool):

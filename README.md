@@ -22,6 +22,7 @@ What it currently can do:
 - Support macro processing in all strings (i.e., `csbuild.SetOutputDirectory("{toolchainName}/{architectureName}/{targetName}")`)
 - Generate project files for Visual Studio 2010, 2012, 2013, 2015, 2017, and 2019.
 - Dependency graph generation by running with --dg
+  <img src="doc_img/depends.gv.png" alt="Dependency Graph" style="zoom:50%;" />
 
 What's still missing that exists in old CSBuild:
 - "Chunking" - intelligently combining multiple translation units into one and breaking them back apart to improve build turn-around

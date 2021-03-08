@@ -539,6 +539,25 @@ class ProjectPlan(object):
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).add(value)
 
+	@TypeChecked(key=String)
+	def HasValue(self, key):
+		"""
+		Check to see if an override is present in the project settings
+
+		:param key: The setting key
+		:type key: str, bytes
+		:return: Whether or not the value is present
+		:rtype: bool
+		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
+		if key in self._settings:
+			return True
+		for settings in self._currentSettingsDicts:
+			if key in settings:
+				return True
+		return False
+
 	def GetTempToolchainsInCurrentContexts(self, *toolchainNames):
 		"""
 		Get a list of all values in the currently active contexts.
