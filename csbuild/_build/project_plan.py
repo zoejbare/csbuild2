@@ -412,7 +412,7 @@ class ProjectPlan(object):
 
 			self._flattenOverrides(settings, self._settings.get("overrides"), toolchainName, architectureName, targetName)
 
-			tools = settings.get("tools", [])
+			tools = settings.get("tools", set()) - settings.get("disabledTools", set())
 			for tool in tools:
 				if tool.supportedArchitectures is not None and architectureName not in tool.supportedArchitectures:
 					log.Info("Tool {} does not support architecture {}", tool.__name__, architectureName)
@@ -538,6 +538,25 @@ class ProjectPlan(object):
 			key = "{}!{}".format(toolchain.currentToolId[0], key)
 		for settings in self._currentSettingsDicts:
 			settings.setdefault(key, ordered_set.OrderedSet()).add(value)
+
+	@TypeChecked(key=String)
+	def HasValue(self, key):
+		"""
+		Check to see if an override is present in the project settings
+
+		:param key: The setting key
+		:type key: str, bytes
+		:return: Whether or not the value is present
+		:rtype: bool
+		"""
+		if toolchain.currentToolId is not None:
+			key = "{}!{}".format(toolchain.currentToolId[0], key)
+		if key in self._settings:
+			return True
+		for settings in self._currentSettingsDicts:
+			if key in settings:
+				return True
+		return False
 
 	def GetTempToolchainsInCurrentContexts(self, *toolchainNames):
 		"""

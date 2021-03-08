@@ -101,3 +101,14 @@ with csbuild.Project("TestProject", "."):
 
 	csbuild.SetSupportedToolchains("AddDoubles", "AddDoubles2", "AddDoubles3", "AddDoubles4")
 	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)
+
+
+with csbuild.Project("TestProjectChained", "."):
+	csbuild.MultiContext(csbuild.ToolchainGroup("FirstTwo", "MiddleTwo"), csbuild.Target("debug"), csbuild.Architecture("foo")).SetIntermediateDirectory("intermediate/FirstThree/{targetName}/{architectureName}/{toolchainName}")
+
+	csbuild.MultiContext(csbuild.ToolchainGroup("MiddleTwo", "LastTwo"), csbuild.Target("release"), csbuild.Architecture("bar")).SetOutputDirectory("out/LastThree/{targetName}/{architectureName}/{toolchainName}")
+
+	csbuild.MultiContext(csbuild.Toolchain("AddDoubles"), csbuild.Architecture("foo")).SetOutput("{architectureName}Foo", csbuild.ProjectType.Application)
+
+	csbuild.SetSupportedToolchains("AddDoubles", "AddDoubles2", "AddDoubles3", "AddDoubles4")
+	csbuild.SetOutput("Foo", csbuild.ProjectType.Application)

@@ -172,6 +172,8 @@ class FunctionalTest(TestCase):
 		else:
 			self._oldenviron = None
 
+		if not os.path.exists(path):
+			path = os.path.join("functional_tests", path)
 		os.chdir(path)
 
 		self.outDir = outDir
