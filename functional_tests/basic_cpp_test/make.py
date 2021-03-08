@@ -27,8 +27,6 @@
 
 from __future__ import unicode_literals, division, print_function
 
-import os
-
 import csbuild
 
 csbuild.SetOutputDirectory("out")
@@ -47,18 +45,7 @@ with csbuild.Project("libhello", "libhello"):
 	with csbuild.Target("static"):
 		csbuild.SetOutput("libhello", csbuild.ProjectType.StaticLibrary)
 
-with csbuild.Project("hello_world", "hello_world"):
-	csbuild.SetUserData("libraryName", "libhello")
-
-	with csbuild.Target("shared"):
-		csbuild.Platform("Darwin").AddLibraries(os.path.abspath("shared/{userData.libraryName}.dylib"))
-		csbuild.Platform("Linux").AddLibraries(os.path.abspath("shared/{userData.libraryName}.so"))
-		csbuild.Platform("Windows").AddLibraries(os.path.abspath("shared/{userData.libraryName}.lib"))
-
-	with csbuild.Target("static"):
-		csbuild.Platform("Linux", "Darwin").AddLibraries(os.path.abspath("static/{userData.libraryName}.a"))
-		csbuild.Platform("Windows").AddLibraries(os.path.abspath("static/{userData.libraryName}.lib"))
-
+with csbuild.Project("hello_world", "hello_world", ["libhello"]):
 	csbuild.Platform("Darwin", "Linux").AddLibraries("pthread")
 	csbuild.Platform("Darwin").AddLibraries("libdl.dylib", "libc++.1.dylib")
 	csbuild.Platform("Linux").AddLibraries("libdl.so", "libc.so.6")

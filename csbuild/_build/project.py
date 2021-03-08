@@ -101,6 +101,9 @@ class Project(object):
 
 			self.scriptDir = scriptDir
 
+			#: type: dict[str, set[str]]
+			self.builtThisRun = {}
+
 			log.Build("Preparing build tasks for {}", self)
 
 			#: type: set[Tool]

@@ -75,7 +75,8 @@ class InputFile(object):
 					self._toolsUsed |= sourceInput._toolsUsed
 
 	def __repr__(self):
-		return self._filename
+		mainFileDir = os.path.dirname(sys.modules["__main__"].__file__)
+		return os.path.relpath(self._filename, mainFileDir).replace("\\", "/")
 
 	@TypeChecked(tool=(_classType, _typeType))
 	def AddUsedTool(self, tool):
