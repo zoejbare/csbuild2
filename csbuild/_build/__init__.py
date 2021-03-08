@@ -629,6 +629,77 @@ def _execfile(filename, glob, loc):
 			# pylint: disable=exec-used
 			exec(compile(f.read(), filename, "exec"), glob, loc)
 
+def _setupDefaultTargets():
+	if csbuild.addDefaultTargets:
+		from ..tools.common.tool_traits import HasOptimizationLevel
+		OptimizationLevel = HasOptimizationLevel.OptimizationLevel
+		from ..tools.common.tool_traits import HasDebugLevel
+		DebugLevel = HasDebugLevel.DebugLevel
+		#Create the default targets...
+		oldPlan = csbuild.currentPlan
+		for plan in project_plan.allPlans:
+			log.Info("Setting up default targets for {}", plan)
+			csbuild.currentPlan = project_plan.allPlans[plan]
+			with csbuild.Target("release"):
+				log.Info("Setting up target 'release'")
+				try:
+					csbuild.SetOptimizationLevelIfUnset(OptimizationLevel.Max)
+				except AttributeError:
+					# ignore toolchains that don't support an optimization level
+					pass
+				try:
+					csbuild.SetDebugLevelIfUnset(DebugLevel.Disabled)
+				except AttributeError:
+					# ignore toolchains that don't support a debug level
+					pass
+				try:
+					csbuild.SetDebugRuntimeIfUnset(False)
+				except AttributeError:
+					# ignore toolchains that don't support a debug runtime
+					pass
+				csbuild.AddDefines("NDEBUG")
+
+			with csbuild.Target("debug"):
+				log.Info("Setting up target 'debug'")
+				try:
+					csbuild.SetOptimizationLevelIfUnset(OptimizationLevel.Disabled)
+				except AttributeError:
+					# ignore toolchains that don't support an optimization level
+					pass
+				try:
+					csbuild.SetDebugLevelIfUnset(DebugLevel.EmbeddedSymbols)
+				except AttributeError:
+					# ignore toolchains that don't support a debug level
+					pass
+				try:
+					csbuild.SetDebugRuntimeIfUnset(True)
+				except AttributeError:
+					# ignore toolchains that don't support a debug runtime
+					pass
+				csbuild.AddDefines("_DEBUG")
+
+			with csbuild.Target("fastdebug"):
+				log.Info("Setting up target 'fastdebug'")
+				try:
+					csbuild.SetOptimizationLevelIfUnset(OptimizationLevel.Max)
+				except AttributeError:
+					# ignore toolchains that don't support an optimization level
+					pass
+				try:
+					csbuild.SetDebugLevelIfUnset(DebugLevel.EmbeddedSymbols)
+				except AttributeError:
+					# ignore toolchains that don't support a debug level
+					pass
+				try:
+					csbuild.SetDebugRuntimeIfUnset(False)
+				except AttributeError:
+					# ignore toolchains that don't support a debug runtime
+					pass
+				csbuild.AddDefines("_DEBUG")
+				csbuild.AddDefines("_FASTDEBUG")
+			log.Info("{}", csbuild.currentPlan.knownTargets)
+		csbuild.currentPlan = oldPlan
+
 def Run():
 	"""
 	Run the build! This is the main entry point for csbuild.
@@ -654,33 +725,10 @@ def Run():
 			if "-h" in sys.argv or "--help" in sys.argv:
 				shared_globals.runMode = csbuild.RunMode.Help
 				_execfile(mainFile, makefileDict, makefileDict)
+				_setupDefaultTargets()
 		else:
 			log.Error("csbuild cannot be run from the interactive console.")
 			system.Exit(1)
-
-		from ..tools.common.tool_traits import HasOptimizationLevel
-		OptimizationLevel = HasOptimizationLevel.OptimizationLevel
-		from ..tools.common.tool_traits import HasDebugLevel
-		DebugLevel = HasDebugLevel.DebugLevel
-		#Create the default targets...
-		with csbuild.Target("release"):
-			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
-			csbuild.SetDebugLevel(DebugLevel.Disabled)
-			csbuild.SetDebugRuntime(False)
-			csbuild.AddDefines("NDEBUG")
-
-		with csbuild.Target("debug"):
-			csbuild.SetOptimizationLevel(OptimizationLevel.Disabled)
-			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
-			csbuild.SetDebugRuntime(True)
-			csbuild.AddDefines("_DEBUG")
-
-		with csbuild.Target("fastdebug"):
-			csbuild.SetOptimizationLevel(OptimizationLevel.Max)
-			csbuild.SetDebugLevel(DebugLevel.EmbeddedSymbols)
-			csbuild.SetDebugRuntime(True)
-			csbuild.AddDefines("_DEBUG")
-			csbuild.AddDefines("_FASTDEBUG")
 
 		epilog = "    ------------------------------------------------------------    \n\nProjects available in this makefile (listed in build order):\n\n"
 
@@ -965,6 +1013,7 @@ def Run():
 				csbuild.Toolchain(*shared_globals.allToolchains).AddTool(tool)
 
 		_execfile(mainFile, makefileDict, makefileDict)
+		_setupDefaultTargets()
 
 		if args.generate_solution:
 			if args.generate_solution not in shared_globals.allGenerators:

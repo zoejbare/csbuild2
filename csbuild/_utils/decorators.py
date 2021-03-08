@@ -85,14 +85,14 @@ def TypeChecked(**argtypes):
 					if name == "_return":
 						continue
 					if name not in varNames:
-						raise TypeError("Function {} has no parameter {}".format(oldFunc.__name__, name))
+						raise TypeError("Function {} has no parameter named '{}'".format(oldFunc.__name__, name))
 
 				# Check that all the function's parameters are represented - for type checking, this is just a warning if they're not
 				for name in varNames:
 					if name == "self":
 						continue
 					if name not in argtypes:
-						warnings.warn("Function {}: Parameter {} has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
+						warnings.warn("Function {}: Parameter '{}' has no type assigned (use 'object' to accept all argtypes)".format(oldFunc.__name__, name))
 
 				oldFunc.__types__ = argtypes
 				oldFunc.__varNames__ = varNames

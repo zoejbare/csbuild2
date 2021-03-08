@@ -68,6 +68,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 	_standardArchName = None
 
+	addDefaultTargets = True
+
 	try:
 		with open(os.path.join(os.path.dirname(__file__), "version"), "r") as versionFile:
 			__version__ = versionFile.read()
@@ -140,7 +142,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 			class _toolchainMethodResolver(object):
 				def __getattribute__(self, item):
 					try:
-						allToolchains = currentPlan.GetTempToolchainsInCurrentContexts(*shared_globals.allToolchains)
+						allToolchains = csbuild.currentPlan.GetTempToolchainsInCurrentContexts(*shared_globals.allToolchains)
 					except NameError:
 						# Can and do get here before currentPlan is defined,
 						# in which case we don't care because we're not ready to look there anyway,
@@ -168,6 +170,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 
 	sys.modules["csbuild"] = Csbuild()
+	csbuild = sys.modules["csbuild"]
 
 	# pylint: disable=wrong-import-position
 	from ._build.context_manager import ContextManager, MultiDataContext
@@ -186,8 +189,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 	#Test framework does this because run_unit_tests.py needs to import to get access to RunTests and logging
 	#and then test discovery ends up importing it again and causing havok if this block happens twice
 	if not hasattr(sys.modules["csbuild"], "currentPlan"):
-		currentPlan = None # Set to None because ProjectPlan constructor needs to access it.
-		currentPlan = project_plan.ProjectPlan("", "", [], 0, False, False, os.path.dirname(sys.modules['__main__'].__file__))
+		csbuild.currentPlan = None # Set to None because ProjectPlan constructor needs to access it.
+		csbuild.currentPlan = project_plan.ProjectPlan("", "", [], 0, False, False, os.path.dirname(sys.modules['__main__'].__file__))
 
 	class ProjectType(object):
 		"""
@@ -325,8 +328,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param projectType: Type of project
 		:type projectType: ProjectType
 		"""
-		currentPlan.SetValue("outputName", name)
-		currentPlan.SetValue("projectType", projectType)
+		csbuild.currentPlan.SetValue("outputName", name)
+		csbuild.currentPlan.SetValue("projectType", projectType)
 
 	@TypeChecked(name=String, defaultArchitecture=String)
 	def RegisterToolchain(name, defaultArchitecture, *tools, **kwargs):
@@ -359,18 +362,18 @@ with perf_timer.PerfTimer("csbuild module init"):
 			tools = list(tools)
 			tools.extend(list(shared_globals.allGeneratorTools))
 
-		currentPlan.EnterContext(("toolchain", (name,)))
+		csbuild.currentPlan.EnterContext(("toolchain", (name,)))
 
 		try:
 			checkers = kwargs.get("checkers", {})
 			if checkers:
-				currentPlan.UpdateDict("checkers", checkers)
+				csbuild.currentPlan.UpdateDict("checkers", checkers)
 
-			currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
-			currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False, checkers=checkers))
-			currentPlan.defaultArchitectureMap[name] = defaultArchitecture
+			csbuild.currentPlan.SetValue("tools", ordered_set.OrderedSet(tools))
+			csbuild.currentPlan.SetValue("_tempToolchain", toolchain.Toolchain({}, *tools, runInit=False, checkers=checkers))
+			csbuild.currentPlan.defaultArchitectureMap[name] = defaultArchitecture
 		finally:
-			currentPlan.LeaveContext()
+			csbuild.currentPlan.LeaveContext()
 
 		for tool in tools:
 			if tool.supportedArchitectures is not None:
@@ -416,7 +419,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param toolchainName: Name of the toolchain
 		:type toolchainName: str, bytes
 		"""
-		currentPlan.defaultToolchain = toolchainName
+		csbuild.currentPlan.defaultToolchain = toolchainName
 
 	@TypeChecked(architectureName=String)
 	def SetDefaultArchitecture(architectureName):
@@ -425,7 +428,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param architectureName: Name of the architecture
 		:type architectureName: str, bytes
 		"""
-		currentPlan.defaultArchitecture = architectureName
+		csbuild.currentPlan.defaultArchitecture = architectureName
 
 	@TypeChecked(targetName=String)
 	def SetDefaultTarget(targetName):
@@ -434,7 +437,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param targetName: Name of the target
 		:type targetName: str, bytes
 		"""
-		currentPlan.defaultTarget = targetName
+		csbuild.currentPlan.defaultTarget = targetName
 
 	def SetSupportedArchitectures(*args):
 		"""
@@ -442,7 +445,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param args: Architectures to support
 		:type args: str
 		"""
-		architectures = currentPlan.selfLimits["architecture"]
+		architectures = csbuild.currentPlan.selfLimits["architecture"]
 		if architectures:
 			architectures.intersection_update(args)
 		else:
@@ -454,7 +457,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param args: Toolchains to support
 		:type args: str
 		"""
-		toolchains = currentPlan.selfLimits["toolchain"]
+		toolchains = csbuild.currentPlan.selfLimits["toolchain"]
 		if toolchains:
 			toolchains.intersection_update(args)
 		else:
@@ -466,7 +469,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param args: Targets to support
 		:type args: str
 		"""
-		targets = currentPlan.selfLimits["target"]
+		targets = csbuild.currentPlan.selfLimits["target"]
 		if targets:
 			targets.intersection_update(args)
 		else:
@@ -478,7 +481,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param args: Platforms to support
 		:type args: str
 		"""
-		platforms = currentPlan.selfLimits["platform"]
+		platforms = csbuild.currentPlan.selfLimits["platform"]
 		if platforms:
 			platforms.intersection_update(args)
 		else:
@@ -501,7 +504,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param value: value to set to that variable
 		:type value: any
 		"""
-		currentPlan.UpdateDict("_userData", {key : value})
+		csbuild.currentPlan.UpdateDict("_userData", {key : value})
 
 	def SetOutputDirectory(outputDirectory):
 		"""
@@ -510,7 +513,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param outputDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type outputDirectory: str
 		"""
-		currentPlan.SetValue("outputDir", os.path.abspath(outputDirectory) if outputDirectory else "")
+		csbuild.currentPlan.SetValue("outputDir", os.path.abspath(outputDirectory) if outputDirectory else "")
 
 	def SetIntermediateDirectory(intermediateDirectory):
 		"""
@@ -519,7 +522,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:param intermediateDirectory: The output directory, relative to the current script location, NOT to the project working directory.
 		:type intermediateDirectory: str
 		"""
-		currentPlan.SetValue("intermediateDir", os.path.abspath(intermediateDirectory) if intermediateDirectory else "")
+		csbuild.currentPlan.SetValue("intermediateDir", os.path.abspath(intermediateDirectory) if intermediateDirectory else "")
 
 	def AddExcludeFiles(*files):
 		"""
@@ -532,7 +535,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		for f in files:
 			for match in glob.glob(os.path.abspath(f)):
 				fixedUpFiles.add(match)
-		currentPlan.UnionSet("excludeFiles", fixedUpFiles)
+		csbuild.currentPlan.UnionSet("excludeFiles", fixedUpFiles)
 
 	def AddExcludeDirectories(*dirs):
 		"""
@@ -545,7 +548,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		for f in dirs:
 			for match in glob.glob(os.path.abspath(f)):
 				fixedUpDirs.add(match)
-		currentPlan.UnionSet("excludeDirs", fixedUpDirs)
+		csbuild.currentPlan.UnionSet("excludeDirs", fixedUpDirs)
 
 	def AddSourceFiles(*files):
 		"""
@@ -558,7 +561,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		for f in files:
 			for match in glob.glob(os.path.abspath(f)):
 				fixedUpFiles.add(match)
-		currentPlan.UnionSet("sourceFiles", fixedUpFiles)
+		csbuild.currentPlan.UnionSet("sourceFiles", fixedUpFiles)
 
 	def AddSourceDirectories(*dirs):
 		"""
@@ -571,7 +574,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		for f in dirs:
 			for match in glob.glob(os.path.abspath(f)):
 				fixedUpDirs.add(match)
-		currentPlan.UnionSet("sourceDirs", fixedUpDirs)
+		csbuild.currentPlan.UnionSet("sourceDirs", fixedUpDirs)
 
 	class Scope(ContextManager):
 		"""
@@ -603,7 +606,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		def __init__(self, *toolchainNames):
 			class _toolchainMethodResolver(object):
 				def __getattribute__(self, item):
-					allToolchains = currentPlan.GetTempToolchainsInCurrentContexts(*toolchainNames)
+					allToolchains = csbuild.currentPlan.GetTempToolchainsInCurrentContexts(*toolchainNames)
 					return _getElementFromToolchains(self, allToolchains, item)
 
 			ContextManager.__init__(self, (("toolchain", toolchainNames),), [_toolchainMethodResolver()])
@@ -653,12 +656,12 @@ with perf_timer.PerfTimer("csbuild module init"):
 		def __init__(self, *targetNames, **kwargs):
 			def _processKwargs(addToCurrentScope=True):
 				if addToCurrentScope:
-					currentPlan.knownTargets.update(targetNames)
-					currentPlan.childTargets.update(targetNames)
+					csbuild.currentPlan.knownTargets.update(targetNames)
+					csbuild.currentPlan.childTargets.update(targetNames)
 
 			_processKwargs(**kwargs)
 
-			self.oldChildTargets = set(currentPlan.childTargets)
+			self.oldChildTargets = set(csbuild.currentPlan.childTargets)
 			self.targetNames = targetNames
 
 			shared_globals.allTargets.update(targetNames)
@@ -666,11 +669,11 @@ with perf_timer.PerfTimer("csbuild module init"):
 			ContextManager.__init__(self, (("target", targetNames),))
 
 		def __enter__(self):
-			currentPlan.childTargets.update(object.__getattribute__(self, "targetNames"))
+			csbuild.currentPlan.childTargets.update(object.__getattribute__(self, "targetNames"))
 			ContextManager.__enter__(self)
 
 		def __exit__(self, exc_type, exc_val, exc_tb):
-			currentPlan.childTargets = object.__getattribute__(self, "oldChildTargets")
+			csbuild.currentPlan.childTargets = object.__getattribute__(self, "oldChildTargets")
 			return ContextManager.__exit__(self, exc_type, exc_val, exc_tb)
 
 	class MultiContext(ContextManager):
@@ -742,9 +745,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 			"""
 			Enter project context
 			"""
-			global currentPlan
-			self._prevPlan = currentPlan
-			currentPlan = project_plan.ProjectPlan(
+			self._prevPlan = csbuild.currentPlan
+			csbuild.currentPlan = project_plan.ProjectPlan(
 				self._name,
 				self._workingDirectory,
 				self._depends,
@@ -753,7 +755,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				self._autoDiscoverSourceFiles,
 				os.getcwd()
 			)
-			shared_globals.sortedProjects.Add(currentPlan, self._depends)
+			shared_globals.sortedProjects.Add(csbuild.currentPlan, self._depends)
 
 		def __exit__(self, excType, excValue, backtrace):
 			"""
@@ -768,8 +770,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 			:return: Always false
 			:rtype: bool
 			"""
-			global currentPlan
-			currentPlan = self._prevPlan
+			csbuild.currentPlan = self._prevPlan
 			return False
 
 	def OnBuildStarted(func):
