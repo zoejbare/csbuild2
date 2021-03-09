@@ -136,6 +136,18 @@ class InMemoryOnlySettings(object):
 		"""
 		self.dict[key] = value
 
+	def Persist(self):
+		"""
+		NOP for this class.
+		"""
+		pass
+
+	def Clear(self):
+		"""
+		NOP for this class.
+		"""
+		pass
+
 	def Delete(self, key):
 		"""
 		Remove a key from the dict if it exists, nop otherwise

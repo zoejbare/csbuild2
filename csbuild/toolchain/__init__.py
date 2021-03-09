@@ -28,7 +28,6 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
-from .._utils import memo
 from .._build import input_file
 
 _eliminatePylintAbstractMethodCheck = True
@@ -208,7 +207,7 @@ class CompileChecker(object):
 	Class to implement various components of checking whether a file should be recompiled.
 	"""
 	def __init__(self):
-		self.memo = memo.Memo()
+		self.memo = {} # memo.Memo()
 
 	def ShouldRecompile(self, fileValue, baselineValue):
 		"""
@@ -243,12 +242,12 @@ class CompileChecker(object):
 		:param buildProject: Project encapsulating the files being built
 		:type buildProject: csbuild._build.project.Project
 		:param inputFile: The file to compute the value for
-		:type inputFile: input_file.InputFile
+		:type inputFile: str
 		:return: The value to be used to compute recompilability
 		:rtype: any
 		"""
 		_ignore(buildProject)
-		return os.path.getmtime(inputFile.filename)
+		return os.path.getmtime(inputFile)
 
 	def GetDependencies(self, buildProject, inputFile):
 		"""
@@ -257,7 +256,7 @@ class CompileChecker(object):
 		:param buildProject: Project encapsulating the files being built
 		:type buildProject: csbuild._build.project.Project
 		:param inputFile: The file to check
-		:type inputFile: input_file.InputFile
+		:type inputFile: str
 		:return: List of files to depend on
 		:rtype: list[str]
 		"""
@@ -284,7 +283,7 @@ class CompileChecker(object):
 		if lastFiles is not None:
 			return min(
 				[
-					self.GetRecompileValue(buildProject, input_file.InputFile(outputFile)) if os.access(outputFile, os.F_OK) else 0
+					self.GetRecompileValue(buildProject, outputFile) if os.access(outputFile, os.F_OK) else 0
 					for outputFile in lastFiles
 				]
 			)

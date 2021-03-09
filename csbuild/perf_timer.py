@@ -547,7 +547,7 @@ class PerfTimer(object):
 
 		if reportMode == ReportMode.HTML:
 			if output is None:
-				output = os.path.basename(os.path.splitext(sys.modules["__main__"].__file__)[0] + "_PERF.html")
+				output = os.path.join(os.path.dirname(sys.modules["__main__"].__file__), os.path.basename(os.path.splitext(sys.modules["__main__"].__file__)[0] + "_PERF.html"))
 
 			with open(output, "w") as f:
 				#pylint: disable=missing-docstring
