@@ -159,7 +159,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		return args
 
 	def _getCustomArgs(self):
-		return sorted(ordered_set.OrderedSet(self._linkerFlags))
+		return self._linkerFlags
 
 	def _getLibraryArgs(self, project):
 		# Static libraries don't require the default libraries to be linked, so only add them when building an application or shared library.

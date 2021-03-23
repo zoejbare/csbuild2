@@ -158,7 +158,7 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 		return args
 
 	def _getCustomLinkerArgs(self):
-		return sorted(ordered_set.OrderedSet(self._linkerFlags))
+		return self._linkerFlags
 
 	def _getOutputFileArgs(self, project):
 		outFile = "{}".format(self._getOutputFiles(project)[0])

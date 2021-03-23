@@ -77,17 +77,28 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 			libraryBuildArg
 		]
 
-	def _getRpathArgs(self):
+	def _getRpathArgs(self, project):
 		# TODO: We should make the default rpath configurable between @executable_path, @loader_path, and @rpath.
-		args = [
-			"-Xlinker", "-rpath",
-			"-Xlinker", "@executable_path",
-		]
+		args = []
+
+		if project.projectType == csbuild.ProjectType.Application:
+			args.extend([
+				"-Xlinker", "-rpath",
+				"-Xlinker", "@executable_path",
+			])
+		elif project.projectType == csbuild.ProjectType.SharedLibrary:
+			outFile = os.path.basename(self._getOutputFiles(project)[0])
+			args.extend([
+				"-install_name",
+				"@rpath/{}".format(outFile),
+			])
+
 		for lib in self._actualLibraryLocations.values():
 			args.extend([
 				"-Xlinker", "-rpath",
 				"-Xlinker", os.path.dirname(lib),
 			])
+
 		return args
 
 	def _getLibraryArgs(self):

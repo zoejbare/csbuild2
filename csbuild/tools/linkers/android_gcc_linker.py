@@ -102,7 +102,7 @@ class AndroidGccLinker(GccLinker, AndroidToolBase):
 
 		return args
 
-	def _getRpathArgs(self):
+	def _getRpathArgs(self, project):
 		return []
 
 	def _getLibraryArgs(self):
