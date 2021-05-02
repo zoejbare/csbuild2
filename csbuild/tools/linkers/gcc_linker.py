@@ -226,11 +226,11 @@ class GccLinker(LinkerBase):
 		return True
 
 	def _getDefaultArgs(self, project):
-		args = ["-L/"]
+		args = []
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.extend([
-					"-shared",
-					"-fPIC"
+				"-shared",
+				"-fPIC",
 			])
 		return args
 
@@ -247,14 +247,43 @@ class GccLinker(LinkerBase):
 		return [f.filename for f in inputFiles]
 
 	def _getLibraryPathArgs(self, project):
-		_ignore(project)
-		return []
+		args = ["-L\"{}\"".format(os.path.dirname(libFile)) for libFile in self._actualLibraryLocations.values()]
+		return args
 
 	def _getRpathArgs(self, project):
-		return ["-Wl,-R{}".format(os.path.dirname(lib)) for lib in self._actualLibraryLocations.values()]
+		args = [
+			"-Wl,--enable-new-dtags",
+			"-Wl,-R,$ORIGIN",
+		]
+
+		outDir = os.path.dirname(self._getOutputFiles(project)[0])
+
+		if project.autoResolveRpaths:
+			# Form RPATH arguments for each linked library path.
+			for lib in self._actualLibraryLocations.values():
+				libDir = os.path.dirname(lib)
+
+				if not libDir.startswith("/usr/lib") and not libDir.startswith("/usr/local/lib"):
+					rpath = os.path.relpath(libDir, outDir)
+
+					if rpath != ".":
+						args.append("-Wl,-R,{}".format(os.path.join("$ORIGIN", rpath)))
+
+		# Add RPATH arguments for each path specified in the makefile.
+		for path in self._rpathDirectories:
+			path = os.path.normpath(path)
+			absPath = os.path.abspath(path)
+
+			# Check if the supplied path is already absolute. If it's relative, it needs to start with "$ORIGIN".
+			if path != absPath:
+				path = os.path.join("$ORIGIN", path)
+
+			args.append("-Wl,-R,{}".format(path))
+
+		return args
 
 	def _getLibraryArgs(self):
-		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]
+		return ["-l:{}".format(os.path.basename(lib)) for lib in self._actualLibraryLocations.values()]
 
 	def _getStartGroupArgs(self):
 		return ["-Wl,--no-as-needed", "-Wl,--start-group"]

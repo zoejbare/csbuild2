@@ -81,11 +81,13 @@ class ProjectPlan(object):
 	:type ignoreDependencyOrdering: bool
 	:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
 	:type autoDiscoverSourceFiles: bool
+	:param autoResolveRpaths: If True, automatically add RPATH arguments for linked shared libraries.
+	:type autoResolveRpaths: bool
 	:param scriptDir: Directory of the script where this project is defined
 	:type scriptDir: str, bytes
 	"""
-	@TypeChecked(name=String, workingDirectory=String, depends=list, priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool, scriptDir=String)
-	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, scriptDir):
+	@TypeChecked(name=String, workingDirectory=String, depends=list, priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool, autoResolveRpaths=bool, scriptDir=String)
+	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, autoResolveRpaths, scriptDir):
 		assert name not in allPlans, "Duplicate project name: {}".format(name)
 		self._name = name
 		self._workingDirectory = workingDirectory
@@ -93,6 +95,7 @@ class ProjectPlan(object):
 		self._priority = priority
 		self._ignoreDependencyOrdering = ignoreDependencyOrdering
 		self._autoDiscoverSourceFiles = autoDiscoverSourceFiles
+		self._autoResolveRpaths = autoResolveRpaths
 		self._scriptDir = scriptDir
 
 		if csbuild.currentPlan is not None:
@@ -428,6 +431,7 @@ class ProjectPlan(object):
 			self._priority,
 			self._ignoreDependencyOrdering,
 			self._autoDiscoverSourceFiles,
+			self._autoResolveRpaths,
 			settings,
 			toolchainName,
 			architectureName,

@@ -190,7 +190,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	#and then test discovery ends up importing it again and causing havok if this block happens twice
 	if not hasattr(sys.modules["csbuild"], "currentPlan"):
 		csbuild.currentPlan = None # Set to None because ProjectPlan constructor needs to access it.
-		csbuild.currentPlan = project_plan.ProjectPlan("", "", [], 0, False, False, os.path.dirname(sys.modules['__main__'].__file__))
+		csbuild.currentPlan = project_plan.ProjectPlan("", "", [], 0, False, False, False, os.path.dirname(sys.modules['__main__'].__file__))
 
 	class ProjectType(object):
 		"""
@@ -724,10 +724,12 @@ with perf_timer.PerfTimer("csbuild module init"):
 		:type ignoreDependencyOrdering: bool
 		:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
 		:type autoDiscoverSourceFiles: bool
+		:param autoResolveRpaths: If True, automatically add RPATH arguments to linked shared libraries. Only applies to native, UNIX-based shared libraries and executables.
+		:type autoResolveRpaths: bool
 		"""
 
-		@TypeChecked(name=String, workingDirectory=String, depends=(list,type(None)), priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool)
-		def __init__(self, name, workingDirectory, depends=None, priority=0, ignoreDependencyOrdering=False, autoDiscoverSourceFiles=True):
+		@TypeChecked(name=String, workingDirectory=String, depends=(list,type(None)), priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool, autoResolveRpaths=bool)
+		def __init__(self, name, workingDirectory, depends=None, priority=0, ignoreDependencyOrdering=False, autoDiscoverSourceFiles=True, autoResolveRpaths=True):
 			assert name != "", "Project name cannot be empty."
 			assert workingDirectory != "", "Working directory cannot be empty (use '.' to use the makefile's local directory)"
 			if depends is None:
@@ -739,6 +741,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 			self._priority = priority
 			self._ignoreDependencyOrdering = ignoreDependencyOrdering
 			self._autoDiscoverSourceFiles = autoDiscoverSourceFiles
+			self._autoResolveRpaths = autoResolveRpaths
 			self._prevPlan = None
 
 		def __enter__(self):
@@ -753,6 +756,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 				self._priority,
 				self._ignoreDependencyOrdering,
 				self._autoDiscoverSourceFiles,
+				self._autoResolveRpaths,
 				os.getcwd()
 			)
 			shared_globals.sortedProjects.Add(csbuild.currentPlan, self._depends)

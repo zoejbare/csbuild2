@@ -70,6 +70,8 @@ class Project(object):
 	:type ignoreDependencyOrdering: bool
 	:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
 	:type autoDiscoverSourceFiles: bool
+	:param autoResolveRpaths: Automatically add RPATH arguments for linked shared libraries.
+	:type autoResolveRpaths: bool
 	:param projectSettings: Finalized settings from the project plan
 	:type projectSettings: dict
 	:param toolchainName: Toolchain name
@@ -84,7 +86,7 @@ class Project(object):
 
 	_lock = threading.Lock()
 
-	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, projectSettings, toolchainName, archName, targetName, scriptDir):
+	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, autoResolveRpaths, projectSettings, toolchainName, archName, targetName, scriptDir):
 		with perf_timer.PerfTimer("Project init"):
 
 			self.name = name
@@ -94,6 +96,7 @@ class Project(object):
 			self.priority = priority
 			self.ignoreDependencyOrdering = ignoreDependencyOrdering
 			self.autoDiscoverSourceFiles = autoDiscoverSourceFiles
+			self.autoResolveRpaths = autoResolveRpaths
 
 			self.toolchainName = toolchainName
 			self.architectureName = archName
