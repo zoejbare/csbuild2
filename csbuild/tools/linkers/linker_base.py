@@ -153,7 +153,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:param dirs: RPATH directory paths
 		:type dirs: str
 		"""
-		csbuild.currentPlan.ExtendList("rpathDirectories", list(dirs))
+		csbuild.currentPlan.UnionSet("rpathDirectories", list(dirs))
 
 
 	################################################################################

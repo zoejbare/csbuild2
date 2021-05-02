@@ -247,37 +247,68 @@ class GccLinker(LinkerBase):
 		return [f.filename for f in inputFiles]
 
 	def _getLibraryPathArgs(self, project):
-		args = ["-L\"{}\"".format(os.path.dirname(libFile)) for libFile in self._actualLibraryLocations.values()]
+		args = ["-L{}".format(os.path.dirname(libFile)) for libFile in self._actualLibraryLocations.values()]
 		return args
 
+	def _rpathStartsWithVariable(self, rpath):
+		return rpath.startswith("$")
+
+	def _getRpathOriginVariable(self):
+		return "$ORIGIN"
+
+	def _resolveRpath(self, outDir, rpath):
+		if not rpath or rpath.startswith("/usr/lib") or rpath.startswith("/usr/local/lib"):
+			return None
+
+		rpath = os.path.normpath(rpath)
+
+		# Do not change any rpath that begins with a variable.
+		if not self._rpathStartsWithVariable(rpath):
+			absPath = os.path.abspath(rpath)
+
+			# If the RPATH is in the output directory, we can ignore it.
+			if absPath == outDir:
+				return None
+
+			relPath = os.path.relpath(absPath, outDir)
+
+			# We join the path with the origin variable if it can be formed relative to the output directory.
+			if absPath != relPath:
+				origin = self._getRpathOriginVariable()
+				rpath = os.path.join(origin, relPath)
+
+		return rpath
+
 	def _getRpathArgs(self, project):
+		if project.projectType != csbuild.ProjectType.Application:
+			return []
+
 		args = [
 			"-Wl,--enable-new-dtags",
-			"-Wl,-R,$ORIGIN",
+			"-Wl,-R,{}".format(self._getRpathOriginVariable()),
 		]
 
+		rpaths = set()
 		outDir = os.path.dirname(self._getOutputFiles(project)[0])
 
 		if project.autoResolveRpaths:
-			# Form RPATH arguments for each linked library path.
+			# Add RPATH arguments for each linked library path.
 			for lib in self._actualLibraryLocations.values():
 				libDir = os.path.dirname(lib)
+				rpath = self._resolveRpath(outDir, libDir)
 
-				if not libDir.startswith("/usr/lib") and not libDir.startswith("/usr/local/lib"):
-					rpath = os.path.relpath(libDir, outDir)
-
-					if rpath != ".":
-						args.append("-Wl,-R,{}".format(os.path.join("$ORIGIN", rpath)))
+				if rpath:
+					rpaths.add(rpath)
 
 		# Add RPATH arguments for each path specified in the makefile.
 		for path in self._rpathDirectories:
-			path = os.path.normpath(path)
-			absPath = os.path.abspath(path)
+			path = self._resolveRpath(outDir, path)
 
-			# Check if the supplied path is already absolute. If it's relative, it needs to start with "$ORIGIN".
-			if path != absPath:
-				path = os.path.join("$ORIGIN", path)
+			if path:
+				rpaths.add(path)
 
+		# Add each RPATH to the argument list.
+		for path in sorted(rpaths):
 			args.append("-Wl,-R,{}".format(path))
 
 		return args

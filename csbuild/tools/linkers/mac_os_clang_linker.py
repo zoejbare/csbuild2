@@ -77,26 +77,53 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 			libraryBuildArg
 		]
 
+	def _rpathStartsWithVariable(self, rpath):
+		return rpath.startswith("@")
+
+	def _getRpathOriginVariable(self):
+		# TODO: Eventually need a way to switch the default origin variable between @executable_path and @loader_path
+		return "@executable_path"
+
 	def _getRpathArgs(self, project):
-		# TODO: We should make the default rpath configurable between @executable_path, @loader_path, and @rpath.
 		args = []
 
 		if project.projectType == csbuild.ProjectType.Application:
 			args.extend([
 				"-Xlinker", "-rpath",
-				"-Xlinker", "@executable_path",
+				"-Xlinker", self._getRpathOriginVariable(),
 			])
+
+			rpaths = set()
+			outDir = os.path.dirname(self._getOutputFiles(project)[0])
+
+			if project.autoResolveRpaths:
+				# Add RPATH arguments for each linked library path.
+				for lib in self._actualLibraryLocations.values():
+					libDir = os.path.dirname(lib)
+					rpath = self._resolveRpath(outDir, libDir)
+
+					if rpath:
+						rpaths.add(rpath)
+
+			# Add RPATH arguments for each path specified in the makefile.
+			for path in self._rpathDirectories:
+				path = self._resolveRpath(outDir, path)
+
+				if path:
+					rpaths.add(path)
+
+			# Add each RPATH to the argument list.
+			for path in sorted(rpaths):
+				args.extend([
+					"-Xlinker", "-rpath",
+					"-Xlinker", path,
+				])
+
 		elif project.projectType == csbuild.ProjectType.SharedLibrary:
 			outFile = os.path.basename(self._getOutputFiles(project)[0])
 			args.extend([
 				"-install_name",
 				"@rpath/{}".format(outFile),
-			])
-
-		for lib in self._actualLibraryLocations.values():
-			args.extend([
-				"-Xlinker", "-rpath",
-				"-Xlinker", os.path.dirname(lib),
 			])
 
 		return args
