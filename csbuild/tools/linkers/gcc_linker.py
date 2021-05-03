@@ -247,6 +247,7 @@ class GccLinker(LinkerBase):
 		return [f.filename for f in inputFiles]
 
 	def _getLibraryPathArgs(self, project):
+		_ignore(project)
 		args = ["-L{}".format(os.path.dirname(libFile)) for libFile in self._actualLibraryLocations.values()]
 		return args
 

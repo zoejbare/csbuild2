@@ -36,7 +36,7 @@ from ..common import FindLibraries
 from ..common.sony_tool_base import PsVitaBaseTool
 
 from ... import log
-from ..._utils import ordered_set, response_file, shared_globals
+from ..._utils import response_file, shared_globals
 
 class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 	"""

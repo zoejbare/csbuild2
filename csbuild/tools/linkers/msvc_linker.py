@@ -35,7 +35,7 @@ from ..common import FindLibraries
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel
 from ... import log
-from ..._utils import ordered_set, response_file, shared_globals
+from ..._utils import response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 

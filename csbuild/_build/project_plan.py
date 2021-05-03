@@ -634,7 +634,7 @@ class TestProjectPlan(testcase.TestCase):
 		allPlans = {}
 		# pylint: disable=protected-access
 		csbuild.currentPlan._settings = {}
-		csbuild.currentPlan = ProjectPlan("", "", [], 0, False, False, "")
+		csbuild.currentPlan = ProjectPlan("", "", [], 0, False, False, False, "")
 
 		csbuild.currentPlan.knownTargets.update({"target"})
 		csbuild.currentPlan.childTargets.update({"target"})
@@ -669,7 +669,7 @@ class TestProjectPlan(testcase.TestCase):
 
 	def testProjectPlan(self):
 		"""Ensure all overrides apply properly to the project plan"""
-		plan = ProjectPlan("test", "test", [], 0, False, True, "")
+		plan = ProjectPlan("test", "test", [], 0, False, True, False, "")
 
 		plan.SetValue("value", 1)
 		plan.AppendList("list", 2)
@@ -843,9 +843,9 @@ class TestProjectPlan(testcase.TestCase):
 		"""Ensure all scope overrides apply properly to dependent project plans"""
 		from .. import ProjectType
 
-		first = ProjectPlan("first", "test", [], 0, False, True, "")
-		second = ProjectPlan("second", "test", ["first"], 0, False, True, "")
-		third = ProjectPlan("third", "test", ["second"], 0, False, True, "")
+		first = ProjectPlan("first", "test", [], 0, False, True, False, "")
+		second = ProjectPlan("second", "test", ["first"], 0, False, True, False, "")
+		third = ProjectPlan("third", "test", ["second"], 0, False, True, False, "")
 
 		first.SetValue("projectType", ProjectType.StaticLibrary)
 		second.SetValue("projectType", ProjectType.StaticLibrary)
@@ -930,7 +930,7 @@ class TestProjectPlan(testcase.TestCase):
 
 	def testInheritance(self):
 		"""Test that project inheritance works correctly"""
-		csbuild.currentPlan = ProjectPlan("first", "test", [], 0, False, True, "")
+		csbuild.currentPlan = ProjectPlan("first", "test", [], 0, False, True, False, "")
 		csbuild.currentPlan.AppendList("list", 1)
 		csbuild.currentPlan.AppendList("list", 2)
 		csbuild.currentPlan.AppendList("list", 3)
@@ -939,7 +939,7 @@ class TestProjectPlan(testcase.TestCase):
 		csbuild.currentPlan.UpdateDict("dict", {5: 6})
 
 		first = csbuild.currentPlan
-		csbuild.currentPlan = ProjectPlan("second", "test", ["first"], 0, False, True, "")
+		csbuild.currentPlan = ProjectPlan("second", "test", ["first"], 0, False, True, False, "")
 		csbuild.currentPlan.AppendList("list", 4)
 		csbuild.currentPlan.AppendList("list", 5)
 		csbuild.currentPlan.AppendList("list", 6)
@@ -959,7 +959,7 @@ class TestProjectPlan(testcase.TestCase):
 
 	def testMultiNameContext(self):
 		"""Test that entering multiple contexts simultaneously works"""
-		first = ProjectPlan("first", "test", [], 0, False, True, "")
+		first = ProjectPlan("first", "test", [], 0, False, True, False, "")
 		first.SetValue("a", 1)
 		first.EnterContext(("toolchain", ("tc1", "tc2")))
 		first.SetValue("a", 2)
