@@ -43,9 +43,13 @@ class ClangCppCompiler(GccCppCompiler):
 		GccCppCompiler.__init__(self, projectSettings)
 
 		targetTriplet = PlatformString(subprocess.check_output(["clang", "-dumpmachine"]))
-		targetSegements = targetTriplet.strip().split("-", 1)
+		targetSegments = targetTriplet.strip().split("-", 1)
 
-		self._targetSuffix = targetSegements[1] if targetSegements and len(targetSegements) > 1 else None
+		self._nativeTargetPrefix = targetSegments[0] if targetSegments else None
+		self._nativeTargetSuffix = targetSegments[1] if targetSegments and len(targetSegments) > 1 else None
+
+		print(f"Prefix: {self._nativeTargetPrefix}")
+		print(f"Suffix: {self._nativeTargetSuffix}")
 
 
 	####################################################################################################################
@@ -64,6 +68,9 @@ class ClangCppCompiler(GccCppCompiler):
 		target = self._getArchTarget(project)
 
 		if target:
+			if args is None:
+				args = []
+
 			args.extend([
 				"-target", target,
 			])
@@ -76,15 +83,21 @@ class ClangCppCompiler(GccCppCompiler):
 	####################################################################################################################
 
 	def _getArchTarget(self, project):
-		if not self._targetSuffix:
+		if not self._nativeTargetPrefix or not self._nativeTargetSuffix:
 			return None
 
 		# When necessary fill in the architecture name with something clang expects.
 		targetPrefix = {
 			"x86": "i386",
 			"x64": "x86_64",
+			"arm": self._nativeTargetPrefix \
+				if self._nativeTargetPrefix.startswith("armv") \
+				else "armv6",
+			"arm64": self._nativeTargetPrefix \
+				if self._nativeTargetPrefix.startswith("aarch") \
+				else "aarch64",
 		}.get(project.architectureName, None)
 		if not targetPrefix:
 			return None
 
-		return "{}-{}".format(targetPrefix, self._targetSuffix)
+		return "{}-{}".format(targetPrefix, self._nativeTargetSuffix)

@@ -56,6 +56,8 @@ class ClangAssembler(GccAssembler):
 		architecture = {
 			"x86": "i386",
 			"x64": "x86_64",
+			"arm": "arm",
+			"arm64": "aarch64",
 		}.get(project.architectureName, project.architectureName)
 
 		return baseArgs + [

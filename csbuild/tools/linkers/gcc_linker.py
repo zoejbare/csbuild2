@@ -44,7 +44,7 @@ class GccLinker(LinkerBase):
 	"""
 	GCC linker tool for c++, d, asm, etc
 	"""
-	supportedArchitectures = {"x86", "x64"}
+	supportedArchitectures = {"x86", "x64", "arm", "arm64"}
 
 	inputGroups = {".o"}
 	outputFiles = {"", ".a", ".so"}

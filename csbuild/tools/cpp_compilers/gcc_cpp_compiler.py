@@ -47,7 +47,7 @@ class GccCppCompiler(CppCompilerBase):
 	"""
 	GCC compiler implementation
 	"""
-	supportedArchitectures = {"x86", "x64"}
+	supportedArchitectures = {"x86", "x64", "arm", "arm64"}
 	outputFiles = {".o"}
 
 
@@ -128,8 +128,11 @@ class GccCppCompiler(CppCompilerBase):
 		return ["-O{}".format(arg.get(self._optLevel, "0"))]
 
 	def _getArchitectureArgs(self, project):
-		arg = "-m64" if project.architectureName == "x64" else "-m32"
-		return [arg]
+		args = {
+			"x86": ["-m32"],
+			"x64": ["-m64"],
+		}.get(project.architectureName, None)
+		return args
 
 	def _getSystemArgs(self, project, isCpp):
 		_ignore(project)
