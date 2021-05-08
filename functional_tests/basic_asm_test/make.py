@@ -47,3 +47,9 @@ with csbuild.Project("hello_world", "hello_world", autoDiscoverSourceFiles=False
 	with csbuild.Architecture("x64"):
 		csbuild.AddDefines("IS_ARCH_X64")
 		csbuild.Toolchain("msvc").AddSourceFiles("hello_world/getnum.msvc-x64.asm")
+
+	with csbuild.Architecture("arm"):
+		csbuild.AddDefines("IS_ARCH_ARM_32")
+
+	with csbuild.Architecture("arm64"):
+		csbuild.AddDefines("IS_ARCH_ARM_64")
