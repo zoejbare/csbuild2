@@ -299,9 +299,13 @@ with perf_timer.PerfTimer("csbuild module init"):
 			elif machine in ppcArchs:
 				_standardArchName = "ppc64" if is64Bit else "ppc"
 
-			# arm architectures
+			# arm (32-bit) architectures
 			elif machine.startswith("arm"):
-				_standardArchName = "arm64" if is64Bit else "arm"
+				_standardArchName = "arm"
+
+			# arm (64-bit) architectures
+			elif machine.startswith("aarch64"):
+				_standardArchName = "arm64"
 
 			# mips architectures
 			elif machine.startswith("mips"):

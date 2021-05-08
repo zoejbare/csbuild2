@@ -324,8 +324,11 @@ class GccLinker(LinkerBase):
 		return ["-Wl,--end-group"]
 
 	def _getArchitectureArgs(self, project):
-		arg = "-m64" if project.architectureName == "x64" else "-m32"
-		return [arg]
+		args = {
+			"x86": ["-m32"],
+			"x64": ["-m64"],
+		}.get(project.architectureName, None)
+		return args
 
 	def _getSystemArgs(self, project):
 		_ignore(project)

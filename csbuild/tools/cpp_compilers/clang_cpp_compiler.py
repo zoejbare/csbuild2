@@ -48,9 +48,6 @@ class ClangCppCompiler(GccCppCompiler):
 		self._nativeTargetPrefix = targetSegments[0] if targetSegments else None
 		self._nativeTargetSuffix = targetSegments[1] if targetSegments and len(targetSegments) > 1 else None
 
-		print(f"Prefix: {self._nativeTargetPrefix}")
-		print(f"Suffix: {self._nativeTargetSuffix}")
-
 
 	####################################################################################################################
 	### Methods implemented from base classes
@@ -94,7 +91,7 @@ class ClangCppCompiler(GccCppCompiler):
 				if self._nativeTargetPrefix.startswith("armv") \
 				else "armv6",
 			"arm64": self._nativeTargetPrefix \
-				if self._nativeTargetPrefix.startswith("aarch") \
+				if self._nativeTargetPrefix.startswith("aarch64") \
 				else "aarch64",
 		}.get(project.architectureName, None)
 		if not targetPrefix:
