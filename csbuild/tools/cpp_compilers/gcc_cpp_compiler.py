@@ -131,7 +131,7 @@ class GccCppCompiler(CppCompilerBase):
 		args = {
 			"x86": ["-m32"],
 			"x64": ["-m64"],
-		}.get(project.architectureName, None)
+		}.get(project.architectureName, [])
 		return args
 
 	def _getSystemArgs(self, project, isCpp):

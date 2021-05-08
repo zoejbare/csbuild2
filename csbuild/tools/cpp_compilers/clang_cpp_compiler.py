@@ -65,9 +65,6 @@ class ClangCppCompiler(GccCppCompiler):
 		target = self._getArchTarget(project)
 
 		if target:
-			if args is None:
-				args = []
-
 			args.extend([
 				"-target", target,
 			])
