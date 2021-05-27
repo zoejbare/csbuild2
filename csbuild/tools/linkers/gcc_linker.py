@@ -102,7 +102,7 @@ class GccLinker(LinkerBase):
 		longLibs = []
 
 		for lib in libs:
-			if os.access(lib, os.F_OK):
+			if os.access(lib, os.F_OK) and not os.path.isdir(lib):
 				abspath = os.path.abspath(lib)
 				ret[lib] = abspath
 				shortLibs.remove(lib)
