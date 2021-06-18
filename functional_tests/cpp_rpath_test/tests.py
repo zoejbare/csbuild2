@@ -45,6 +45,7 @@ class CppRpathTest(FunctionalTest):
 
 		FunctionalTest.setUp(self, outDir="out")
 
+	@unittest.skipIf(platform.system() == "Darwin", "GCC test is not supported on macOS")
 	def testGccSucceeds(self):
 		"""Test that the project succesfully compiles and runs with GCC"""
 		self.cleanArgs = ["--at", "--toolchain=gcc", "--project=libhello", "--project=hello_world"]
