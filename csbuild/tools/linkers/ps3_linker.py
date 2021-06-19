@@ -80,16 +80,20 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 			if self._actualLibraryLocations is None:
 				raise LibraryError(project)
 
-		self._actualLibraryLocations.update(
-			{
-				dependProject.outputName : os.path.join(
-					dependProject.outputDir,
-					dependProject.outputName + self._getOutputExtension(dependProject.projectType)
-				)
-				for dependProject in project.dependencies
-					if dependProject.projectType not in (Ps3ProjectType.PpuSncApplication, Ps3ProjectType.PpuGccApplication)
-			}
-		)
+		# Fill in the locations of the depend projects, but only for libraries and SPU programs.
+		for dependProject in project.dependencies:
+			if dependProject.projectType not in (
+				csbuild.ProjectType.Stub,
+				Ps3ProjectType.PpuSncApplication,
+				Ps3ProjectType.PpuGccApplication
+			):
+				outputExt = self._getOutputExtension(dependProject.projectType)
+				if outputExt is not None:
+					self._actualLibraryLocations[dependProject.outputName] = \
+						os.path.join(
+							dependProject.outputDir,
+							"{}{}".format(dependProject.outputName, outputExt)
+						)
 
 		self._arExeName = {
 			Ps3ToolsetType.PpuSnc: "ps3snarl.exe",
