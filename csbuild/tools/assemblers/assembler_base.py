@@ -31,7 +31,11 @@ import csbuild
 
 from abc import ABCMeta, abstractmethod
 
-from ..common.tool_traits import HasDefines, HasIncludeDirectories
+from ..common.tool_traits import (
+	HasDebugLevel,
+	HasDefines,
+	HasIncludeDirectories,
+)
 
 from ... import commands, log
 
@@ -41,7 +45,7 @@ def _ignore(_):
 	pass
 
 @MetaClass(ABCMeta)
-class AssemblerBase(HasDefines, HasIncludeDirectories):
+class AssemblerBase(HasDebugLevel, HasDefines, HasIncludeDirectories):
 	"""
 	Base class for assemblers
 
@@ -53,6 +57,7 @@ class AssemblerBase(HasDefines, HasIncludeDirectories):
 	################################################################################
 
 	def __init__(self, projectSettings):
+		HasDebugLevel.__init__(self, projectSettings)
 		HasDefines.__init__(self, projectSettings)
 		HasIncludeDirectories.__init__(self, projectSettings)
 

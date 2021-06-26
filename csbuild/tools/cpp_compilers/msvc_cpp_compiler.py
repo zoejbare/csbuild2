@@ -53,6 +53,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		MsvcToolBase.__init__(self, projectSettings)
 		CppCompilerBase.__init__(self, projectSettings)
 
+		self._exePath = None
 
 	####################################################################################################################
 	### Methods implemented from base classes
@@ -73,7 +74,6 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		return tuple(outputFiles)
 
 	def _getCommand(self, project, inputFile, isCpp):
-		cmdExe = os.path.join(self.vcvarsall.binPath, "cl.exe")
 		cmd = self._getDefaultArgs() \
 			+ self._getCustomArgs(project, isCpp) \
 			+ self._getPreprocessorArgs() \
@@ -91,11 +91,13 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		if shared_globals.showCommands:
 			log.Command("ResponseFile: {}\n\t{}".format(responseFile.filePath, responseFile.AsString()))
 
-		return [cmdExe, "@{}".format(responseFile.filePath)]
+		return [self._exePath, "@{}".format(responseFile.filePath)]
 
 	def SetupForProject(self, project):
 		MsvcToolBase.SetupForProject(self, project)
 		CppCompilerBase.SetupForProject(self, project)
+
+		self._exePath = os.path.join(self.vcvarsall.binPath, "cl.exe")
 
 
 	####################################################################################################################

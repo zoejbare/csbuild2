@@ -49,7 +49,6 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	outputFiles = {".exe", ".lib", ".dll"}
 	crossProjectDependencies = {".lib"}
 
-
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
@@ -57,6 +56,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def __init__(self, projectSettings):
 		MsvcToolBase.__init__(self, projectSettings)
 		LinkerBase.__init__(self, projectSettings)
+
+		self._libExePath = None
+		self._linkExePath = None
 
 	def _getEnv(self, project):
 		return self.vcvarsall.env
@@ -66,7 +68,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		outputFiles = {
 			csbuild.ProjectType.Application: ["{}.exe".format(outputPath)],
 			csbuild.ProjectType.StaticLibrary: ["{}.lib".format(outputPath)],
-			csbuild.ProjectType.SharedLibrary: ["{}.lib".format(outputPath), "{}.dll".format(outputPath)],
+			csbuild.ProjectType.SharedLibrary: ["{}.dll".format(outputPath)],
 		}[project.projectType]
 
 		# Output files when not building a static library.
@@ -77,7 +79,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 			if self._debugLevel != DebugLevel.Disabled:
 				outputFiles.append("{}.pdb".format(outputPath))
 
-		#can't predict these things, linker will make them if it decides to
+		# Can't predict these things, linker will make them if it decides to.
 		possibleFiles = ["{}.exp".format(outputPath), "{}.lib".format(outputPath)]
 		outputFiles.extend([filename for filename in possibleFiles if os.access(filename, os.F_OK)])
 
@@ -85,13 +87,13 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			cmdExe = os.path.join(self.vcvarsall.binPath, "lib.exe")
+			cmdExe = self._libExePath
 			cmd = self._getDefaultArgs(project) \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
 
 		else:
-			cmdExe = os.path.join(self.vcvarsall.binPath, "link.exe")
+			cmdExe = self._linkExePath
 			cmd = self._getDefaultArgs(project) \
 				+ self._getCustomArgs() \
 				+ self._getOutputFileArgs(project) \
@@ -124,6 +126,8 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		MsvcToolBase.SetupForProject(self, project)
 		LinkerBase.SetupForProject(self, project)
 
+		self._libExePath = os.path.join(self.vcvarsall.binPath, "lib.exe")
+		self._linkExePath = os.path.join(self.vcvarsall.binPath, "link.exe")
 
 	####################################################################################################################
 	### Internal methods
