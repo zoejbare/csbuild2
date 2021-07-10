@@ -209,10 +209,12 @@ class Project(object):
 
 			self.outputName = self.settings.get("outputName", self.name)
 
-			if not os.access(self.intermediateDir, os.F_OK):
-				os.makedirs(self.intermediateDir)
-			if not os.access(self.outputDir, os.F_OK):
-				os.makedirs(self.outputDir)
+			# Stub projects will not be built, so they don't need intermediate or output directories.
+			if self.projectType != csbuild.ProjectType.Stub:
+				if not os.access(self.intermediateDir, os.F_OK):
+					os.makedirs(self.intermediateDir)
+				if not os.access(self.outputDir, os.F_OK):
+					os.makedirs(self.outputDir)
 
 			#: type: dict[str, set[csbuild._build.input_file.InputFile]]
 			self.inputFiles = {}
