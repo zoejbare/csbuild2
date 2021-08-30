@@ -44,7 +44,7 @@ class GccLinker(LinkerBase):
 	"""
 	GCC linker tool for c++, d, asm, etc
 	"""
-	supportedArchitectures = {"x86", "x64"}
+	supportedArchitectures = {"x86", "x64", "arm", "arm64"}
 
 	inputGroups = {".o"}
 	outputFiles = {"", ".a", ".so"}
@@ -76,7 +76,7 @@ class GccLinker(LinkerBase):
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._getLibraryPathArgs(project) \
-				+ self._getRpathArgs() \
+				+ self._getRpathArgs(project) \
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs()
@@ -102,7 +102,7 @@ class GccLinker(LinkerBase):
 		longLibs = []
 
 		for lib in libs:
-			if os.access(lib, os.F_OK):
+			if os.access(lib, os.F_OK) and not os.path.isdir(lib):
 				abspath = os.path.abspath(lib)
 				ret[lib] = abspath
 				shortLibs.remove(lib)
@@ -226,16 +226,16 @@ class GccLinker(LinkerBase):
 		return True
 
 	def _getDefaultArgs(self, project):
-		args = ["-L/"]
+		args = []
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.extend([
-					"-shared",
-					"-fPIC"
+				"-shared",
+				"-fPIC",
 			])
 		return args
 
 	def _getCustomArgs(self):
-		return sorted(ordered_set.OrderedSet(self._linkerFlags))
+		return self._linkerFlags
 
 	def _getOutputFileArgs(self, project):
 		outFile = self._getOutputFiles(project)[0]
@@ -248,13 +248,74 @@ class GccLinker(LinkerBase):
 
 	def _getLibraryPathArgs(self, project):
 		_ignore(project)
-		return []
+		args = ["-L{}".format(os.path.dirname(libFile)) for libFile in self._actualLibraryLocations.values()]
+		return args
 
-	def _getRpathArgs(self):
-		return ["-Wl,-R{}".format(os.path.dirname(lib)) for lib in self._actualLibraryLocations.values()]
+	def _rpathStartsWithVariable(self, rpath):
+		return rpath.startswith("$")
+
+	def _getRpathOriginVariable(self):
+		return "$ORIGIN"
+
+	def _resolveRpath(self, outDir, rpath):
+		if not rpath or rpath.startswith("/usr/lib") or rpath.startswith("/usr/local/lib"):
+			return None
+
+		rpath = os.path.normpath(rpath)
+
+		# Do not change any rpath that begins with a variable.
+		if not self._rpathStartsWithVariable(rpath):
+			absPath = os.path.abspath(rpath)
+
+			# If the RPATH is in the output directory, we can ignore it.
+			if absPath == outDir:
+				return None
+
+			relPath = os.path.relpath(absPath, outDir)
+
+			# We join the path with the origin variable if it can be formed relative to the output directory.
+			if absPath != relPath:
+				origin = self._getRpathOriginVariable()
+				rpath = os.path.join(origin, relPath)
+
+		return rpath
+
+	def _getRpathArgs(self, project):
+		if project.projectType != csbuild.ProjectType.Application:
+			return []
+
+		args = [
+			"-Wl,--enable-new-dtags",
+			"-Wl,-R,{}".format(self._getRpathOriginVariable()),
+		]
+
+		rpaths = set()
+		outDir = os.path.dirname(self._getOutputFiles(project)[0])
+
+		if project.autoResolveRpaths:
+			# Add RPATH arguments for each linked library path.
+			for lib in self._actualLibraryLocations.values():
+				libDir = os.path.dirname(lib)
+				rpath = self._resolveRpath(outDir, libDir)
+
+				if rpath:
+					rpaths.add(rpath)
+
+		# Add RPATH arguments for each path specified in the makefile.
+		for path in self._rpathDirectories:
+			path = self._resolveRpath(outDir, path)
+
+			if path:
+				rpaths.add(path)
+
+		# Add each RPATH to the argument list.
+		for path in sorted(rpaths):
+			args.append("-Wl,-R,{}".format(path))
+
+		return args
 
 	def _getLibraryArgs(self):
-		return ["-l:{}".format(lib) for lib in self._actualLibraryLocations.values()]
+		return ["-l:{}".format(os.path.basename(lib)) for lib in self._actualLibraryLocations.values()]
 
 	def _getStartGroupArgs(self):
 		return ["-Wl,--no-as-needed", "-Wl,--start-group"]
@@ -263,8 +324,11 @@ class GccLinker(LinkerBase):
 		return ["-Wl,--end-group"]
 
 	def _getArchitectureArgs(self, project):
-		arg = "-m64" if project.architectureName == "x64" else "-m32"
-		return [arg]
+		args = {
+			"x86": ["-m32"],
+			"x64": ["-m64"],
+		}.get(project.architectureName, [])
+		return args
 
 	def _getSystemArgs(self, project):
 		_ignore(project)

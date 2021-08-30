@@ -27,6 +27,8 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import unittest
+
 from csbuild._testing.functional_test import FunctionalTest
 from csbuild.tools.linkers.linker_base import LibraryError
 from csbuild._utils import PlatformBytes
@@ -88,18 +90,18 @@ class BasicCppTest(FunctionalTest):
 
 		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
-	if platform.system() == "Linux":
-		def testClangCompileSucceeds(self):
-			"""Test that the project succesfully compiles with the clang toolchain"""
-			self.cleanArgs = ["--project=libhello", "--project=hello_world", "--toolchain=clang"]
+	@unittest.skipUnless(platform.system() == "Linux", "Clang test is only supported on Linux")
+	def testClangCompileSucceeds(self):
+		"""Test that the project succesfully compiles with the clang toolchain"""
+		self.cleanArgs = ["--project=libhello", "--project=hello_world", "--toolchain=clang"]
 
-			self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=libhello", "--show-commands")
-			self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=hello_world", "--show-commands")
+		self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=libhello", "--show-commands")
+		self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=hello_world", "--show-commands")
 
-			self.assertTrue(os.access(self.outputFile, os.F_OK))
-			out = subprocess.check_output([self.outputFile])
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
+		out = subprocess.check_output([self.outputFile])
 
-			self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
 	def testLibraryFail(self):
 		"""Test that invalid libraries cause a failure"""

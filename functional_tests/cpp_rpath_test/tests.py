@@ -20,7 +20,7 @@
 
 """
 .. module:: tests
-	:synopsis: Basic test of assembler tools
+	:synopsis: Testing explicit rpaths with C++ projects
 
 .. moduleauthor:: Zoe Bare
 """
@@ -31,27 +31,41 @@ from csbuild._testing.functional_test import FunctionalTest
 from csbuild._utils import PlatformBytes
 
 import os
-import subprocess
 import platform
+import subprocess
+import unittest
 
-class BasicAsmTest(FunctionalTest):
-	"""Basic assembly test"""
+@unittest.skipIf(platform.system() == "Windows", "Rpath tests not supported on Windows")
+class CppRpathTest(FunctionalTest):
+	"""C++ rpath test"""
 
 	# pylint: disable=invalid-name
 	def setUp(self): # pylint: disable=arguments-differ
-		if platform.system() == "Windows":
-			self.outputFile = "out/hello_world.exe"
-		else:
-			self.outputFile = "out/hello_world"
-		outDir = "out"
-		FunctionalTest.setUp(self, outDir=outDir)
+		self.outputFile = "out/hello_world"
 
-	def testCompileSucceeds(self):
-		"""Test that the project succesfully compiles"""
-		self.cleanArgs = ["--project=hello_world"]
-		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		FunctionalTest.setUp(self, outDir="out")
+
+	@unittest.skipIf(platform.system() == "Darwin", "GCC test is not supported on macOS")
+	def testGccSucceeds(self):
+		"""Test that the project succesfully compiles and runs with GCC"""
+		self.cleanArgs = ["--at", "--toolchain=gcc", "--project=libhello", "--project=hello_world"]
+
+		self.assertMakeSucceeds("-v", "--toolchain=gcc", "--project=libhello", "--show-commands")
+		self.assertMakeSucceeds("-v", "--toolchain=gcc", "--project=hello_world", "--show-commands")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])
 
-		self.assertEqual(out, PlatformBytes("getnum() = 4"))
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
+
+	def testClangSucceeds(self):
+		"""Test that the project succesfully compiles and runs with Clang"""
+		self.cleanArgs = ["--at", "--toolchain=clang", "--project=libhello", "--project=hello_world"]
+
+		self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=libhello", "--show-commands")
+		self.assertMakeSucceeds("-v", "--toolchain=clang", "--project=hello_world", "--show-commands")
+
+		self.assertTrue(os.access(self.outputFile, os.F_OK))
+		out = subprocess.check_output([self.outputFile])
+
+		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))

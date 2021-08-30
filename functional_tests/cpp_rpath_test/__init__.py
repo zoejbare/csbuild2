@@ -19,37 +19,10 @@
 # SOFTWARE.
 
 """
-.. module:: make
-	:synopsis: Makefile for this test
+.. package:: cpp_rpath_test
+	:synopsis: Testing explicit rpaths with C++ projects
 
 .. moduleauthor:: Zoe Bare
 """
 
 from __future__ import unicode_literals, division, print_function
-
-import csbuild
-
-csbuild.SetOutputDirectory("out")
-
-with csbuild.Project("hello_world", "hello_world", autoDiscoverSourceFiles=False):
-	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
-
-	csbuild.AddSourceFiles("hello_world/main.cpp")
-	csbuild.Toolchain("gcc", "clang").AddSourceFiles("hello_world/getnum.gcc.S")
-
-	with csbuild.Platform("Darwin"):
-		csbuild.AddDefines("IS_PLATFORM_MACOS")
-
-	with csbuild.Architecture("x86"):
-		csbuild.AddDefines("IS_ARCH_X86")
-		csbuild.Toolchain("msvc").AddSourceFiles("hello_world/getnum.msvc-x86.asm")
-
-	with csbuild.Architecture("x64"):
-		csbuild.AddDefines("IS_ARCH_X64")
-		csbuild.Toolchain("msvc").AddSourceFiles("hello_world/getnum.msvc-x64.asm")
-
-	with csbuild.Architecture("arm"):
-		csbuild.AddDefines("IS_ARCH_ARM_32")
-
-	with csbuild.Architecture("arm64"):
-		csbuild.AddDefines("IS_ARCH_ARM_64")

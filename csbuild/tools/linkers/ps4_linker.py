@@ -111,7 +111,7 @@ class Ps4Linker(Ps4BaseTool, GccLinker):
 		_ignore(project)
 		return []
 
-	def _getRpathArgs(self):
+	def _getRpathArgs(self, project):
 		return []
 
 	def _getLibraryArgs(self):

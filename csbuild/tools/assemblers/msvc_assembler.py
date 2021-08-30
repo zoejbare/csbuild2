@@ -31,6 +31,9 @@ import os
 
 from .assembler_base import AssemblerBase
 from ..common.msvc_tool_base import MsvcToolBase
+from ..common.tool_traits import HasDebugLevel
+
+DebugLevel = HasDebugLevel.DebugLevel
 
 class MsvcAssembler(MsvcToolBase, AssemblerBase):
 	"""
@@ -44,6 +47,8 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 	def __init__(self, projectSettings):
 		MsvcToolBase.__init__(self, projectSettings)
 		AssemblerBase.__init__(self, projectSettings)
+
+		self._exePath = None
 
 
 	####################################################################################################################
@@ -59,9 +64,9 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 		return tuple({ "{}.obj".format(outputPath) })
 
 	def _getCommand(self, project, inputFile):
-		assemblerPath = self._getExecutablePath(project)
-		cmd = [assemblerPath]  \
+		cmd = [self._exePath]  \
 			+ self._getDefaultArgs() \
+			+ self._getDebugArgs() \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._asmFlags \
@@ -73,16 +78,19 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 		MsvcToolBase.SetupForProject(self, project)
 		AssemblerBase.SetupForProject(self, project)
 
+		self._exePath = os.path.join(self.vcvarsall.binPath, "ml64.exe" if project.architectureName == "x64" else "ml.exe")
+
 
 	####################################################################################################################
 	### Internal methods
 	####################################################################################################################
 
-	def _getExecutablePath(self, project):
-		return os.path.join(self.vcvarsall.binPath, "ml64.exe" if project.architectureName == "x64" else "ml.exe")
-
 	def _getDefaultArgs(self):
 		args = ["/nologo", "/c"]
+		return args
+
+	def _getDebugArgs(self):
+		args = [] if self._debugLevel == DebugLevel.Disabled else ["/Zi", "/Zd"]
 		return args
 
 	def _getPreprocessorArgs(self):

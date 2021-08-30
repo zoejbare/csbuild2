@@ -70,6 +70,7 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		self._libraries = projectSettings.get("libraries", ordered_set.OrderedSet())
 		self._libraryDirectories = projectSettings.get("libraryDirectories", ordered_set.OrderedSet())
 		self._linkerFlags = projectSettings.get("linkerFlags", [])
+		self._rpathDirectories = projectSettings.get("rpathDirectories", ordered_set.OrderedSet())
 		self._actualLibraryLocations = {
 			library : library
 			for library in self._libraries
@@ -87,6 +88,10 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:type project: project.Project
 		:raises LibraryError: If a library is not found
 		"""
+		HasDebugLevel.SetupForProject(self, project)
+		HasDebugRuntime.SetupForProject(self, project)
+		HasStaticRuntime.SetupForProject(self, project)
+
 		log.Linker("Verifying libraries for {}...", project)
 
 		# Make all the library directory paths are absolute after the macro formatter has been run on them.
@@ -143,6 +148,16 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:type flags: str
 		"""
 		csbuild.currentPlan.ExtendList("linkerFlags", flags)
+
+	@staticmethod
+	def AddRpathDirectories(*dirs):
+		"""
+		Add directories to include in the linked output's RPATH.
+
+		:param dirs: RPATH directory paths
+		:type dirs: str
+		"""
+		csbuild.currentPlan.UnionSet("rpathDirectories", list(dirs))
 
 
 	################################################################################

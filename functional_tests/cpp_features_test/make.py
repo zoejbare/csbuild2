@@ -50,8 +50,8 @@ with csbuild.Project("hello_world", "hello_world"):
 			csbuild.OptimizationLevel.Disabled,
 			False,
 			False,
-          [],
-          [],
+			[],
+			[],
 		)
 	with csbuild.Target("embeddedsymbols_sizeopt_static_release"):
 		defineProjectSettings(
@@ -60,8 +60,8 @@ with csbuild.Project("hello_world", "hello_world"):
 			csbuild.OptimizationLevel.Size,
 			True,
 			False,
-          ["EXPLICIT_DEFINE"],
-          [],
+			["EXPLICIT_DEFINE"],
+			[],
 		)
 	with csbuild.Target("externalsymbols_speedopt_dynamic_debug"):
 		defineProjectSettings(
@@ -70,8 +70,8 @@ with csbuild.Project("hello_world", "hello_world"):
 			csbuild.OptimizationLevel.Speed,
 			False,
 			True,
-          [],
-          ["IMPLICIT_DEFINE"],
+			[],
+			["IMPLICIT_DEFINE"],
 		)
 	with csbuild.Target("externalplussymbols_maxopt_static_debug"):
 		defineProjectSettings(
@@ -82,6 +82,16 @@ with csbuild.Project("hello_world", "hello_world"):
 			True,
 			["EXPLICIT_DEFINE"],
 			["IMPLICIT_DEFINE"],
+		)
+	with csbuild.Target("incremental_linking"):
+		defineProjectSettings(
+			"hello_world",
+			csbuild.DebugLevel.Disabled,
+			csbuild.OptimizationLevel.Disabled,
+			False,
+			False,
+			[],
+			[],
 		)
 	with csbuild.Target("custom_options"):
 		defineProjectSettings(
@@ -107,3 +117,8 @@ with csbuild.Project("cc_standard", "cc_standard"):
 with csbuild.Project("cxx_standard", "cxx_standard"):
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 	csbuild.SetCxxLanguageStandard("c++14")
+
+with csbuild.Project("incremental_linking", "cc_standard"):
+	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
+	csbuild.SetCcLanguageStandard("c11")
+	csbuild.SetIncrementalLink(True)

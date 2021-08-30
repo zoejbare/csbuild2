@@ -38,7 +38,7 @@ class GccAssembler(AssemblerBase):
 	"""
 	GCC assembler implementation
 	"""
-	supportedArchitectures = {"x86", "x64"}
+	supportedArchitectures = {"x86", "x64", "arm", "arm64"}
 	inputFiles={".s", ".S"}
 	outputFiles = {".o"}
 
@@ -97,5 +97,8 @@ class GccAssembler(AssemblerBase):
 		return ["-I{}".format(d) for d in self._includeDirectories]
 
 	def _getArchitectureArgs(self, project):
-		arg = "-m64" if project.architectureName == "x64" else "-m32"
-		return [arg]
+		args = {
+			"x86": ["-m32"],
+			"x64": ["-m64"],
+		}.get(project.architectureName, [])
+		return args

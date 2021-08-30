@@ -36,7 +36,7 @@ from ..common import FindLibraries
 from ..common.sony_tool_base import PsVitaBaseTool
 
 from ... import log
-from ..._utils import ordered_set, response_file, shared_globals
+from ..._utils import response_file, shared_globals
 
 class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 	"""
@@ -158,7 +158,7 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 		return args
 
 	def _getCustomLinkerArgs(self):
-		return sorted(ordered_set.OrderedSet(self._linkerFlags))
+		return self._linkerFlags
 
 	def _getOutputFileArgs(self, project):
 		outFile = "{}".format(self._getOutputFiles(project)[0])
