@@ -63,6 +63,12 @@ class AssemblerBase(HasDebugLevel, HasDefines, HasIncludeDirectories):
 
 		self._asmFlags = projectSettings.get("asmFlags", [])
 
+		self._projectTypeDefines = {
+			csbuild.ProjectType.Application: "CSB_APPLICATION=1",
+			csbuild.ProjectType.SharedLibrary: "CSB_SHARED_LIBRARY=1",
+			csbuild.ProjectType.StaticLibrary: "CSB_STATIC_LIBRARY=1",
+		}
+
 
 	################################################################################
 	### Static makefile methods
@@ -106,12 +112,13 @@ class AssemblerBase(HasDebugLevel, HasDefines, HasIncludeDirectories):
 	################################################################################
 
 	def SetupForProject(self, project):
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			self._defines.add("CSB_SHARED_LIBRARY=1")
-		elif project.projectType == csbuild.ProjectType.StaticLibrary:
-			self._defines.add("CSB_STATIC_LIBRARY=1")
-		else:
-			self._defines.add("CSB_APPLICATION=1")
+		HasDebugLevel.SetupForProject(self, project)
+		HasDefines.SetupForProject(self, project)
+		HasIncludeDirectories.SetupForProject(self, project)
+
+		if project.projectType in self._projectTypeDefines:
+			self._defines.add(self._projectTypeDefines[project.projectType])
+
 		self._defines.add("CSB_TARGET_{}=1".format(project.targetName.upper()))
 
 	def Run(self, inputProject, inputFile):

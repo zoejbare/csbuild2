@@ -88,6 +88,10 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 		:type project: project.Project
 		:raises LibraryError: If a library is not found
 		"""
+		HasDebugLevel.SetupForProject(self, project)
+		HasDebugRuntime.SetupForProject(self, project)
+		HasStaticRuntime.SetupForProject(self, project)
+
 		log.Linker("Verifying libraries for {}...", project)
 
 		# Make all the library directory paths are absolute after the macro formatter has been run on them.
