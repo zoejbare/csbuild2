@@ -27,6 +27,8 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import unittest
+
 from csbuild._testing.functional_test import FunctionalTest
 from csbuild._utils import PlatformBytes
 
@@ -76,6 +78,24 @@ class CppFeaturesTest(FunctionalTest):
 			self.assertIsNot(re.compile(R"-std=c\+\+14\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
+		out = subprocess.check_output([self.outputFile])
+
+		self.assertEqual(out, PlatformBytes("Hello, world!"))
+
+	@unittest.skipUnless(platform.system() == "Windows", "Incremental linking is only available on the MSVC linker")
+	def testIncrementalLink(self):
+		"""Test that incremental linking is enabled and generating an ILK file."""
+		self.cleanArgs = ["--project=incremental_linking", "-o=msvc"]
+		_, out, _ = self.assertMakeSucceeds("--show-commands", "--project=incremental_linking", "-o=msvc")
+
+		ilkFilePath = "{}.ilk".format(os.path.splitext(self.outputFile)[0])
+
+		self.assertIsNot(re.compile(R"/INCREMENTAL\s", re.M).search(out), None)
+		self.assertIsNot(re.compile(R"/ILK:", re.M).search(out), None)
+
+		self.assertFileExists(self.outputFile)
+		self.assertFileExists(ilkFilePath)
+
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("Hello, world!"))

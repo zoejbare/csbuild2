@@ -209,6 +209,7 @@ class HasIncludeDirectories(Tool):
 	def SetupForProject(self, project):
 		self._includeDirectories = ordered_set.OrderedSet(self._includeDirectories)
 
+
 class HasDefines(Tool):
 	"""
 	Helper class to add C++ defines and undefines.
@@ -284,3 +285,25 @@ class HasCxxLanguageStandard(Tool):
 		:type standard: str
 		"""
 		csbuild.currentPlan.SetValue("cxxLanguageStandard", standard)
+
+
+class HasIncrementalLink(Tool):
+	"""
+	Helper class to enable incremental linking in linker tools that support it.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._incrementalLink = projectSettings.get("incrementalLink", False)
+
+	@staticmethod
+	def SetIncrementalLink(incrementalLink):
+		"""
+		Set the incremental link property.
+
+		:param incrementalLink: Incremental link toggle
+		:type incrementalLink: bool
+		"""
+		csbuild.currentPlan.SetValue("incrementalLink", incrementalLink)

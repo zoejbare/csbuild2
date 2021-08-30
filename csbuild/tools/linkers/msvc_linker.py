@@ -33,13 +33,13 @@ import csbuild
 from .linker_base import LinkerBase
 from ..common import FindLibraries
 from ..common.msvc_tool_base import MsvcToolBase
-from ..common.tool_traits import HasDebugLevel
+from ..common.tool_traits import HasDebugLevel, HasIncrementalLink
 from ... import log
 from ..._utils import response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 
-class MsvcLinker(MsvcToolBase, LinkerBase):
+class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 	"""
 	MSVC linker tool implementation for c++ and asm.
 	"""
@@ -56,6 +56,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def __init__(self, projectSettings):
 		MsvcToolBase.__init__(self, projectSettings)
 		LinkerBase.__init__(self, projectSettings)
+		HasIncrementalLink.__init__(self, projectSettings)
 
 		self._libExePath = None
 		self._linkExePath = None
@@ -95,6 +96,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 		else:
 			cmdExe = self._linkExePath
 			cmd = self._getDefaultArgs(project) \
+				+ self._getIncrementalLinkArgs(project) \
 				+ self._getCustomArgs() \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
@@ -125,6 +127,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 	def SetupForProject(self, project):
 		MsvcToolBase.SetupForProject(self, project)
 		LinkerBase.SetupForProject(self, project)
+		HasIncrementalLink.SetupForProject(self, project)
 
 		self._libExePath = os.path.join(self.vcvarsall.binPath, "lib.exe")
 		self._linkExePath = os.path.join(self.vcvarsall.binPath, "link.exe")
@@ -160,6 +163,17 @@ class MsvcLinker(MsvcToolBase, LinkerBase):
 				args.append("/DEBUG")
 			if project.projectType == csbuild.ProjectType.SharedLibrary:
 				args.append("/DLL")
+		return args
+
+	def _getIncrementalLinkArgs(self, project):
+		args = []
+
+		if project.projectType != csbuild.ProjectType.StaticLibrary and self._incrementalLink:
+			args.extend([
+				"/INCREMENTAL",
+				"/ILK:{}.ilk".format(os.path.join(project.outputDir, project.outputName)),
+			])
+
 		return args
 
 	def _getCustomArgs(self):
