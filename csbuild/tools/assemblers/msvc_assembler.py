@@ -35,14 +35,17 @@ from ..common.tool_traits import HasDebugLevel
 
 DebugLevel = HasDebugLevel.DebugLevel
 
+def _ignore(_):
+	pass
+
 class MsvcAssembler(MsvcToolBase, AssemblerBase):
 	"""
 	MSVC assembler implementation.
 	"""
-	supportedPlatforms = {"Windows"}
-	supportedArchitectures = {"x86", "x64"}
-	inputFiles={".asm"}
-	outputFiles = {".obj"}
+	supportedPlatforms = { "Windows" }
+	supportedArchitectures = { "x86", "x64", "arm64" }
+	inputFiles={ ".asm" }
+	outputFiles = { ".obj" }
 
 	def __init__(self, projectSettings):
 		MsvcToolBase.__init__(self, projectSettings)
@@ -69,7 +72,8 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 			+ self._getDebugArgs() \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ self._asmFlags \
+			+ self._getUwpArgs(project) \
+			+ self._getCustomArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
 		return [arg for arg in cmd if arg]
@@ -100,6 +104,13 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 	def _getIncludeDirectoryArgs(self):
 		args = ["/I{}".format(directory) for directory in self._includeDirectories]
 		return args
+
+	def _getUwpArgs(self, project):
+		_ignore(project)
+		return []
+
+	def _getCustomArgs(self):
+		return self._asmFlags
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputFiles = self._getOutputFiles(project, inputFile)

@@ -38,6 +38,7 @@ from .assemblers.android_gcc_assembler import AndroidGccAssembler
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
+from .assemblers.msvc_uwp_assembler import MsvcUwpAssembler
 from .assemblers.ps3_assembler import Ps3Assembler
 from .assemblers.ps4_assembler import Ps4Assembler
 from .assemblers.psvita_assembler import PsVitaAssembler
@@ -52,6 +53,7 @@ from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
+from .cpp_compilers.msvc_uwp_cpp_compiler import MsvcUwpCppCompiler
 from .cpp_compilers.ps3_cpp_compiler import Ps3CppCompiler
 from .cpp_compilers.ps4_cpp_compiler import Ps4CppCompiler
 from .cpp_compilers.psvita_cpp_compiler import PsVitaCppCompiler
@@ -67,6 +69,7 @@ from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
+from .linkers.msvc_uwp_linker import  MsvcUwpLinker
 from .linkers.ps3_linker import Ps3Linker
 from .linkers.ps4_linker import Ps4Linker
 from .linkers.psvita_linker import PsVitaLinker
@@ -108,6 +111,7 @@ def InitTools():
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
 		( "clang", clangCompiler, clangLinker, ClangAssembler ),
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler ),
+		( "msvc-uwp", MsvcUwpCppCompiler, MsvcUwpLinker, MsvcUwpAssembler ),
 		( "mac-clang", MacOsClangCppCompiler, MacOsClangLinker, ClangAssembler ),
 		( "android-gcc", AndroidGccCppCompiler, AndroidGccLinker, AndroidGccAssembler ),
 		( "android-clang", AndroidClangCppCompiler, AndroidClangLinker, AndroidClangAssembler ),
@@ -158,6 +162,7 @@ def InitTools():
 	csbuild.RegisterToolchain("xbox360", "xcpu", Xbox360CppCompiler, Xbox360Linker, Xbox360Assembler, Xbox360ImageXexTool, checkers=xbox360Checkers)
 
 	# Register toolchain groups.
+	csbuild.RegisterToolchainGroup("msvc", "msvc", "msvc-uwp")
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
 	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")
 	csbuild.RegisterToolchainGroup("sony", "ps3", "ps4", "psvita")

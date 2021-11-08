@@ -46,7 +46,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 	MSVC compiler tool implementation.
 	"""
 	supportedPlatforms = { "Windows" }
-	supportedArchitectures = { "x86", "x64" }
+	supportedArchitectures = { "x86", "x64", "arm64" }
 	outputFiles = { ".obj" }
 
 	def __init__(self, projectSettings):
@@ -82,6 +82,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 			+ self._getRuntimeLinkageArgs() \
 			+ self._getLanguageStandardArgs() \
 			+ self._getIncludeDirectoryArgs() \
+			+ self._getUwpArgs(project) \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
 
@@ -159,3 +160,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		# No argument for the C language standard.
 		arg = "/std:{}".format(self._cxxStandard) if self._cxxStandard else None
 		return [arg]
+
+	def _getUwpArgs(self, project):
+		_ignore(project)
+		return []

@@ -35,19 +35,22 @@ from ..common import FindLibraries
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel, HasIncrementalLink
 from ... import log
-from ..._utils import response_file, shared_globals
+from ..._utils import ordered_set, response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
+
+def _ignore(_):
+	pass
 
 class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 	"""
 	MSVC linker tool implementation for c++ and asm.
 	"""
-	supportedPlatforms = {"Windows"}
-	supportedArchitectures = {"x86", "x64", "arm"}
-	inputGroups = {".obj", ".o"}
-	outputFiles = {".exe", ".lib", ".dll"}
-	crossProjectDependencies = {".lib"}
+	supportedPlatforms = { "Windows" }
+	supportedArchitectures = { "x86", "x64", "arm64" }
+	inputGroups = { ".obj", ".o" }
+	outputFiles = { ".exe", ".lib", ".dll" }
+	crossProjectDependencies = { ".lib" }
 
 	####################################################################################################################
 	### Methods implemented from base classes
@@ -97,6 +100,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 			cmdExe = self._linkExePath
 			cmd = self._getDefaultArgs(project) \
 				+ self._getIncrementalLinkArgs(project) \
+				+ self._getUwpArgs(project) \
 				+ self._getCustomArgs() \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
@@ -176,8 +180,14 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 
 		return args
 
+	def _getUwpArgs(self, project):
+		_ignore(project)
+		return []
+
 	def _getCustomArgs(self):
-		return self._linkerFlags
+		# Eliminate duplicate entries without wrecking the argument order.
+		args = list(ordered_set.OrderedSet(self._linkerFlags))
+		return args
 
 	def _getLibraryArgs(self, project):
 		# Static libraries don't require the default libraries to be linked, so only add them when building an application or shared library.
