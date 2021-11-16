@@ -204,7 +204,7 @@ class _InstallDataPost2017(_BaseInstallData):
 
 		# Parse the install information.
 		for install in foundInstallations:
-			version = install["installationVersion"].split(".")[0]
+			version = int(install["installationVersion"].split(".")[0])
 			displayName = install["displayName"]
 			path = install["installationPath"]
 
