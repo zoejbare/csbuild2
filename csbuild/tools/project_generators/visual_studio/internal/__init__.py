@@ -67,6 +67,7 @@ class Version(object):
 	Vs2015 = "2015"
 	Vs2017 = "2017"
 	Vs2019 = "2019"
+	Vs2022 = "2022"
 
 
 FILE_FORMAT_VERSION_INFO = {
@@ -76,6 +77,7 @@ FILE_FORMAT_VERSION_INFO = {
 	Version.Vs2015: VsInstallInfo("Visual Studio 2015", "12.00", "14", "v140"),
 	Version.Vs2017: VsInstallInfo("Visual Studio 2017", "12.00", "15", "v141"),
 	Version.Vs2019: VsInstallInfo("Visual Studio 2019", "12.00", "16", "v142"),
+	Version.Vs2022: VsInstallInfo("Visual Studio 2022", "12.00", "17", "v143"),
 }
 
 CPP_SOURCE_FILE_EXTENSIONS = CppCompilerBase.inputFiles
@@ -699,7 +701,6 @@ def _buildFlatProjectItemList(rootItems):
 
 
 def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo):
-	global FILE_FORMAT_VERSION_INFO
 	global PLATFORM_HANDLERS
 	global BUILD_SPECS
 

@@ -75,14 +75,16 @@ from .linkers.ps4_linker import Ps4Linker
 from .linkers.psvita_linker import PsVitaLinker
 from .linkers.xbox_360_linker import Xbox360Linker
 
-from .project_generators.visual_studio import \
-	VsProjectGenerator, \
-	VsSolutionGenerator2010, \
-	VsSolutionGenerator2012, \
-	VsSolutionGenerator2013, \
-	VsSolutionGenerator2015, \
-	VsSolutionGenerator2017, \
-	VsSolutionGenerator2019
+from .project_generators.visual_studio import (
+	VsProjectGenerator,
+	VsSolutionGenerator2010,
+	VsSolutionGenerator2012,
+	VsSolutionGenerator2013,
+	VsSolutionGenerator2015,
+	VsSolutionGenerator2017,
+	VsSolutionGenerator2019,
+	VsSolutionGenerator2022,
+)
 
 from ..toolchain import CompileChecker
 
@@ -174,3 +176,4 @@ def InitTools():
 	csbuild.RegisterProjectGenerator("visual-studio-2015", [VsProjectGenerator], VsSolutionGenerator2015)
 	csbuild.RegisterProjectGenerator("visual-studio-2017", [VsProjectGenerator], VsSolutionGenerator2017)
 	csbuild.RegisterProjectGenerator("visual-studio-2019", [VsProjectGenerator], VsSolutionGenerator2019)
+	csbuild.RegisterProjectGenerator("visual-studio-2022", [VsProjectGenerator], VsSolutionGenerator2022)
