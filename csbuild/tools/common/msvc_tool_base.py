@@ -502,7 +502,7 @@ class MsvcToolBase(Tool):
 
 				if self._vsVersion:
 					# Only consider installs matching the version provided by the user.
-					if installData.version == self._vsVersion:
+					if str(installData.version) == self._vsVersion:
 						installsToCheck.append(installData)
 				else:
 					# No version provided by the user, so consider all installs.
