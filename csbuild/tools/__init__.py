@@ -41,6 +41,7 @@ from .assemblers.msvc_assembler import MsvcAssembler
 from .assemblers.msvc_uwp_assembler import MsvcUwpAssembler
 from .assemblers.ps3_assembler import Ps3Assembler
 from .assemblers.ps4_assembler import Ps4Assembler
+from .assemblers.ps5_assembler import Ps5Assembler
 from .assemblers.psvita_assembler import PsVitaAssembler
 from .assemblers.xbox_360_assembler import Xbox360Assembler
 
@@ -56,6 +57,7 @@ from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
 from .cpp_compilers.msvc_uwp_cpp_compiler import MsvcUwpCppCompiler
 from .cpp_compilers.ps3_cpp_compiler import Ps3CppCompiler
 from .cpp_compilers.ps4_cpp_compiler import Ps4CppCompiler
+from .cpp_compilers.ps5_cpp_compiler import Ps5CppCompiler
 from .cpp_compilers.psvita_cpp_compiler import PsVitaCppCompiler
 from .cpp_compilers.xbox_360_cpp_compiler import Xbox360CppCompiler
 
@@ -72,6 +74,7 @@ from .linkers.msvc_linker import MsvcLinker
 from .linkers.msvc_uwp_linker import  MsvcUwpLinker
 from .linkers.ps3_linker import Ps3Linker
 from .linkers.ps4_linker import Ps4Linker
+from .linkers.ps5_linker import Ps5Linker
 from .linkers.psvita_linker import PsVitaLinker
 from .linkers.xbox_360_linker import Xbox360Linker
 
@@ -145,6 +148,11 @@ def InitTools():
 		AsmCompileChecker(Ps4Assembler): Ps4Assembler.inputFiles,
 	})
 
+	ps5Checkers = _createCheckers({
+		CppCompileChecker(Ps5CppCompiler): Ps5CppCompiler.inputFiles,
+		AsmCompileChecker(Ps5Assembler): Ps5Assembler.inputFiles,
+	})
+
 	psVitaCheckers = _createCheckers({
 		CppCompileChecker(PsVitaCppCompiler): PsVitaCppCompiler.inputFiles,
 		AsmCompileChecker(PsVitaAssembler): PsVitaAssembler.inputFiles,
@@ -153,6 +161,7 @@ def InitTools():
 	# Register the Sony platform toolchains.
 	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, Ps3Assembler, Ps3SpuConverter, checkers=ps3Checkers)
 	csbuild.RegisterToolchain("ps4", "x64", Ps4CppCompiler, Ps4Linker, Ps4Assembler, checkers=ps4Checkers)
+	csbuild.RegisterToolchain("ps5", "x64", Ps5CppCompiler, Ps5Linker, Ps5Assembler, checkers=ps5Checkers)
 	csbuild.RegisterToolchain("psvita", "arm", PsVitaCppCompiler, PsVitaLinker, PsVitaAssembler, checkers=psVitaCheckers)
 
 	xbox360Checkers = _createCheckers({
@@ -167,7 +176,7 @@ def InitTools():
 	csbuild.RegisterToolchainGroup("msvc", "msvc", "msvc-uwp")
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
 	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")
-	csbuild.RegisterToolchainGroup("sony", "ps3", "ps4", "psvita")
+	csbuild.RegisterToolchainGroup("sony", "ps3", "ps4", "ps5", "psvita")
 
 	# Register default project generators.
 	csbuild.RegisterProjectGenerator("visual-studio-2010", [VsProjectGenerator], VsSolutionGenerator2010)

@@ -46,6 +46,7 @@ from ..platform_handlers import VsInstallInfo
 from ..platform_handlers.android import VsNsightTegraPlatformHandler
 from ..platform_handlers.ps3 import VsPs3PlatformHandler
 from ..platform_handlers.ps4 import VsPs4PlatformHandler
+from ..platform_handlers.ps5 import VsPs5PlatformHandler
 from ..platform_handlers.psvita import VsPsVitaPlatformHandler
 from ..platform_handlers.windows import VsWindowsX86PlatformHandler, VsWindowsX64PlatformHandler
 
@@ -507,6 +508,7 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 			("msvc", "x64", ()): VsWindowsX64PlatformHandler,
 			("ps3", "cell", ()): VsPs3PlatformHandler,
 			("ps4", "x64", ()): VsPs4PlatformHandler,
+			("ps5", "x64", ()): VsPs5PlatformHandler,
 			("psvita", "arm", ()): VsPsVitaPlatformHandler,
 		})
 
