@@ -33,7 +33,7 @@ from .cpp_compiler_base import CppCompilerBase
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
 from ... import log
-from ..._utils import ordered_set, response_file, shared_globals
+from ..._utils import response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
@@ -85,9 +85,6 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 			+ self._getUwpArgs(project, isCpp) \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
-
-		# De-duplicate any repeated items in the command list.
-		cmd = list(ordered_set.OrderedSet(cmd))
 
 		inputFileBasename = os.path.basename(inputFile.filename)
 		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)

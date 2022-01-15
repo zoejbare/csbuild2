@@ -31,7 +31,6 @@ import platform
 import os
 
 from .java_compiler_base import JavaCompilerBase
-from ..._utils import ordered_set
 
 def _ignore(_):
 	pass
@@ -71,9 +70,6 @@ class OracleJavaCompiler(JavaCompilerBase):
 			+ self._getSourcePathArgs() \
 			+ self._getOutputPathArgs(classRootPath) \
 			+ self._getInputFileArgs(inputFiles)
-
-		# De-duplicate any repeated items in the command list.
-		cmd = list(ordered_set.OrderedSet(cmd))
 
 		return [arg for arg in cmd if arg]
 

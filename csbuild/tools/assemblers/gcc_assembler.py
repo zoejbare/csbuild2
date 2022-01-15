@@ -31,7 +31,6 @@ import os
 import csbuild
 
 from .assembler_base import AssemblerBase
-from ..._utils import ordered_set
 
 class GccAssembler(AssemblerBase):
 	"""
@@ -63,9 +62,6 @@ class GccAssembler(AssemblerBase):
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getArchitectureArgs(project)
-
-		# De-duplicate any repeated items in the command list.
-		cmd = list(ordered_set.OrderedSet(cmd))
 
 		return [arg for arg in cmd if arg]
 

@@ -35,7 +35,7 @@ from ..common import FindLibraries
 from ..common.xbox_360_tool_base import Xbox360BaseTool
 from ..common.tool_traits import HasDebugLevel
 from ... import log
-from ..._utils import ordered_set, response_file, shared_globals
+from ..._utils import response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 
@@ -98,9 +98,6 @@ class Xbox360Linker(Xbox360BaseTool, LinkerBase):
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._getLibraryArgs(project)
-
-		# De-duplicate any repeated items in the command list.
-		cmd = list(ordered_set.OrderedSet(cmd))
 
 		responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
 
