@@ -83,30 +83,6 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		"""
 		return "$(ORBISIntelliSense)"
 
-	def WriteGlobalFooter(self, parentXmlNode, project):
-		"""
-		Write any final data nodes needed by the project.
-
-		:param parentXmlNode: Parent project XML node.
-		:type parentXmlNode: xml.etree.ElementTree.SubElement
-
-		:param project: Visual Studio project data.
-		:type project: csbuild.tools.project_generators.visual_studio.internal.VsProject
-		"""
-		# Extension settings
-		importGroupXmlNode = self._addXmlNode(parentXmlNode, "ImportGroup")
-		importGroupXmlNode.set("Label", "ExtensionSettings")
-
-		self._addXmlNode(importGroupXmlNode, "Import").set("Project", r"$(VCTargetsPath)\BuildCustomizations\OrbisWavePsslc.props")
-		self._addXmlNode(importGroupXmlNode, "Import").set("Project", r"$(VCTargetsPath)\BuildCustomizations\SCU.props")
-
-		# Extension targets
-		importGroupXmlNode = self._addXmlNode(parentXmlNode, "ImportGroup")
-		importGroupXmlNode.set("Label", "ExtensionTargets")
-
-		self._addXmlNode(importGroupXmlNode, "Import").set("Project", r"$(VCTargetsPath)\BuildCustomizations\OrbisWavePsslc.targets")
-		self._addXmlNode(importGroupXmlNode, "Import").set("Project", r"$(VCTargetsPath)\BuildCustomizations\SCU.targets")
-
 	def WriteGlobalImportTargets(self, parentXmlNode, project):
 		"""
 		Write global import target needed for the project.
