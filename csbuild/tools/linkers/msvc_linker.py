@@ -106,6 +106,9 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._getLibraryArgs(project)
 
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
 
 		if shared_globals.showCommands:

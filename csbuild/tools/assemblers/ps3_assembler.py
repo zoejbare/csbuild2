@@ -33,11 +33,8 @@ from .assembler_base import AssemblerBase
 
 from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
-
 from ... import log
-
-from ..._utils import response_file, shared_globals
-from ..._utils.ordered_set import OrderedSet
+from ..._utils import ordered_set, response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
@@ -86,6 +83,9 @@ class Ps3Assembler(Ps3BaseTool, AssemblerBase):
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getInputFileArgs(inputFile)
 
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		inputFileBasename = os.path.basename(inputFile.filename)
 		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
 
@@ -103,7 +103,7 @@ class Ps3Assembler(Ps3BaseTool, AssemblerBase):
 		return os.path.join(self._ps3SystemBinPath, self._compilerExeName)
 
 	def _getCustomArgs(self):
-		return list(OrderedSet(self._asmFlags))
+		return self._asmFlags
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", inputFile.filename]

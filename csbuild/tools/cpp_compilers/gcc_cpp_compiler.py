@@ -34,8 +34,7 @@ import csbuild
 from .cpp_compiler_base import CppCompilerBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
 from ... import log
-from ..._utils import response_file, shared_globals
-from ..._utils.ordered_set import OrderedSet
+from ..._utils import ordered_set, response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
@@ -74,6 +73,9 @@ class GccCppCompiler(CppCompilerBase):
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getInputFileArgs(inputFile)
 
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		inputFileBasename = os.path.basename(inputFile.filename)
 		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
 
@@ -99,7 +101,7 @@ class GccCppCompiler(CppCompilerBase):
 
 	def _getCustomArgs(self, project, isCpp):
 		_ignore(project)
-		return list(OrderedSet(self._globalFlags) | OrderedSet(self._cxxFlags if isCpp else self._cFlags))
+		return self._globalFlags + (self._cxxFlags if isCpp else self._cFlags)
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", inputFile.filename]

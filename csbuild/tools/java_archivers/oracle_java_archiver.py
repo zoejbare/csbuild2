@@ -32,6 +32,7 @@ import os
 import subprocess
 
 from .java_archiver_base import JavaArchiverBase
+from ..._utils import ordered_set
 
 class OracleJavaArchiver(JavaArchiverBase):
 	"""
@@ -61,6 +62,10 @@ class OracleJavaArchiver(JavaArchiverBase):
 			+ self._getOutputArgs(project) \
 			+ self._getEntryPointClassArgs() \
 			+ self._getInputArgs(classRootPath)
+
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		return [arg for arg in cmd if arg]
 
 

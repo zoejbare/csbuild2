@@ -32,6 +32,7 @@ import os
 from .assembler_base import AssemblerBase
 from ..common.msvc_tool_base import MsvcToolBase
 from ..common.tool_traits import HasDebugLevel
+from ..._utils import ordered_set
 
 DebugLevel = HasDebugLevel.DebugLevel
 
@@ -76,6 +77,10 @@ class MsvcAssembler(MsvcToolBase, AssemblerBase):
 			+ self._getCustomArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
+
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		return [arg for arg in cmd if arg]
 
 	def SetupForProject(self, project):

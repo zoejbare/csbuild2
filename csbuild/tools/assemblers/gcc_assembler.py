@@ -31,8 +31,7 @@ import os
 import csbuild
 
 from .assembler_base import AssemblerBase
-
-from ..._utils.ordered_set import OrderedSet
+from ..._utils import ordered_set
 
 class GccAssembler(AssemblerBase):
 	"""
@@ -64,6 +63,10 @@ class GccAssembler(AssemblerBase):
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getArchitectureArgs(project)
+
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		return [arg for arg in cmd if arg]
 
 
@@ -81,7 +84,7 @@ class GccAssembler(AssemblerBase):
 		return args
 
 	def _getCustomArgs(self):
-		return sorted(OrderedSet(self._asmFlags))
+		return self._asmFlags
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", "{}".format(inputFile.filename)]

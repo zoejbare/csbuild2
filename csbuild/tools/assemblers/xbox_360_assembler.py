@@ -32,6 +32,7 @@ import os
 from .assembler_base import AssemblerBase
 from ..common.tool_traits import HasDebugLevel
 from ..common.xbox_360_tool_base import Xbox360BaseTool
+from ..._utils import ordered_set
 
 DebugLevel = HasDebugLevel.DebugLevel
 
@@ -69,6 +70,10 @@ class Xbox360Assembler(Xbox360BaseTool, AssemblerBase):
 			+ self._asmFlags \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
+
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		return [arg for arg in cmd if arg]
 
 	def SetupForProject(self, project):

@@ -149,6 +149,9 @@ class Ps3Linker(Ps3BaseTool, LinkerBase):
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs()
 
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		if useResponseFile:
 			responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
 

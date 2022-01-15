@@ -86,6 +86,9 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
 
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
+
 		inputFileBasename = os.path.basename(inputFile.filename)
 		responseFile = response_file.ResponseFile(project, "{}-{}".format(inputFile.uniqueDirectoryId, inputFileBasename), cmd)
 
@@ -113,7 +116,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 
 	def _getCustomArgs(self, project, isCpp):
 		_ignore(project)
-		return list(ordered_set.OrderedSet(self._globalFlags) | ordered_set.OrderedSet(self._cxxFlags if isCpp else self._cFlags))
+		return self._globalFlags + self._cxxFlags if isCpp else self._cFlags
 
 	def _getDebugArgs(self):
 		arg = {

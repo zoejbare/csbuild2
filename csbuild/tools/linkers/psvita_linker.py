@@ -36,7 +36,7 @@ from ..common import FindLibraries
 from ..common.sony_tool_base import PsVitaBaseTool
 
 from ... import log
-from ..._utils import response_file, shared_globals
+from ..._utils import ordered_set, response_file, shared_globals
 
 class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 	"""
@@ -102,6 +102,9 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 				+ self._getStartGroupArgs() \
 				+ self._getLibraryArgs() \
 				+ self._getEndGroupArgs()
+
+		# De-duplicate any repeated items in the command list.
+		cmd = list(ordered_set.OrderedSet(cmd))
 
 		if useResponseFile:
 			responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
