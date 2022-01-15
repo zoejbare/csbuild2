@@ -28,27 +28,40 @@
 from __future__ import unicode_literals, division, print_function
 
 from .msvc_cpp_compiler import MsvcCppCompiler
+from ..common.tool_traits import HasWinRtSupport
+
+WinRtSupport = HasWinRtSupport.WinRtSupport
 
 def _ignore(_):
 	pass
 
-class MsvcUwpCppCompiler(MsvcCppCompiler):
+class MsvcUwpCppCompiler(MsvcCppCompiler, HasWinRtSupport):
 	"""
 	MSVC UWP compiler tool implementation.
 	"""
 
 	def __init__(self, projectSettings):
 		MsvcCppCompiler.__init__(self, projectSettings)
+		HasWinRtSupport.__init__(self, projectSettings)
 
 		# Enable UWP builds so the base tool setups up the toolchain backend properly.
 		self._enableUwp = True
+
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getUwpArgs(self, project):
-		return [
-			"/ZW",
-			"/EHsc",
-		]
+	def _getUwpArgs(self, project, isCpp):
+		winrtOption = {
+			WinRtSupport.Enabled: "/ZW",
+			WinRtSupport.EnabledNoStdLib: "/ZW:nostdlib",
+		}.get(self._winrtSupport, None)
+
+		if isCpp and winrtOption:
+			return [
+				winrtOption,
+				"/EHsc",
+			]
+
+		return []

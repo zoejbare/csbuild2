@@ -82,7 +82,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 			+ self._getRuntimeLinkageArgs() \
 			+ self._getLanguageStandardArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ self._getUwpArgs(project) \
+			+ self._getUwpArgs(project, isCpp) \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ [inputFile.filename]
 
@@ -161,6 +161,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 		arg = "/std:{}".format(self._cxxStandard) if self._cxxStandard else None
 		return [arg]
 
-	def _getUwpArgs(self, project):
+	def _getUwpArgs(self, project, isCpp):
 		_ignore(project)
+		_ignore(isCpp)
 		return []
