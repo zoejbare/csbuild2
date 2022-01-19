@@ -16,11 +16,11 @@ Windows      | Python 3.9      | [![TeamCity](https://dev.aegresco.com/teamcity/
 CSBuild is a language-agnostic build system focused on maximizing developer iteration time and providing tools for enabling developers to improve their build workflow. Currently, CSBuild is undergoing a complete rewrite to address some core architecture issues with the original iteration. It gets closer every day, but hasn't quite reached feature parity with the original CSBuild.
 
 What it currently can do:
-- Build basic C++, java, objective-c, and assembly files
-- Build on Windows, Mac, BSD, Linux, android, PS3, PS4, and PSVita systems (language support varies by system)
+- Build basic C/C++, Java, Objective-C/C++, and Assembly files
+- Build on Windows, Mac, BSD, Linux, Android, Xbox 360, PS3, PS4, PS5, and PSVita systems (language support varies by system)
 - Be extended with tools to work in any language
 - Support macro processing in all strings (i.e., `csbuild.SetOutputDirectory("{toolchainName}/{architectureName}/{targetName}")`)
-- Generate project files for Visual Studio 2010, 2012, 2013, 2015, 2017, and 2019.
+- Generate project files for Visual Studio 2010, 2012, 2013, 2015, 2017, 2019, and 2022.
 - Dependency graph generation by running with --dg
   <img src="doc_img/depends.gv.png" alt="Dependency Graph" style="zoom:50%;" />
 
@@ -40,4 +40,4 @@ Code for old csbuild, for those interested in it, can be found here: https://git
 
 ## Development Notes
 
-Frozen requirements files are provided for both Python 2 & 3.  Currently, the only dependency is pylint which is only needed when running the pylint unit test.  If using virtual Python environments for csbuild development, please keep in mind that the pylint test will fail on macOS under the Python 2 virtual environment.  However, if you install pylint to your system-installed copy of Python 2.7 and run against that, the pylint unit test will pass.  This issue does not seem to be present on Windows or Linux and all other unit tests are unaffected by the presence of a Python2 virtual environment on macOS.
+Currently, the only dependency necessary for csbuild development is pylint, but that is only needed for running the pylint test.  However, while functional test support is maintained for both Python 2 and Python 3, the pylint test is no longer run for Python 2 because it is no longer supported by pylint and its own dependencies.
