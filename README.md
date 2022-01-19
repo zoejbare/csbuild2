@@ -9,7 +9,7 @@ macOS        | Python 2.7      | [![TeamCity](https://dev.aegresco.com/teamcity/
 macOS        | Python 3.8      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_MacOSPython3),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_MacOSPython3&branch_Csbuild=develop&guest=1)
 |||
 Windows      | Python 2.7      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython27),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython27&branch_Csbuild=develop&guest=1)
-Windows      | Python 3.8      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython38),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython38&branch_Csbuild=develop&guest=1)
+Windows      | Python 3.9      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython39),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython39&branch_Csbuild=develop&guest=1)
 
 ---
 
