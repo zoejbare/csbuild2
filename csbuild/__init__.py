@@ -44,12 +44,12 @@ with perf_timer.PerfTimer("csbuild module init"):
 	import os
 	import platform
 
-	from collections import Callable
-
 	if sys.version_info[0] >= 3:
+		from collections.abc import Callable
 		_typeType = type
 		_classType = type
 	else:
+		from collections import Callable
 		import types
 		# pylint: disable=invalid-name
 		_typeType = types.TypeType
