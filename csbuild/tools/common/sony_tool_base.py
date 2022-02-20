@@ -372,6 +372,48 @@ class Ps4BaseTool(SonyBaseTool):
 
 
 @MetaClass(ABCMeta)
+class Ps5BaseTool(SonyBaseTool):
+	"""
+	Parent class for all PS5 tools.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	def __init__(self, projectSettings):
+		SonyBaseTool.__init__(self, projectSettings)
+
+		self._ps5SdkPath = projectSettings.get("ps5SdkPath", None)
+
+
+	####################################################################################################################
+	### Static makefile methods
+	####################################################################################################################
+
+	@staticmethod
+	def SetPs5SdkPath(sdkPath):
+		"""
+		Set the path to the PS5 SDK.
+
+		:param sdkPath: Path to the PS5 SDK.
+		:type sdkPath: str
+		"""
+		csbuild.currentPlan.SetValue("ps5SdkPath", os.path.abspath(sdkPath) if sdkPath else None)
+
+
+	####################################################################################################################
+	### Methods implemented from base classes
+	####################################################################################################################
+
+	def SetupForProject(self, project):
+		# If the SDK path wasn't set, attempt to find it from the environment.
+		if not self._ps5SdkPath:
+			self._ps5SdkPath = os.getenv("SCE_PROSPERO_SDK_DIR", None)
+
+		assert self._ps5SdkPath, "No PS5 SDK path has been set"
+		assert os.access(self._ps5SdkPath, os.F_OK), "PS5 SDK path does not exist: {}".format(self._ps5SdkPath)
+
+
+@MetaClass(ABCMeta)
 class PsVitaBaseTool(SonyBaseTool):
 	"""
 	Parent class for all PSVita tools.

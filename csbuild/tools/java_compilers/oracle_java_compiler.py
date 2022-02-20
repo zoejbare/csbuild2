@@ -70,6 +70,7 @@ class OracleJavaCompiler(JavaCompilerBase):
 			+ self._getSourcePathArgs() \
 			+ self._getOutputPathArgs(classRootPath) \
 			+ self._getInputFileArgs(inputFiles)
+
 		return [arg for arg in cmd if arg]
 
 

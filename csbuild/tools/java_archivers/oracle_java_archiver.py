@@ -61,6 +61,7 @@ class OracleJavaArchiver(JavaArchiverBase):
 			+ self._getOutputArgs(project) \
 			+ self._getEntryPointClassArgs() \
 			+ self._getInputArgs(classRootPath)
+
 		return [arg for arg in cmd if arg]
 
 

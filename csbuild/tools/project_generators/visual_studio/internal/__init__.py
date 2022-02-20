@@ -46,6 +46,7 @@ from ..platform_handlers import VsInstallInfo
 from ..platform_handlers.android import VsNsightTegraPlatformHandler
 from ..platform_handlers.ps3 import VsPs3PlatformHandler
 from ..platform_handlers.ps4 import VsPs4PlatformHandler
+from ..platform_handlers.ps5 import VsPs5PlatformHandler
 from ..platform_handlers.psvita import VsPsVitaPlatformHandler
 from ..platform_handlers.windows import VsWindowsX86PlatformHandler, VsWindowsX64PlatformHandler
 
@@ -67,6 +68,7 @@ class Version(object):
 	Vs2015 = "2015"
 	Vs2017 = "2017"
 	Vs2019 = "2019"
+	Vs2022 = "2022"
 
 
 FILE_FORMAT_VERSION_INFO = {
@@ -76,6 +78,7 @@ FILE_FORMAT_VERSION_INFO = {
 	Version.Vs2015: VsInstallInfo("Visual Studio 2015", "12.00", "14", "v140"),
 	Version.Vs2017: VsInstallInfo("Visual Studio 2017", "12.00", "15", "v141"),
 	Version.Vs2019: VsInstallInfo("Visual Studio 2019", "12.00", "16", "v142"),
+	Version.Vs2022: VsInstallInfo("Visual Studio 2022", "12.00", "17", "v143"),
 }
 
 CPP_SOURCE_FILE_EXTENSIONS = CppCompilerBase.inputFiles
@@ -505,6 +508,7 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 			("msvc", "x64", ()): VsWindowsX64PlatformHandler,
 			("ps3", "cell", ()): VsPs3PlatformHandler,
 			("ps4", "x64", ()): VsPs4PlatformHandler,
+			("ps5", "x64", ()): VsPs5PlatformHandler,
 			("psvita", "arm", ()): VsPsVitaPlatformHandler,
 		})
 
@@ -699,7 +703,6 @@ def _buildFlatProjectItemList(rootItems):
 
 
 def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo):
-	global FILE_FORMAT_VERSION_INFO
 	global PLATFORM_HANDLERS
 	global BUILD_SPECS
 

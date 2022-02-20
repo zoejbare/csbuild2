@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: gcc_assembler
-	:synopsis: GCC assember tool
+.. module:: xbox_360_assembler
+	:synopsis: Xbox 360 assembler tool
 
 .. moduleauthor:: Zoe Bare
 """
@@ -28,20 +28,27 @@
 from __future__ import unicode_literals, division, print_function
 
 import os
-import csbuild
 
 from .assembler_base import AssemblerBase
+from ..common.tool_traits import HasDebugLevel
+from ..common.xbox_360_tool_base import Xbox360BaseTool
 
-class GccAssembler(AssemblerBase):
+DebugLevel = HasDebugLevel.DebugLevel
+
+class Xbox360Assembler(Xbox360BaseTool, AssemblerBase):
 	"""
-	GCC assembler implementation
+	Xbox 360 assembler implementation.
 	"""
-	supportedArchitectures = {"x86", "x64", "arm", "arm64"}
-	inputFiles={".s", ".S"}
-	outputFiles = {".o"}
+	supportedPlatforms = {"Windows"}
+	supportedArchitectures = {"xcpu"}
+	inputFiles={".asm"}
+	outputFiles = {".obj"}
 
 	def __init__(self, projectSettings):
+		Xbox360BaseTool.__init__(self, projectSettings)
 		AssemblerBase.__init__(self, projectSettings)
+
+		self._exePath = None
 
 
 	####################################################################################################################
@@ -49,55 +56,49 @@ class GccAssembler(AssemblerBase):
 	####################################################################################################################
 
 	def _getOutputFiles(self, project, inputFile):
-		intDirPath = project.GetIntermediateDirectory(inputFile)
-		filename = os.path.splitext(os.path.basename(inputFile.filename))[0] + ".o"
-		return tuple({ os.path.join(intDirPath, filename) })
+		outputPath = os.path.join(project.GetIntermediateDirectory(inputFile), os.path.splitext(os.path.basename(inputFile.filename))[0])
+
+		return tuple({ "{}.obj".format(outputPath) })
 
 	def _getCommand(self, project, inputFile):
-		cmd = [self._getComplierName()] \
-			+ self._getInputFileArgs(inputFile) \
-			+ self._getDefaultArgs(project) \
-			+ self._getCustomArgs() \
-			+ self._getOutputFileArgs(project, inputFile) \
+		cmd = [self._exePath]  \
+			+ self._getDefaultArgs() \
+			+ self._getDebugArgs() \
 			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
-			+ self._getArchitectureArgs(project)
+			+ self._asmFlags \
+			+ self._getOutputFileArgs(project, inputFile) \
+			+ [inputFile.filename]
 
 		return [arg for arg in cmd if arg]
+
+	def SetupForProject(self, project):
+		Xbox360BaseTool.SetupForProject(self, project)
+		AssemblerBase.SetupForProject(self, project)
+
+		self._exePath = os.path.join(self._xbox360BinPath, "ml.exe")
 
 
 	####################################################################################################################
 	### Internal methods
 	####################################################################################################################
 
-	def _getComplierName(self):
-		return "gcc"
-
-	def _getDefaultArgs(self, project):
-		args = ["--pass-exit-codes"]
-		if project.projectType == csbuild.ProjectType.SharedLibrary:
-			args.append("-fPIC")
+	def _getDefaultArgs(self):
+		args = ["/nologo", "/c"]
 		return args
 
-	def _getCustomArgs(self):
-		return self._asmFlags
+	def _getDebugArgs(self):
+		args = [] if self._debugLevel == DebugLevel.Disabled else ["/Zi", "/Zd"]
+		return args
 
-	def _getInputFileArgs(self, inputFile):
-		return ["-c", "{}".format(inputFile.filename)]
+	def _getPreprocessorArgs(self):
+		defineArgs = ["/D{}".format(d) for d in self._defines]
+		return defineArgs
+
+	def _getIncludeDirectoryArgs(self):
+		args = ["/I{}".format(directory) for directory in self._includeDirectories]
+		return args
 
 	def _getOutputFileArgs(self, project, inputFile):
 		outputFiles = self._getOutputFiles(project, inputFile)
-		return ["-o", "{}".format(outputFiles[0])]
-
-	def _getPreprocessorArgs(self):
-		return ["-D{}".format(d) for d in self._defines]
-
-	def _getIncludeDirectoryArgs(self):
-		return ["-I{}".format(d) for d in self._includeDirectories]
-
-	def _getArchitectureArgs(self, project):
-		args = {
-			"x86": ["-m32"],
-			"x64": ["-m64"],
-		}.get(project.architectureName, [])
-		return args
+		return ["/Fo", outputFiles[0]]

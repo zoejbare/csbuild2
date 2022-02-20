@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: ps3_assembler
-	:synopsis: Implementation of the PS3 assembler tool.
+.. module:: ps5_assembler
+	:synopsis: Implementation of the PS5 assembler tool.
 
 .. moduleauthor:: Zoe Bare
 """
@@ -30,29 +30,22 @@ from __future__ import unicode_literals, division, print_function
 import os
 
 from .assembler_base import AssemblerBase
-
-from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType
-from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
+from ..common.sony_tool_base import Ps5BaseTool
 from ... import log
 from ..._utils import response_file, shared_globals
 
-DebugLevel = HasDebugLevel.DebugLevel
-OptimizationLevel = HasOptimizationLevel.OptimizationLevel
-
-class Ps3Assembler(Ps3BaseTool, AssemblerBase):
+class Ps5Assembler(Ps5BaseTool, AssemblerBase):
 	"""
-	PS3 assembler tool implementation.
+	PS5 assembler tool implementation.
 	"""
 	supportedPlatforms = { "Windows" }
-	supportedArchitectures = { "cell" }
+	supportedArchitectures = { "x64" }
 	inputFiles={".s", ".S"}
 	outputFiles = { ".o" }
 
 	def __init__(self, projectSettings):
-		Ps3BaseTool.__init__(self, projectSettings)
+		Ps5BaseTool.__init__(self, projectSettings)
 		AssemblerBase.__init__(self, projectSettings)
-
-		self._compilerExeName = None
 
 
 	####################################################################################################################
@@ -60,15 +53,8 @@ class Ps3Assembler(Ps3BaseTool, AssemblerBase):
 	####################################################################################################################
 
 	def SetupForProject(self, project):
-		Ps3BaseTool.SetupForProject(self, project)
+		Ps5BaseTool.SetupForProject(self, project)
 		AssemblerBase.SetupForProject(self, project)
-
-		self._compilerExeName = {
-			Ps3ToolsetType.PpuSnc: "ps3ppusnc.exe",
-			Ps3ToolsetType.PpuGcc: "ppu-lv2-gcc.exe",
-			Ps3ToolsetType.Spu:    "spu-lv2-gcc.exe",
-		}.get(self._ps3BuildInfo.toolsetType, None)
-		assert self._compilerExeName, "Invalid PS3 toolset type: {}".format(self._ps3BuildInfo.toolsetType)
 
 	def _getOutputFiles(self, project, inputFile):
 		intDirPath = project.GetIntermediateDirectory(inputFile)
@@ -78,7 +64,7 @@ class Ps3Assembler(Ps3BaseTool, AssemblerBase):
 	def _getCommand(self, project, inputFile):
 		cmdExe = self._getComplierName()
 		cmd = self._getCustomArgs() \
-			+ self._getPreprocessorArgs(project) \
+			+ self._getPreprocessorArgs() \
 			+ self._getIncludeDirectoryArgs() \
 			+ self._getOutputFileArgs(project, inputFile) \
 			+ self._getInputFileArgs(inputFile)
@@ -97,7 +83,10 @@ class Ps3Assembler(Ps3BaseTool, AssemblerBase):
 	####################################################################################################################
 
 	def _getComplierName(self):
-		return os.path.join(self._ps3SystemBinPath, self._compilerExeName)
+		binPath = os.path.join(self._ps5SdkPath, "host_tools", "bin")
+		exeName = "prospero-clang.exe"
+
+		return os.path.join(binPath, exeName)
 
 	def _getCustomArgs(self):
 		return self._asmFlags
@@ -109,25 +98,22 @@ class Ps3Assembler(Ps3BaseTool, AssemblerBase):
 		outputFiles = self._getOutputFiles(project, inputFile)
 		return ["-o", outputFiles[0]]
 
-	def _getPreprocessorArgs(self, project):
-		args = ["-D__PS3__"]
-
-		if self._ps3BuildInfo.toolsetType != Ps3ToolsetType.Spu:
-			if self._ps3BuildInfo.toolsetType == Ps3ToolsetType.PpuGcc:
-				args.append("-D__GCC__")
-
-			if project.projectType in (Ps3ProjectType.PpuSncSharedLibrary, Ps3ProjectType.PpuGccSharedLibrary):
-				args.extend([
-					"-DCSB_PS3_PPU_PRX_LIBNAME=cellPrx_{}".format(project.name),
-					"-DCSB_PS3_PPU_PRX_STUBNAME=cellPrx_{}_stub".format(project.name),
-				])
-
-		args.extend(["-D{}".format(d) for d in self._defines])
-		args.extend(["-U{}".format(u) for u in self._undefines])
-
-		return args
+	def _getPreprocessorArgs(self):
+		return ["-D{}".format(d) for d in self._defines]
 
 	def _getIncludeDirectoryArgs(self):
-		args = ["-I{}".format(path) for path in self._includeDirectories]
+		args = []
+
+		for dirPath in self._includeDirectories:
+			args.extend([
+				"-I",
+				os.path.abspath(dirPath),
+			])
+
+		# Add the PS5 system include directories.
+		args.extend([
+			"-I", os.path.join(self._ps5SdkPath, "target", "include"),
+			"-I", os.path.join(self._ps5SdkPath, "target", "include_common"),
+		])
 
 		return args

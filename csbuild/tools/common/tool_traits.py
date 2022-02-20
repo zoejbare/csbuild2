@@ -60,7 +60,7 @@ class HasDebugLevel(Tool):
 		Set a project's desired debug level.
 
 		:param debugLevel: Project debug level.
-		:type debugLevel: :class:`csbuild.tools.common.has_debug_level.DebugLevel`
+		:type debugLevel: :class:`csbuild.tools.common.tool_traits.HasDebugLevel.DebugLevel`
 		"""
 		csbuild.currentPlan.SetValue("debugLevel", debugLevel)
 
@@ -70,7 +70,7 @@ class HasDebugLevel(Tool):
 		Set a project's desired debug level. If already set, does nothing.
 
 		:param debugLevel: Project debug level.
-		:type debugLevel: :class:`csbuild.tools.common.has_debug_level.DebugLevel`
+		:type debugLevel: :class:`csbuild.tools.common.tool_traits.HasDebugLevel.DebugLevel`
 		"""
 		if not csbuild.currentPlan.HasValue("debugLevel"):
 			log.Info("Setting default debug level.")
@@ -307,3 +307,32 @@ class HasIncrementalLink(Tool):
 		:type incrementalLink: bool
 		"""
 		csbuild.currentPlan.SetValue("incrementalLink", incrementalLink)
+
+class HasWinRtSupport(Tool):
+	"""
+	Helper class to add support for compiling WinRT projects.
+
+	:param projectSettings: A read-only scoped view into the project settings dictionary
+	:type projectSettings: toolchain.ReadOnlySettingsView
+	"""
+	class WinRtSupport(object):
+		"""
+		'enum' representing various levels of WinRT support
+		"""
+		Disabled = 0
+		Enabled = 1
+		EnabledNoStdLib = 2
+
+	def __init__(self, projectSettings):
+		Tool.__init__(self, projectSettings)
+		self._winrtSupport = projectSettings.get("winrtSupport", HasWinRtSupport.WinRtSupport.Disabled)
+
+	@staticmethod
+	def SetWinRtSupport(winrtSupport):
+		"""
+		Set WinRT support.
+
+		:param winrtSupport: Incremental link toggle
+		:type winrtSupport: :class:`csbuild.tools.common.tool_traits.HasWinRtSupport.WinRtSupport`
+		"""
+		csbuild.currentPlan.SetValue("winrtSupport", winrtSupport)

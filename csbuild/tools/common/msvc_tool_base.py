@@ -204,7 +204,7 @@ class _InstallDataPost2017(_BaseInstallData):
 
 		# Parse the install information.
 		for install in foundInstallations:
-			version = install["installationVersion"].split(".")[0]
+			version = int(install["installationVersion"].split(".")[0])
 			displayName = install["displayName"]
 			path = install["installationPath"]
 
@@ -321,13 +321,13 @@ class MsvcToolBase(Tool):
 
 		self._vsVersion = projectSettings.get("vsVersion", None)
 		self._winSdkVersion = projectSettings.get("winSdkVersion", None)
-		self._msvcUniversalApp = projectSettings.get("msvcUniversalApp", False)
 		self._msvcSubsystem = projectSettings.get("msvcSubsystem", None)
 		self._msvcSubsystemVersion = projectSettings.get("msvcSubsystemVersion", None)
 
 		self._vcvarsall = None
 		self._selectedInstall = None
 		self._allInstalls = []
+		self._enableUwp = False
 
 
 	@property
@@ -346,15 +346,6 @@ class MsvcToolBase(Tool):
 		:rtype: str
 		"""
 		return self._winSdkVersion
-
-
-	@property
-	def msvcUniversalApp(self):
-		"""
-		:return: Returns the universal app build flag.
-		:rtype: bool
-		"""
-		return self._msvcUniversalApp
 
 	@property
 	def msvcSubsystem(self):
@@ -411,19 +402,6 @@ class MsvcToolBase(Tool):
 		:type version: str
 		"""
 		csbuild.currentPlan.SetValue("winSdkVersion", version)
-
-
-	@staticmethod
-	@TypeChecked(isUniversalApp=bool)
-	def SetMsvcUniversalAppBuild(isUniversalApp):
-		"""
-		Set the boolean to determine if the enviroment is setup to build Universal Windows Apps for the Windows Store
-		(only applies to Visual Studio "14.0" and up).
-
-		:param isUniversalApp: Build for universal apps.
-		:type isUniversalApp: bool
-		"""
-		csbuild.currentPlan.SetValue("msvcUniversalApp", isUniversalApp)
 
 
 	@staticmethod
@@ -494,7 +472,7 @@ class MsvcToolBase(Tool):
 
 		# Only run vcvarsall.bat if we haven't already for the selected architecture.
 		if vcvarsArch not in Vcvarsall.Instances:
-			archInfo = _ArchitectureInfo(currentArch, project.architectureName, vcvarsArch, self._winSdkVersion, self._msvcUniversalApp)
+			archInfo = _ArchitectureInfo(currentArch, project.architectureName, vcvarsArch, self._winSdkVersion, self._enableUwp)
 
 			self._findInstallations()
 			self._setupEnvironment(archInfo)
@@ -524,7 +502,7 @@ class MsvcToolBase(Tool):
 
 				if self._vsVersion:
 					# Only consider installs matching the version provided by the user.
-					if installData.version == self._vsVersion:
+					if str(installData.version) == self._vsVersion:
 						installsToCheck.append(installData)
 				else:
 					# No version provided by the user, so consider all installs.

@@ -38,11 +38,15 @@ from .assemblers.android_gcc_assembler import AndroidGccAssembler
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
+from .assemblers.msvc_uwp_assembler import MsvcUwpAssembler
 from .assemblers.ps3_assembler import Ps3Assembler
 from .assemblers.ps4_assembler import Ps4Assembler
+from .assemblers.ps5_assembler import Ps5Assembler
 from .assemblers.psvita_assembler import PsVitaAssembler
+from .assemblers.xbox_360_assembler import Xbox360Assembler
 
 from .common.sony_tool_base import Ps3SpuConverter
+from .common.xbox_360_tool_base import Xbox360ImageXexTool
 
 from .cpp_compilers.android_clang_cpp_compiler import AndroidClangCppCompiler
 from .cpp_compilers.android_gcc_cpp_compiler import AndroidGccCppCompiler
@@ -50,9 +54,12 @@ from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
 from .cpp_compilers.msvc_cpp_compiler import MsvcCppCompiler
+from .cpp_compilers.msvc_uwp_cpp_compiler import MsvcUwpCppCompiler
 from .cpp_compilers.ps3_cpp_compiler import Ps3CppCompiler
 from .cpp_compilers.ps4_cpp_compiler import Ps4CppCompiler
+from .cpp_compilers.ps5_cpp_compiler import Ps5CppCompiler
 from .cpp_compilers.psvita_cpp_compiler import PsVitaCppCompiler
+from .cpp_compilers.xbox_360_cpp_compiler import Xbox360CppCompiler
 
 from .java_archivers.oracle_java_archiver import OracleJavaArchiver
 
@@ -64,18 +71,23 @@ from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
 from .linkers.msvc_linker import MsvcLinker
+from .linkers.msvc_uwp_linker import  MsvcUwpLinker
 from .linkers.ps3_linker import Ps3Linker
 from .linkers.ps4_linker import Ps4Linker
+from .linkers.ps5_linker import Ps5Linker
 from .linkers.psvita_linker import PsVitaLinker
+from .linkers.xbox_360_linker import Xbox360Linker
 
-from .project_generators.visual_studio import \
-	VsProjectGenerator, \
-	VsSolutionGenerator2010, \
-	VsSolutionGenerator2012, \
-	VsSolutionGenerator2013, \
-	VsSolutionGenerator2015, \
-	VsSolutionGenerator2017, \
-	VsSolutionGenerator2019
+from .project_generators.visual_studio import (
+	VsProjectGenerator,
+	VsSolutionGenerator2010,
+	VsSolutionGenerator2012,
+	VsSolutionGenerator2013,
+	VsSolutionGenerator2015,
+	VsSolutionGenerator2017,
+	VsSolutionGenerator2019,
+	VsSolutionGenerator2022,
+)
 
 from ..toolchain import CompileChecker
 
@@ -104,6 +116,7 @@ def InitTools():
 		( "gcc", GccCppCompiler, GccLinker, GccAssembler ),
 		( "clang", clangCompiler, clangLinker, ClangAssembler ),
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler ),
+		( "msvc-uwp", MsvcUwpCppCompiler, MsvcUwpLinker, MsvcUwpAssembler ),
 		( "mac-clang", MacOsClangCppCompiler, MacOsClangLinker, ClangAssembler ),
 		( "android-gcc", AndroidGccCppCompiler, AndroidGccLinker, AndroidGccAssembler ),
 		( "android-clang", AndroidClangCppCompiler, AndroidClangLinker, AndroidClangAssembler ),
@@ -135,6 +148,11 @@ def InitTools():
 		AsmCompileChecker(Ps4Assembler): Ps4Assembler.inputFiles,
 	})
 
+	ps5Checkers = _createCheckers({
+		CppCompileChecker(Ps5CppCompiler): Ps5CppCompiler.inputFiles,
+		AsmCompileChecker(Ps5Assembler): Ps5Assembler.inputFiles,
+	})
+
 	psVitaCheckers = _createCheckers({
 		CppCompileChecker(PsVitaCppCompiler): PsVitaCppCompiler.inputFiles,
 		AsmCompileChecker(PsVitaAssembler): PsVitaAssembler.inputFiles,
@@ -143,12 +161,22 @@ def InitTools():
 	# Register the Sony platform toolchains.
 	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, Ps3Assembler, Ps3SpuConverter, checkers=ps3Checkers)
 	csbuild.RegisterToolchain("ps4", "x64", Ps4CppCompiler, Ps4Linker, Ps4Assembler, checkers=ps4Checkers)
+	csbuild.RegisterToolchain("ps5", "x64", Ps5CppCompiler, Ps5Linker, Ps5Assembler, checkers=ps5Checkers)
 	csbuild.RegisterToolchain("psvita", "arm", PsVitaCppCompiler, PsVitaLinker, PsVitaAssembler, checkers=psVitaCheckers)
 
+	xbox360Checkers = _createCheckers({
+		CppCompileChecker(Xbox360CppCompiler): Xbox360CppCompiler.inputFiles,
+		AsmCompileChecker(Xbox360Assembler): Xbox360Assembler.inputFiles,
+	})
+
+	# Register the Xbox platform toolchains.
+	csbuild.RegisterToolchain("xbox360", "xcpu", Xbox360CppCompiler, Xbox360Linker, Xbox360Assembler, Xbox360ImageXexTool, checkers=xbox360Checkers)
+
 	# Register toolchain groups.
+	csbuild.RegisterToolchainGroup("msvc", "msvc", "msvc-uwp")
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
 	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")
-	csbuild.RegisterToolchainGroup("sony", "ps3", "ps4", "psvita")
+	csbuild.RegisterToolchainGroup("sony", "ps3", "ps4", "ps5", "psvita")
 
 	# Register default project generators.
 	csbuild.RegisterProjectGenerator("visual-studio-2010", [VsProjectGenerator], VsSolutionGenerator2010)
@@ -157,3 +185,4 @@ def InitTools():
 	csbuild.RegisterProjectGenerator("visual-studio-2015", [VsProjectGenerator], VsSolutionGenerator2015)
 	csbuild.RegisterProjectGenerator("visual-studio-2017", [VsProjectGenerator], VsSolutionGenerator2017)
 	csbuild.RegisterProjectGenerator("visual-studio-2019", [VsProjectGenerator], VsSolutionGenerator2019)
+	csbuild.RegisterProjectGenerator("visual-studio-2022", [VsProjectGenerator], VsSolutionGenerator2022)

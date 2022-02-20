@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: ps4
-	:synopsis: Built-in Visual Studio platform handler for outputing PS4 project files.
+.. module:: ps5
+	:synopsis: Built-in Visual Studio platform handler for outputing PS5 project files.
 
 .. moduleauthor:: Zoe Bare
 """
@@ -34,9 +34,9 @@ from . import VsBasePlatformHandler
 def _ignore(_):
 	pass
 
-class VsPs4PlatformHandler(VsBasePlatformHandler):
+class VsPs5PlatformHandler(VsBasePlatformHandler):
 	"""
-	Visual Studio platform handler as a base class, containing project writing functionality for the PS4 platform.
+	Visual Studio platform handler as a base class, containing project writing functionality for the PS5 platform.
 	"""
 	def __init__(self, buildTarget, vsInstallInfo):
 		VsBasePlatformHandler.__init__(self, buildTarget, vsInstallInfo)
@@ -49,7 +49,7 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:return: Visual Studio platform name.
 		:rtype: str
 		"""
-		return "ORBIS"
+		return "Prospero"
 
 	@staticmethod
 	def GetOutputExtensionIfDebuggable(projectOutputType):
@@ -81,7 +81,7 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		:return: Additional NMake options.
 		:rtype: str
 		"""
-		return "$(ORBISIntelliSense)"
+		return "$(ProsperoIntelliSense)"
 
 	def WriteGlobalImportTargets(self, parentXmlNode, project):
 		"""
@@ -153,9 +153,6 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		propertyGroupXmlNode.set("Label", "Configuration")
 		propertyGroupXmlNode.set("Condition", "'$(Configuration)|$(Platform)'=='{}'".format(vsBuildTarget))
 
-		platformToolsetXmlNode = self._addXmlNode(propertyGroupXmlNode, "PlatformToolset")
-		platformToolsetXmlNode.text = "Clang"
-
 		configTypeXmlNode = self._addXmlNode(propertyGroupXmlNode, "ConfigurationType")
 		configTypeXmlNode.text = "Makefile"
 
@@ -213,4 +210,4 @@ class VsPs4PlatformHandler(VsBasePlatformHandler):
 		workingDirXmlNode.text = "$(OutDir)"
 
 		debuggerFlavorXmlNode = self._addXmlNode(propertyGroupXmlNode, "DebuggerFlavor" )
-		debuggerFlavorXmlNode.text = "ORBISDebugger"
+		debuggerFlavorXmlNode.text = "ProsperoDebugger"

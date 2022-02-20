@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: msvc_linker
-	:synopsis: msvc linker tool for C++, d, asm, etc
+.. module:: xbox_360_linker
+	:synopsis: Xbox 360 linker tool for C/C++ and assembly.
 
 .. moduleauthor:: Zoe Bare
 """
@@ -32,40 +32,31 @@ import csbuild
 
 from .linker_base import LinkerBase
 from ..common import FindLibraries
-from ..common.msvc_tool_base import MsvcToolBase
-from ..common.tool_traits import HasDebugLevel, HasIncrementalLink
+from ..common.xbox_360_tool_base import Xbox360BaseTool
+from ..common.tool_traits import HasDebugLevel
 from ... import log
-from ..._utils import ordered_set, response_file, shared_globals
+from ..._utils import response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
 
-def _ignore(_):
-	pass
+class Xbox360Linker(Xbox360BaseTool, LinkerBase):
+	"""
+	Xbox 360 linker tool implementation for c/c++ and asm.
+	"""
+	supportedPlatforms = {"Windows"}
+	supportedArchitectures = {"xcpu"}
+	inputGroups = {".obj", ".o"}
+	outputFiles = {".exe", ".lib", ".dll"}
+	crossProjectDependencies = {".lib"}
 
-class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
-	"""
-	MSVC linker tool implementation for c++ and asm.
-	"""
-	supportedPlatforms = { "Windows" }
-	supportedArchitectures = { "x86", "x64", "arm64" }
-	inputGroups = { ".obj", ".o" }
-	outputFiles = { ".exe", ".lib", ".dll" }
-	crossProjectDependencies = { ".lib" }
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
 	def __init__(self, projectSettings):
-		MsvcToolBase.__init__(self, projectSettings)
+		Xbox360BaseTool.__init__(self, projectSettings)
 		LinkerBase.__init__(self, projectSettings)
-		HasIncrementalLink.__init__(self, projectSettings)
-
-		self._libExePath = None
-		self._linkExePath = None
-
-	def _getEnv(self, project):
-		return self.vcvarsall.env
 
 	def _getOutputFiles(self, project):
 		outputPath = os.path.join(project.outputDir, project.outputName)
@@ -77,7 +68,11 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 
 		# Output files when not building a static library.
 		if project.projectType != csbuild.ProjectType.StaticLibrary:
-			outputFiles.append("{}.ilk".format(outputPath))
+			outputFiles.extend([
+				"{}.ilk".format(outputPath),
+				"{}.pe".format(outputPath),
+				"{}.xdb".format(outputPath),
+			])
 
 			# Add the PDB file if debugging is enabled.
 			if self._debugLevel != DebugLevel.Disabled:
@@ -91,23 +86,18 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 
 	def _getCommand(self, project, inputFiles):
 		if project.projectType == csbuild.ProjectType.StaticLibrary:
-			cmdExe = self._libExePath
+			cmdExe = os.path.join(self._xbox360BinPath, "lib.exe")
 			cmd = self._getDefaultArgs(project) \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles)
 
 		else:
-			cmdExe = self._linkExePath
+			cmdExe = os.path.join(self._xbox360BinPath, "link.exe")
 			cmd = self._getDefaultArgs(project) \
-				+ self._getIncrementalLinkArgs(project) \
-				+ self._getUwpArgs(project) \
 				+ self._getCustomArgs() \
 				+ self._getOutputFileArgs(project) \
 				+ self._getInputFileArgs(inputFiles) \
 				+ self._getLibraryArgs(project)
-
-		# De-duplicate any repeated items in the command list.
-		cmd = list(ordered_set.OrderedSet(cmd))
 
 		responseFile = response_file.ResponseFile(project, "linker-{}".format(project.outputName), cmd)
 
@@ -117,7 +107,7 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 		return [cmdExe, "@{}".format(responseFile.filePath)]
 
 	def _findLibraries(self, project, libs):
-		allLibraryDirectories = list(self._libraryDirectories) + self.vcvarsall.libPaths
+		allLibraryDirectories = list(self._libraryDirectories)
 
 		return FindLibraries(libs, allLibraryDirectories, [".lib"])
 
@@ -132,12 +122,15 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 		return ext.get(projectType, None)
 
 	def SetupForProject(self, project):
-		MsvcToolBase.SetupForProject(self, project)
+		Xbox360BaseTool.SetupForProject(self, project)
 		LinkerBase.SetupForProject(self, project)
-		HasIncrementalLink.SetupForProject(self, project)
 
-		self._libExePath = os.path.join(self.vcvarsall.binPath, "lib.exe")
-		self._linkExePath = os.path.join(self.vcvarsall.binPath, "link.exe")
+		# Xbox 360 does not support linking directly against dynamic libraries so we
+		# need to remove any project dependencies of that type from the library list.
+		for dependProject in project.dependencies:
+			if dependProject.projectType == csbuild.ProjectType.SharedLibrary:
+				del self._actualLibraryLocations[dependProject.outputName]
+
 
 	####################################################################################################################
 	### Internal methods
@@ -147,66 +140,27 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 		args = [
 			"/ERRORREPORT:NONE",
 			"/NOLOGO",
-			"/MACHINE:{}".format(project.architectureName.upper()),
+			"/MACHINE:PPCBE",
+			"/SUBSYSTEM:XBOX"
 		]
-
-		# Add the subsystem argument if specified.
-		if self.msvcSubsystem:
-			subsystemArg = ["/SUBSYSTEM:{}".format(self.msvcSubsystem)]
-
-			# The subsystem version is optional.
-			if self.msvcSubsystemVersion:
-				subsystemArg.append(",{}.{}".format(self.msvcSubsystemVersion[0], self.msvcSubsystemVersion[1]))
-
-			args.append("".join(subsystemArg))
 
 		# Arguments for any project that is not a static library.
 		if project.projectType != csbuild.ProjectType.StaticLibrary:
-			args.extend([
-				"/NXCOMPAT",
-				"/DYNAMICBASE",
-			])
 			if self._debugLevel != DebugLevel.Disabled:
 				args.append("/DEBUG")
 			if project.projectType == csbuild.ProjectType.SharedLibrary:
 				args.append("/DLL")
 		return args
 
-	def _getIncrementalLinkArgs(self, project):
-		args = []
-
-		if project.projectType != csbuild.ProjectType.StaticLibrary and self._incrementalLink:
-			args.extend([
-				"/INCREMENTAL",
-				"/ILK:{}.ilk".format(os.path.join(project.outputDir, project.outputName)),
-			])
-
-		return args
-
-	def _getUwpArgs(self, project):
-		_ignore(project)
-		return []
-
 	def _getCustomArgs(self):
-		# Eliminate duplicate entries without wrecking the argument order.
-		args = list(ordered_set.OrderedSet(self._linkerFlags))
-		return args
+		return self._linkerFlags
 
 	def _getLibraryArgs(self, project):
 		# Static libraries don't require the default libraries to be linked, so only add them when building an application or shared library.
 		args = [] if project.projectType == csbuild.ProjectType.StaticLibrary else [
-			"kernel32.lib",
-			"user32.lib",
-			"gdi32.lib",
-			"winspool.lib",
-			"comdlg32.lib",
-			"advapi32.lib",
-			"shell32.lib",
-			"ole32.lib",
-			"oleaut32.lib",
-			"uuid.lib",
-			"odbc32.lib",
-			"odbccp32.lib",
+			"/LIBPATH:{}".format(self._xbox360LibPath),
+			"xboxkrnl.lib",
+			"xbdm.lib",
 		]
 		args.extend(list(self._actualLibraryLocations.values()))
 		return args
@@ -215,15 +169,19 @@ class MsvcLinker(MsvcToolBase, LinkerBase, HasIncrementalLink):
 		outExt = {
 			csbuild.ProjectType.SharedLibrary: ".dll",
 			csbuild.ProjectType.StaticLibrary: ".lib",
-		}
+		}.get(project.projectType, ".exe")
+
 		outputPath = os.path.join(project.outputDir, project.outputName)
-		args = ["/OUT:{}{}".format(outputPath, outExt.get(project.projectType, ".exe"))]
+		args = ["/OUT:{}{}".format(outputPath, outExt)]
 
 		if project.projectType == csbuild.ProjectType.SharedLibrary:
 			args.append("/IMPLIB:{}.lib".format(outputPath))
 
-		if project.projectType != csbuild.ProjectType.StaticLibrary and self._debugLevel != DebugLevel.Disabled:
-			args.append("/PDB:{}.pdb".format(outputPath))
+		if project.projectType != csbuild.ProjectType.StaticLibrary:
+			#args.append("/PGD:{}.pgd".format(outputPath))
+
+			if self._debugLevel != DebugLevel.Disabled:
+				args.append("/PDB:{}.pdb".format(outputPath))
 
 		return args
 

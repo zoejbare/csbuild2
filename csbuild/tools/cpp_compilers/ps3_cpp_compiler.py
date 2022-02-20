@@ -33,11 +33,8 @@ from .cpp_compiler_base import CppCompilerBase
 
 from ..common.sony_tool_base import Ps3BaseTool, Ps3ProjectType, Ps3ToolsetType
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
-
 from ... import log
-
 from ..._utils import response_file, shared_globals
-from ..._utils.ordered_set import OrderedSet
 
 DebugLevel = HasDebugLevel.DebugLevel
 OptimizationLevel = HasOptimizationLevel.OptimizationLevel
@@ -105,7 +102,7 @@ class Ps3CppCompiler(Ps3BaseTool, CppCompilerBase):
 		return os.path.join(self._ps3SystemBinPath, self._compilerExeName[1] if isCpp else self._compilerExeName[0])
 
 	def _getCustomArgs(self, isCpp):
-		return list(OrderedSet(self._globalFlags) | OrderedSet(self._cxxFlags if isCpp else self._cFlags))
+		return self._globalFlags + self._cxxFlags if isCpp else self._cFlags
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", inputFile.filename]
