@@ -27,10 +27,22 @@
 
 from __future__ import unicode_literals, division, print_function
 
-from pylint.interfaces import IRawChecker
-from pylint.checkers import BaseChecker
-import re
 import os
+import re
+import sys
+
+if sys.version_info.major >= 3:
+	from pylint.interfaces import IRawChecker
+	from pylint.checkers import BaseChecker
+
+else:
+	class IRawChecker(object):
+		# pylint: disable=missing-class-docstring
+		pass
+
+	class BaseChecker(object):
+		# pylint: disable=missing-class-docstring
+		pass
 
 MANDATORY_COPYRIGHT_HEADER = R"""^(# -\*- coding: utf-8 -\*-
 
