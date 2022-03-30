@@ -60,5 +60,5 @@ class AsmCompileChecker(CompileChecker):
 			for includeDir in includeDirs:
 				maybeHeaderLoc = os.path.join(includeDir, header)
 				if os.access(maybeHeaderLoc, os.F_OK):
-					ret.append(maybeHeaderLoc)
+					ret.append(os.path.normpath(maybeHeaderLoc))
 		return ret
