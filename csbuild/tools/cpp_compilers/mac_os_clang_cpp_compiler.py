@@ -59,10 +59,6 @@ class MacOsClangCppCompiler(MacOsToolBase, ClangCppCompiler):
 
 		return args
 
-	def _getArchTarget(self, project):
-		# Mac doesn't need the architecture target.
-		return None
-
 	def _getIncludeDirectoryArgs(self):
 		args = ClangCppCompiler._getIncludeDirectoryArgs(self)
 		args.extend(["-F{}".format(d) for d in self._frameworkDirectories])

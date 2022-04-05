@@ -30,28 +30,25 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 
 from .gcc_cpp_compiler import GccCppCompiler
-from ..._utils import PlatformString
+from ..common.clang_tool_base import ClangToolBase
 
-import subprocess
-
-class ClangCppCompiler(GccCppCompiler):
+class ClangCppCompiler(ClangToolBase, GccCppCompiler):
 	"""
 	Clang compiler implementation
 	"""
 
 	def __init__(self, projectSettings):
+		ClangToolBase.__init__(self, projectSettings)
 		GccCppCompiler.__init__(self, projectSettings)
-
-		targetTriplet = PlatformString(subprocess.check_output(["clang", "-dumpmachine"]))
-		targetSegments = targetTriplet.strip().split("-", 1)
-
-		self._nativeTargetPrefix = targetSegments[0] if targetSegments else None
-		self._nativeTargetSuffix = targetSegments[1] if targetSegments and len(targetSegments) > 1 else None
 
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
+
+	def SetupForProject(self, project):
+		ClangToolBase.SetupForProject(self, project)
+		GccCppCompiler.SetupForProject(self, project)
 
 	def _getComplierName(self, project, isCpp):
 		return "clang++" if isCpp else "clang"
@@ -62,36 +59,7 @@ class ClangCppCompiler(GccCppCompiler):
 
 	def _getArchitectureArgs(self, project):
 		args = GccCppCompiler._getArchitectureArgs(self, project)
-		target = self._getArchTarget(project)
+		targetArgs = ClangToolBase._getArchitectureTargetTripleArgs(self, project)
 
-		if target:
-			args.extend([
-				"-target", target,
-			])
-
+		args.extend(targetArgs)
 		return args
-
-
-	####################################################################################################################
-	### Internal methods
-	####################################################################################################################
-
-	def _getArchTarget(self, project):
-		if not self._nativeTargetPrefix or not self._nativeTargetSuffix:
-			return None
-
-		# When necessary fill in the architecture name with something clang expects.
-		targetPrefix = {
-			"x86": "i386",
-			"x64": "x86_64",
-			"arm": self._nativeTargetPrefix \
-				if self._nativeTargetPrefix.startswith("armv") \
-				else "armv6",
-			"arm64": self._nativeTargetPrefix \
-				if self._nativeTargetPrefix.startswith("aarch64") \
-				else "aarch64",
-		}.get(project.architectureName, None)
-		if not targetPrefix:
-			return None
-
-		return "{}-{}".format(targetPrefix, self._nativeTargetSuffix)

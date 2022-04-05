@@ -30,15 +30,25 @@ from __future__ import unicode_literals, division, print_function
 import csbuild
 
 from .gcc_assembler import GccAssembler
+from ..common.clang_tool_base import ClangToolBase
 
-class ClangAssembler(GccAssembler):
+class ClangAssembler(ClangToolBase, GccAssembler):
 	"""
 	Clang assembler implementation
 	"""
 
+	def __init__(self, projectSettings):
+		ClangToolBase.__init__(self, projectSettings)
+		GccAssembler.__init__(self, projectSettings)
+
+
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
+
+	def SetupForProject(self, project):
+		ClangToolBase.SetupForProject(self, project)
+		GccAssembler.SetupForProject(self, project)
 
 	def _getComplierName(self):
 		return "clang"
@@ -50,16 +60,8 @@ class ClangAssembler(GccAssembler):
 		return args
 
 	def _getArchitectureArgs(self, project):
-		baseArgs = GccAssembler._getArchitectureArgs(self, project)
+		args = GccAssembler._getArchitectureArgs(self, project)
+		targetArgs = ClangToolBase._getArchitectureTargetTripleArgs(self, project)
 
-		# When necessary fill in the architecture name with something clang expects.
-		architecture = {
-			"x86": "i386",
-			"x64": "x86_64",
-			"arm": "arm",
-			"arm64": "aarch64",
-		}.get(project.architectureName, project.architectureName)
-
-		return baseArgs + [
-			"-arch", architecture,
-		]
+		args.extend(targetArgs)
+		return args

@@ -111,7 +111,7 @@ class AppleToolBase(Tool):
 			if os.access(x, os.F_OK)
 		])
 
-		self._toolInfo = None
+		self._appleToolInfo = None
 
 
 	####################################################################################################################
@@ -150,7 +150,7 @@ class AppleToolBase(Tool):
 		if not AppleHostToolInfo.Instance:
 			AppleHostToolInfo.Instance = AppleHostToolInfo()
 
-		self._toolInfo = AppleHostToolInfo.Instance
+		self._appleToolInfo = AppleHostToolInfo.Instance
 
 
 @MetaClass(ABCMeta)
