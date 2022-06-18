@@ -47,7 +47,7 @@ with csbuild.Project("libhello", "libhello"):
 
 with csbuild.Project("hello_world", "hello_world", ["libhello"]):
 	csbuild.Platform("Darwin").AddLibraries("libgmalloc.dylib")
-	csbuild.Platform("Linux").AddLibraries("pthread", "libdl.so", "libc.so.6")
+	csbuild.Platform("Linux").AddLibraries("pthread", "libm.so", "libc.so.6")
 	csbuild.Platform("Windows").AddLibraries("winmm", "DbgHelp.lib")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 
