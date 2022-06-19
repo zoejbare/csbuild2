@@ -52,7 +52,7 @@ class ClangHostToolInfo(object):
 
 	def __init__(self):
 		try:
-			# Verify the 'xcrun' program exists.
+			# Verify the 'clang' program exists.
 			subprocess.call(["clang"], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
 		except:
 			raise IOError("Program 'clang' could not be found; please make sure you have it installed on your system")
