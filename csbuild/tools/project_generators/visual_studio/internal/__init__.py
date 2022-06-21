@@ -208,7 +208,8 @@ def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, se
 		projStructure.append(folderName)
 
 	relativePath = None
-	tempPath = os.path.relpath(filePath, projWorkingPath)
+
+	tempPath = _constructRelPath(filePath, projWorkingPath)
 
 	if tempPath != filePath:
 		# The input file path is under the project's working directory.
@@ -220,7 +221,7 @@ def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, se
 
 		# Search each extra source directory in the project to see if the input file path is under one of them.
 		for extraPath in projExtraPaths:
-			tempPath = os.path.relpath(filePath, extraPath)
+			tempPath = _constructRelPath(filePath, extraPath)
 
 			if tempPath != filePath:
 				# Found the extra source directory that contains the input file path.
