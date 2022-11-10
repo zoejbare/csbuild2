@@ -66,16 +66,22 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 		return FindLibraries(libs, allLibraryDirectories, [".dylib", ".so", ".a"])
 
 	def _getDefaultArgs(self, project):
-		baseArgs = ClangLinker._getDefaultArgs(self, project)
+		args = ClangLinker._getDefaultArgs(self, project)
 
 		# Get the special library build flag.
 		libraryBuildArg = {
 			csbuild.ProjectType.SharedLibrary: "-dynamiclib",
 		}.get(project.projectType, "")
+		args.append(libraryBuildArg)
 
-		return baseArgs + [
-			libraryBuildArg
-		]
+		# Set the system and SDK properties.
+		args.extend([
+			"-mmacosx-version-min={}".format(self._macOsVersionMin),
+			"-isysroot",
+			self._appleToolInfo.defaultMacOsSdkPath,
+		])
+
+		return args
 
 	def _rpathStartsWithVariable(self, rpath):
 		return rpath.startswith("@")
@@ -130,12 +136,11 @@ class MacOsClangLinker(MacOsToolBase, ClangLinker):
 
 	def _getLibraryArgs(self):
 		libArgs = list(self._actualLibraryLocations.values())
-		frameworkDirArgs = ["-F{}".format(path) for path in self._frameworkDirectories]
-		frameworkArgs = []
+		frameworkArgs = ["-F{}".format(path) for path in self._frameworkDirectories]
 		for framework in self._frameworks:
 			frameworkArgs.extend(["-framework", framework])
 
-		return frameworkDirArgs + frameworkArgs + libArgs
+		return frameworkArgs + libArgs
 
 	def _getStartGroupArgs(self):
 		return []

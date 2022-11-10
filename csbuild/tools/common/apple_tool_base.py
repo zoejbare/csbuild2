@@ -29,6 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 import csbuild
 import os
+import re
 import subprocess
 
 from abc import ABCMeta
@@ -166,9 +167,13 @@ class MacOsToolBase(AppleToolBase):
 
 		self._macOsVersionMin = projectSettings.get("macOsVersionMin", None)
 
+		# When a version is not provided, default to the current version of the OS.
+		if not self._macOsVersionMin:
+			self._macOsVersionMin = self._getMacOsCurrentVersion()
+
 
 	####################################################################################################################
-	### Internal methods
+	### Static makefile methods
 	####################################################################################################################
 
 	def SetMacOsVersionMin(self, version):
@@ -179,3 +184,18 @@ class MacOsToolBase(AppleToolBase):
 		:type version: str
 		"""
 		self._macOsVersionMin = csbuild.currentPlan.SetValue("macOsVersionMin", version)
+
+
+	####################################################################################################################
+	### Internal methods
+	####################################################################################################################
+
+	def _getMacOsCurrentVersion(self):
+		currentVersion = subprocess.check_output(["sw_vers", "-productVersion"]).decode("utf-8")
+
+		# The version number is reterned in the "x.y.z" format, but we only need "x.y".
+		versionRegex = re.compile(r"(\d+).(\d+)")
+		match = versionRegex.match(currentVersion)
+		assert match, f"Failed to parse macOS version: {currentVersion}"
+
+		return f"{match.group(1)}.{match.group(2)}"

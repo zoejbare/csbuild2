@@ -59,7 +59,7 @@ class ClangCppCompiler(ClangToolBase, GccCppCompiler):
 
 	def _getArchitectureArgs(self, project):
 		args = GccCppCompiler._getArchitectureArgs(self, project)
-		targetArgs = ClangToolBase._getArchitectureTargetTripleArgs(self, project)
+		targetArgs = ClangToolBase._getArchitectureTargetArgs(self, project)
 
 		args.extend(targetArgs)
 		return args

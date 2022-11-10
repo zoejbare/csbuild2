@@ -27,6 +27,7 @@
 
 from __future__ import unicode_literals, division, print_function
 
+import platform
 import subprocess
 
 from abc import ABCMeta
@@ -35,6 +36,8 @@ from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 from ... import commands
 
+
+_IS_HOST_MAC_OS = platform.system() == "Darwin"
 
 def _ignore(_):
 	pass
@@ -96,14 +99,26 @@ class ClangToolBase(Tool):
 	### Base methods
 	####################################################################################################################
 
-	def _getArchitectureTargetTripleArgs(self, project):
+	def _getArchitectureTargetArgs(self, project):
 		args = []
-		target = self._getArchTarget(project)
 
-		if target:
-			args.extend([
-				"-target", target,
-			])
+		if _IS_HOST_MAC_OS:
+			# Mac needs special handling since some older versions of the Apple Clang compiler have
+			# knowledge of the arm64 architecture, but don't support using the target triple for it.
+			# However, they all (at the time of this writing) support using the '-arch <arch-name>'
+			# command line argument.
+			arch = {
+				"x64": "x86_64",
+			}.get(project.architectureName, project.architectureName)
+			args.extend(["-arch", arch])
+
+		else:
+			target = self._getArchTarget(project)
+
+			if target:
+				args.extend([
+					"-target", target,
+				])
 
 		return args
 

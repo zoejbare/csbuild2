@@ -53,7 +53,7 @@ class ClangLinker(ClangToolBase, GccLinker):
 
 	def _getArchitectureArgs(self, project):
 		args = GccLinker._getArchitectureArgs(self, project)
-		targetArgs = ClangToolBase._getArchitectureTargetTripleArgs(self, project)
+		targetArgs = ClangToolBase._getArchitectureTargetArgs(self, project)
 
 		args.extend(targetArgs)
 		return args
