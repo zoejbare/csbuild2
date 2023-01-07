@@ -46,9 +46,8 @@ with csbuild.Project("libhello", "libhello"):
 		csbuild.SetOutput("libhello", csbuild.ProjectType.StaticLibrary)
 
 with csbuild.Project("hello_world", "hello_world", ["libhello"]):
-	csbuild.Platform("Darwin", "Linux").AddLibraries("pthread")
-	csbuild.Platform("Darwin").AddLibraries("libdl.dylib", "libc++.1.dylib")
-	csbuild.Platform("Linux").AddLibraries("libdl.so", "libc.so.6")
+	csbuild.Platform("Darwin").AddLibraries("libgmalloc.dylib")
+	csbuild.Platform("Linux").AddLibraries("pthread", "libm.so", "libc.so.6")
 	csbuild.Platform("Windows").AddLibraries("winmm", "DbgHelp.lib")
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
 

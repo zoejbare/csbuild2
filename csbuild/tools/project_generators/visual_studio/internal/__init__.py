@@ -77,12 +77,13 @@ FILE_FORMAT_VERSION_INFO = {
 	Version.Vs2013: VsInstallInfo("Visual Studio 2013", "12.00", "2013", "v120"),
 	Version.Vs2015: VsInstallInfo("Visual Studio 2015", "12.00", "14", "v140"),
 	Version.Vs2017: VsInstallInfo("Visual Studio 2017", "12.00", "15", "v141"),
-	Version.Vs2019: VsInstallInfo("Visual Studio 2019", "12.00", "16", "v142"),
-	Version.Vs2022: VsInstallInfo("Visual Studio 2022", "12.00", "17", "v143"),
+	Version.Vs2019: VsInstallInfo("Visual Studio 2019", "12.00", "Version 16", "v142"),
+	Version.Vs2022: VsInstallInfo("Visual Studio 2022", "12.00", "Version 17", "v143"),
 }
 
 CPP_SOURCE_FILE_EXTENSIONS = CppCompilerBase.inputFiles
 CPP_HEADER_FILE_EXTENSIONS = { ".h", ".hh", ".hpp", ".hxx" }
+OBJC_SOURCE_FILE_EXTENSIONS = { ".m", ".mm" }
 
 ASM_FILE_EXTENSIONS = GccAssembler.inputFiles | MsvcAssembler.inputFiles
 
@@ -91,6 +92,7 @@ MISC_FILE_EXTENSIONS = { ".inl", ".inc", ".def" } \
 
 ALL_FILE_EXTENSIONS = CPP_SOURCE_FILE_EXTENSIONS \
 	| CPP_HEADER_FILE_EXTENSIONS \
+	| OBJC_SOURCE_FILE_EXTENSIONS \
 	| ASM_FILE_EXTENSIONS \
 	| MISC_FILE_EXTENSIONS
 
@@ -208,7 +210,8 @@ def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, se
 		projStructure.append(folderName)
 
 	relativePath = None
-	tempPath = os.path.relpath(filePath, projWorkingPath)
+
+	tempPath = _constructRelPath(filePath, projWorkingPath)
 
 	if tempPath != filePath:
 		# The input file path is under the project's working directory.
@@ -220,7 +223,7 @@ def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, se
 
 		# Search each extra source directory in the project to see if the input file path is under one of them.
 		for extraPath in projExtraPaths:
-			tempPath = os.path.relpath(filePath, extraPath)
+			tempPath = _constructRelPath(filePath, extraPath)
 
 			if tempPath != filePath:
 				# Found the extra source directory that contains the input file path.

@@ -196,13 +196,21 @@ class TestPylint(testcase.TestCase):
 							return True
 			return False
 
-		for root, _, files in os.walk("."):
-			for filename in files:
-				if filename.endswith(".py"):
+		repoRootPath = os.getcwd()
+		for root, _, files in os.walk(repoRootPath):
+			root = os.path.relpath(root, repoRootPath)
 
-					finalfile = os.path.join(root, filename)
-					if finalfile.startswith("."):
-						finalfile = finalfile[2:]
+			# Discard directories that begin with '.'
+			if len(root) > 1 and root.startswith("."):
+				continue
+
+			for filename in files:
+				# Discard files that begin with '.'
+				if filename.startswith("."):
+					continue
+
+				if filename.endswith(".py"):
+					finalfile = os.path.normpath(os.path.join(root, filename))
 
 					if _shouldRelint(finalfile):
 						_sharedLocals.count += 1

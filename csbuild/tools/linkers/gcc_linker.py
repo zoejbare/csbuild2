@@ -92,6 +92,7 @@ class GccLinker(LinkerBase):
 
 		else:
 			cmd = [cmdExe] + cmd
+			cmd = [arg for arg in cmd if arg]
 
 		return cmd
 

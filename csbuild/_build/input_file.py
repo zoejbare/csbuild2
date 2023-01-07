@@ -76,7 +76,10 @@ class InputFile(object):
 
 	def __repr__(self):
 		mainFileDir = os.path.dirname(sys.modules["__main__"].__file__)
-		return os.path.relpath(self._filename, mainFileDir).replace("\\", "/")
+		try:
+			return os.path.relpath(self._filename, mainFileDir).replace("\\", "/")
+		except:
+			return self._filename
 
 	@TypeChecked(tool=(_classType, _typeType))
 	def AddUsedTool(self, tool):

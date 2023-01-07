@@ -28,13 +28,15 @@
 from __future__ import unicode_literals, division, print_function
 
 from .gcc_linker import GccLinker
+from ..common.clang_tool_base import ClangToolBase
 
-class ClangLinker(GccLinker):
+class ClangLinker(ClangToolBase, GccLinker):
 	"""
 	Clang linker implementation
 	"""
 
 	def __init__(self, projectSettings):
+		ClangToolBase.__init__(self, projectSettings)
 		GccLinker.__init__(self, projectSettings)
 
 
@@ -42,5 +44,16 @@ class ClangLinker(GccLinker):
 	### Methods implemented from base classes
 	####################################################################################################################
 
+	def SetupForProject(self, project):
+		ClangToolBase.SetupForProject(self, project)
+		GccLinker.SetupForProject(self, project)
+
 	def _getBinaryLinkerName(self):
 		return "clang++"
+
+	def _getArchitectureArgs(self, project):
+		args = GccLinker._getArchitectureArgs(self, project)
+		targetArgs = ClangToolBase._getArchitectureTargetArgs(self, project)
+
+		args.extend(targetArgs)
+		return args

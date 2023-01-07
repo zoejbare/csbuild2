@@ -61,6 +61,10 @@ def CheckCompilabilityForFile(buildProject, checker, inputFile, valueMemo, allDe
 		if not deps:
 			return values[0]
 
+		# When using cached dependencies, some files may no longer exist. Such cases should be seen by the user as
+		# an error during compilation, not an obscure Python exception because we're trying to check its timestamp.
+		deps = {f for f in deps if os.access(f, os.F_OK)}
+
 		allDeps.update(deps)
 		values.extend([CheckCompilabilityForFile(buildProject, checker, dep, valueMemo, allDeps) for dep in deps])
 

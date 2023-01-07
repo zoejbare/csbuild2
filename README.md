@@ -1,15 +1,12 @@
 ## **Current test status:**
 
-**Platform** |  **Test Suite** | **Status (develop)**
-:----------- |:--------------- | :------------------:
-Linux        | Python 2.7      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_LinuxPython2),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_LinuxPython2&branch_Csbuild=develop&guest=1)
-Linux        | Python 3.6      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_LinuxPython3),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_LinuxPython3&branch_Csbuild=develop&guest=1)
-|||
-macOS        | Python 2.7      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_MacOSPython2),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_MacOSPython2&branch_Csbuild=develop&guest=1)
-macOS        | Python 3.8      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_MacOSPython3),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_MacOSPython3&branch_Csbuild=develop&guest=1)
-|||
-Windows      | Python 2.7      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython27),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython27&branch_Csbuild=develop&guest=1)
-Windows      | Python 3.9      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython39),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython39&branch_Csbuild=develop&guest=1)
+| **Platform** |                                                                                                                 **Status (develop)**                                                                                                                  |
+|:-------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| Linux        |   [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_LinuxPython3),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_LinuxPython3&branch_Csbuild=develop&guest=1)   |
+|              |                                                                                                                                                                                                                                                       |
+| macOS        |   [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_MacOSPython3),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_MacOSPython3&branch_Csbuild=develop&guest=1)   |
+|              |                                                                                                                                                                                                                                                       |
+| Windows      | [![TeamCity](https://dev.aegresco.com/teamcity/app/rest/builds/buildType:(id:Csbuild_WindowsPython3),branch:(develop)/statusIcon)](https://dev.aegresco.com/teamcity/viewType.html?buildTypeId=Csbuild_WindowsPython3&branch_Csbuild=develop&guest=1) |
 
 ---
 
@@ -17,11 +14,12 @@ CSBuild is a language-agnostic build system focused on maximizing developer iter
 
 What it currently can do:
 - Build basic C/C++, Java, Objective-C/C++, and Assembly files
-- Build on Windows, Mac, BSD, Linux, Android, Xbox 360, PS3, PS4, PS5, and PSVita systems (language support varies by system)
+- Build on Windows, macOS, BSD, Linux, Android, Xbox 360, PS3, PS4, PS5, and PSVita systems (language support varies by system)
 - Be extended with tools to work in any language
 - Support macro processing in all strings (i.e., `csbuild.SetOutputDirectory("{toolchainName}/{architectureName}/{targetName}")`)
-- Generate project files for Visual Studio 2010, 2012, 2013, 2015, 2017, 2019, and 2022.
-- Dependency graph generation by running with --dg
+- Generate project files for Visual Studio from version 2010 up to 2022.
+- Dependency graph generation by running with --dg (requires the 'graphviz' Python package to be installed)
+  
   <img src="doc_img/depends.gv.png" alt="Dependency Graph" style="zoom:50%;" />
 
 What's still missing that exists in old CSBuild:

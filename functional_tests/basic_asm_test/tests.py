@@ -48,8 +48,8 @@ class BasicAsmTest(FunctionalTest):
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		self.cleanArgs = ["--project=hello_world"]
-		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+		self.cleanArgs = ["--project=hello_world", "--architecture=x64"]
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--architecture=x64", "--show-commands")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])

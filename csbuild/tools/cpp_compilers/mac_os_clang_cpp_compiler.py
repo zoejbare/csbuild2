@@ -54,14 +54,14 @@ class MacOsClangCppCompiler(MacOsToolBase, ClangCppCompiler):
 	def _getDefaultArgs(self, project):
 		args = ClangCppCompiler._getDefaultArgs(self, project)
 
-		if self._macOsVersionMin:
-			args.append("-mmacosx-version-min={}".format(self._macOsVersionMin))
+		# Set the system and SDK properties.
+		args.extend([
+			"-mmacosx-version-min={}".format(self._macOsVersionMin),
+			"-isysroot",
+			self._appleToolInfo.defaultMacOsSdkPath,
+		])
 
 		return args
-
-	def _getArchTarget(self, project):
-		# Mac doesn't need the architecture target.
-		return None
 
 	def _getIncludeDirectoryArgs(self):
 		args = ClangCppCompiler._getIncludeDirectoryArgs(self)

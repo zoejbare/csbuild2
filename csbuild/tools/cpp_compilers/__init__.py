@@ -75,6 +75,6 @@ class CppCompileChecker(CompileChecker):
 				for includeDir in includeDirs:
 					maybeHeaderLoc = os.path.join(includeDir, header)
 					if os.access(maybeHeaderLoc, os.F_OK) and not os.path.isdir(maybeHeaderLoc):
-						ret.add(maybeHeaderLoc)
+						ret.add(os.path.normpath(maybeHeaderLoc))
 			cache[inputFile] = {"mtime": mtime, "result": ret}
 			return ret
