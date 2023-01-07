@@ -193,7 +193,7 @@ class MacOsToolBase(AppleToolBase):
 	def _getMacOsCurrentVersion(self):
 		currentVersion = subprocess.check_output(["sw_vers", "-productVersion"]).decode("utf-8")
 
-		# The version number is reterned in the "x.y.z" format, but we only need "x.y".
+		# The version number is returned in the "x.y.z" format, but we only need "x.y".
 		versionRegex = re.compile(r"(\d+).(\d+)")
 		match = versionRegex.match(currentVersion)
 		assert match, f"Failed to parse macOS version: {currentVersion}"
