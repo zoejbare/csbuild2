@@ -55,7 +55,7 @@ class CppCompileChecker(CompileChecker):
 		:return: Set of files to depend on
 		:rtype: set[str]
 		"""
-		with perf_timer.PerfTimer("Header dependency resolution"):
+		with perf_timer.PerfTimer("C/C++ header dependency resolution"):
 			log.Info("Checking header dependencies for {}", inputFile)
 
 			cache = shared_globals.settings.Get("cppHeaderCache", {})

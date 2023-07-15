@@ -55,3 +55,6 @@ class BasicAsmTest(FunctionalTest):
 		out = subprocess.check_output([self.outputFile])
 
 		self.assertEqual(out, PlatformBytes("getnum() = 4"))
+
+		# Verify a successive compile succeeds.
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--architecture=x64", "--show-commands")
