@@ -74,7 +74,8 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		cxxStandard = project.platformCxxLanguageStandard[buildSpec]
 		args = [
 			"-include $(UM_IncludePath)",
-			"-std:{}".format(cxxStandard) if cxxStandard else None
+			"-std:{}".format(cxxStandard) if cxxStandard else None,
+			"-Zc:__cplusplus",
 		]
 		return " ".join([x for x in args if x])
 
