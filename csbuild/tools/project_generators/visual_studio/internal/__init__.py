@@ -84,6 +84,10 @@ FILE_FORMAT_VERSION_INFO = {
 CPP_SOURCE_FILE_EXTENSIONS = CppCompilerBase.inputFiles
 CPP_HEADER_FILE_EXTENSIONS = { ".h", ".hh", ".hpp", ".hxx" }
 OBJC_SOURCE_FILE_EXTENSIONS = { ".m", ".mm" }
+HLSL_SOURCE_FILE_EXTENSIONS = { ".hlsl" }
+HLSL_HEADER_FILE_EXTENSIONS = { ".hlsli" }
+PYTHON_FILE_EXTENSIONS = { ".py" }
+BATCH_FILE_EXTENSIONS = { ".bat", ".cmd" }
 
 ASM_FILE_EXTENSIONS = GccAssembler.inputFiles | MsvcAssembler.inputFiles
 
@@ -93,11 +97,15 @@ MISC_FILE_EXTENSIONS = { ".inl", ".inc", ".def" } \
 ALL_FILE_EXTENSIONS = CPP_SOURCE_FILE_EXTENSIONS \
 	| CPP_HEADER_FILE_EXTENSIONS \
 	| OBJC_SOURCE_FILE_EXTENSIONS \
+	| HLSL_SOURCE_FILE_EXTENSIONS \
+	| HLSL_HEADER_FILE_EXTENSIONS \
 	| ASM_FILE_EXTENSIONS \
+	| PYTHON_FILE_EXTENSIONS \
+	| BATCH_FILE_EXTENSIONS \
 	| MISC_FILE_EXTENSIONS
 
 # Switch for toggling the project folders separating files by their extensions.
-ENABLE_FILE_TYPE_FOLDERS = True
+ENABLE_FILE_TYPE_FOLDERS = False
 
 # Global dictionary of generated UUIDs for Visual Studio projects.  This is needed to make sure there are no
 # duplicates when generating new UUIDs.
@@ -192,12 +200,19 @@ def _getItemRootFolderName(filePath):
 	if fileExt in CPP_HEADER_FILE_EXTENSIONS:
 		return "C/C++ header files"
 	if fileExt in ASM_FILE_EXTENSIONS:
-		return "Assembly files"
+		return "Assembly source files"
+	if fileExt in HLSL_SOURCE_FILE_EXTENSIONS:
+		return "Shader source files"
+	if fileExt in HLSL_HEADER_FILE_EXTENSIONS:
+		return "Shader header files"
+	if fileExt in PYTHON_FILE_EXTENSIONS:
+		return "Python source files"
+	if fileExt in BATCH_FILE_EXTENSIONS:
+		return "Batch source files"
 	if not fileExt:
 		return "Unknown files"
 
-	fileTypeName = fileExt[1:].capitalize()
-	return "{} files".format(fileTypeName)
+	return "{} files".format(fileExt)
 
 
 def _getSourceFileProjectStructure(projWorkingPath, projExtraPaths, filePath, separateFileExtensions):
@@ -298,6 +313,8 @@ class VsProjectItem(object):
 				self.tag = "ClCompile"
 			elif fileExt in CPP_HEADER_FILE_EXTENSIONS:
 				self.tag = "ClInclude"
+			elif fileExt in HLSL_SOURCE_FILE_EXTENSIONS:
+				self.tag = "FxCompile"
 			else:
 				self.tag = "None"
 
@@ -316,9 +333,6 @@ class VsProject(object):
 	Container for project-level data in Visual Studio.
 	"""
 	def __init__(self, name, relFilePath, projType):
-		global MAKEFILE_PATH
-		global BUILD_SPECS
-
 		makeFileName = os.path.basename(MAKEFILE_PATH)
 		makeFileItem = VsProjectItem(makeFileName, os.path.dirname(MAKEFILE_PATH), VsProjectItemType.File, [])
 		makeFileItem.supportedBuildSpecs = set(BUILD_SPECS)

@@ -90,6 +90,9 @@ class BasicCppTest(FunctionalTest):
 
 		self.assertEqual(out, PlatformBytes("Hello, World! Goodbye, World!"))
 
+		# Verify a successive compile succeeds.
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands")
+
 	@unittest.skipUnless(platform.system() == "Linux", "Clang test is only supported on Linux")
 	def testClangCompileSucceeds(self):
 		"""Test that the project succesfully compiles with the clang toolchain"""
