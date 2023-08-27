@@ -29,6 +29,7 @@ from __future__ import unicode_literals, division, print_function
 
 import platform
 import os
+import subprocess
 
 from .java_compiler_base import JavaCompilerBase
 
@@ -44,7 +45,11 @@ class JavaCompiler(JavaCompilerBase):
 		JavaCompilerBase.__init__(self, projectSettings)
 
 		self._javaCompilerPath = os.path.join(self._javaBinPath, "javac{}".format(".exe" if platform.system() == "Windows" else ""))
-		assert os.access(self._javaCompilerPath, os.X_OK), "Java compiler not found at path: {}".format(self._javaCompilerPath)
+
+		try:
+			subprocess.call([self._javaCompilerPath], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+		except:
+			raise FileNotFoundError("Java compiler not found at path: {}".format(self._javaCompilerPath))
 
 
 	####################################################################################################################

@@ -45,7 +45,7 @@ class JavaArchiver(JavaArchiverBase):
 		try:
 			subprocess.call([self._javaArchiverPath], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
 		except:
-			raise IOError("Java archiver not found at path: {}".format(self._javaArchiverPath))
+			raise FileNotFoundError("Java archiver not found at path: {}".format(self._javaArchiverPath))
 
 
 	####################################################################################################################
