@@ -108,7 +108,6 @@ class AndroidInfo(object):
 		self.sysIncPaths = []
 		self.sysLibPaths = []
 		self.prefixPath = ""
-		self.buildToolsPath = ""
 		self.gccBinPath = ""
 		self.clangExePath = ""
 		self.clangCppExePath = ""
@@ -145,29 +144,39 @@ class AndroidInfo(object):
 
 		if platform.system() == "Darwin":
 			# Special case for default install location of the SDK on macOS.
-			possiblePaths.append(os.path.join(os.environ["HOME"], "Library", "Android", "sdk"))
+			possiblePaths.extend([
+				os.path.join(os.environ["HOME"], "Library", "Android", "sdk"),
+				os.path.join(os.environ["HOME"], "Library", "Android", "Sdk"),
+				os.path.join(os.environ["HOME"], "Library", "Android", "SDK"),
+			])
+
+		expandedUserHomePath = os.path.join(os.path.expanduser("~"))
 
 		# Last ditch effort, try the user's home directory as the install location of the SDK.
-		possiblePaths.append(os.path.join(os.path.expanduser("~"), "Android", "sdk"))
+		possiblePaths.append(os.path.join(expandedUserHomePath, "Android", "sdk"))
+
+		if platform.system() == "Linux":
+			possiblePaths.extend([
+				os.path.join(expandedUserHomePath, "Android", "Sdk"),
+				os.path.join(expandedUserHomePath, "Android", "SDK"),
+			])
 
 		# Loop over all the possible paths and go with the first one that exists.
 		for candidateSdkPath in possiblePaths:
 			if not candidateSdkPath:
 				continue
 
-			log.Info("Checking possible Android SDK path: {}".format(candidateSdkPath))
 			if os.access(candidateSdkPath, os.F_OK):
-				matchingBuildToolsPaths = glob.glob(os.path.join(candidateSdkPath, "build-tools", "{}.*".format(self.sdkVersion)))
-				if not matchingBuildToolsPaths:
+				log.Info("Checking possible Android SDK path: {}".format(candidateSdkPath))
+
+				matchingBuildToolsPaths = os.path.join(candidateSdkPath, "platforms", "android-{}".format(self.sdkVersion))
+				if not os.access(matchingBuildToolsPaths, os.F_OK):
 					log.Warn("Found Android SDK path, but it does not support target version {}: {}".format(self.sdkVersion, candidateSdkPath))
 					continue
 
 				log.Info("Using Android SDK: {}".format(candidateSdkPath))
 
 				self.sdkRootPath = candidateSdkPath
-
-				# Select the last matching path in the list since it should be the latest.
-				self.buildToolsPath = matchingBuildToolsPaths[-1]
 				break
 
 		# Verify the SDK path was set and exists.
@@ -190,8 +199,9 @@ class AndroidInfo(object):
 			if not candidateNdkPath:
 				continue
 
-			log.Info("Checking possible Android NDK path: {}".format(candidateNdkPath))
 			if os.access(candidateNdkPath, os.F_OK):
+				log.Info("Checking possible Android NDK path: {}".format(candidateNdkPath))
+
 				ndkVersionMajor, ndkVersionMinor, ndkRevision = _getNdkVersion(candidateNdkPath)
 
 				# Skip very old NDKs since we don't have a reliable way of extracting their version information.
