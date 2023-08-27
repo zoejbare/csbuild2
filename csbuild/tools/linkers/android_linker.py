@@ -173,6 +173,7 @@ class AndroidLinker(AndroidToolBase, LinkerBase):
 	def _getSystemArgs(self):
 		return [
 			"--prefix", self._androidInfo.prefixPath,
+			"-Wl,-rpath-link", self._androidInfo.prefixPath,
 		]
 
 	def _getStartGroupArgs(self):
