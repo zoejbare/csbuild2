@@ -66,16 +66,15 @@ class BasicJavaTest(FunctionalTest):
 	def setUp(self): # pylint: disable=arguments-differ
 		self.outputFile = "out/hello_world.jar"
 		outDir = "out"
-		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--at", "--toolchain=oracle-java"])
+		FunctionalTest.setUp(self, outDir=outDir, cleanArgs=["--project=hello_world", "--at", "--toolchain=java"])
 
 	def testCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		self.assertIn("JAVA_HOME", os.environ, "JAVA_HOME must be defined in the environment if the Java binaries are not available from the system path")
 		javaExe = os.path.join(os.environ["JAVA_HOME"], "bin", "java{}".format(".exe" if platform.system() == "Windows" else ""))
 
 		# Verify the Java executable can be found since it's required for running the JAR output for this test.
 		self.assertFileIsExecutable(javaExe)
-		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--toolchain=oracle-java")
+		self.assertMakeSucceeds("-v", "--project=hello_world", "--show-commands", "--toolchain=java")
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		ret, out, _ = commands.Run([javaExe, "-jar", self.outputFile])

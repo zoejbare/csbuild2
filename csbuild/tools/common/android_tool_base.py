@@ -34,8 +34,53 @@ import platform
 
 from abc import ABCMeta
 
+from ... import log
 from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
+
+def _getNdkVersion(ndkPath):
+	packagePropsFilePath = os.path.join(ndkPath, "source.properties")
+	if not os.access(packagePropsFilePath, os.F_OK):
+		# The 'source.properties' file was not found, no version information can be extracted.
+		return 0, 0, 0
+
+	with open(packagePropsFilePath, "r") as f:
+		fileLines = f.readlines()
+
+	commentTokens = { "#", ";", "//" }
+
+	# Check each line for the package revision which contains the version info.
+	for line in fileLines:
+		if line:
+			lineEndIndex = len(line)
+
+			# Comments are typically not found in this file, but we check for them
+			# anyway in case someone decides to add them at some point.
+			for token in commentTokens:
+				if token in line:
+					startIndex = line.index(token)
+
+					# Use the earliest comment token found in the line.
+					if startIndex < lineEndIndex:
+						lineEndIndex = startIndex
+
+			# Strip out any comments found in the line.
+			line = line[0:lineEndIndex]
+
+			lineElements = line.split("=", 2)
+			lineKey = lineElements[0].strip() if len(lineElements) > 0 else None
+			lineValue = lineElements[1].strip() if len(lineElements) > 1 else None
+
+			if lineKey == "Pkg.Revision" and lineValue:
+				versions = lineValue.split(".")
+				majorVersion = int(versions[0]) if len(versions) > 0 else 0
+				minorVersion = int(versions[1]) if len(versions) > 1 else 0
+				revision = int(versions[2]) if len(versions) > 2 else 0
+
+				return majorVersion, minorVersion, revision
+
+	# No package revision found.
+	return 0, 0, 0
 
 @MetaClass(ABCMeta)
 class AndroidStlLibType(object):
@@ -50,91 +95,245 @@ class AndroidInfo(object):
 	"""
 	Collection of paths for a specific version of Android and architecture.
 
-	:param gccToolchainRootPath: Full path the root directory containing the gcc toolchain.
-	:type gccToolchainRootPath: str
+	:param androidArch: Android target architecture.
+	:type androidArch: str
 
-	:param gccPath: Full path to the gcc executable.
-	:type gccPath: str
+	:param targetSdkVersion: SDK version to target.
+	:type targetSdkVersion: int
 
-	:param gppPath: Full path to the g++ executable.
-	:type gppPath: str
+	:param sdkRootPath: Default Android SDK root path.
+	:type sdkRootPath: str
 
-	:param asPath: Full path to the as executable.
-	:type asPath: str
-
-	:param ldPath: Full path to the ld executable.
-	:type ldPath: str
-
-	:param arPath: Full path to the ar executable.
-	:type arPath: str
-
-	:param clangPath: Full path to the clang executable.
-	:type clangPath: str
-
-	:param clangppPath: Full path to the clang++ executable.
-	:type clangppPath: str
-
-	:param zipAlignPath: Full path to the zipAlign executable.
-	:type zipAlignPath: str
-
-	:param sysRootPath: Full path to the Android system root.
-	:type sysRootPath: str
-
-	:param systemLibPath: Full path to the Android system libraries.
-	:type systemLibPath: str
-
-	:param systemIncludePaths: List of full paths to the Android system headers.
-	:type systemIncludePaths: list[str]
-
-	:param nativeAppGluPath: Full path to the Android native glue source and header files.
-	:type nativeAppGluPath: str
-
-	:param stlLibName: Basename of the STL library to link against.
-	:type stlLibName: str
-
-	:param stlLibPath: Full path to the STL libraries.
-	:type stlLibPath: str
-
-	:param stlIncludePaths: List of full paths to the STL headers.
-	:type stlIncludePaths: list[str]
+	:param ndkRootPath: Default Android NDK root path.
+	:type ndkRootPath: str
 	"""
 	Instances = {}
 
-	def __init__(
-		self,
-		gccToolchainRootPath,
-		gccPath,
-		gppPath,
-		asPath,
-		ldPath,
-		arPath,
-		clangPath,
-		clangppPath,
-		zipAlignPath,
-		sysRootPath,
-		systemLibPath,
-		systemIncludePaths,
-		nativeAppGluPath,
-		stlLibName,
-		stlLibPath,
-		stlIncludePaths,
-	):
-		self.gccToolchainRootPath = gccToolchainRootPath
-		self.gccPath = gccPath
-		self.gppPath = gppPath
-		self.asPath = asPath
-		self.ldPath = ldPath
-		self.arPath = arPath
-		self.clangPath = clangPath
-		self.clangppPath = clangppPath
-		self.zipAlignPath = zipAlignPath
-		self.sysRootPath = sysRootPath
-		self.systemLibPath = systemLibPath
-		self.systemIncludePaths = [path for path in systemIncludePaths if path]
-		self.nativeAppGluPath = nativeAppGluPath
-		self.stlLibName = stlLibName
-		self.stlLibPath = stlLibPath
-		self.stlIncludePaths = [path for path in stlIncludePaths if path]
+	def __init__(self, androidArch, targetSdkVersion, sdkRootPath, ndkRootPath):
+		self.sdkRootPath = sdkRootPath
+		self.ndkRootPath = ndkRootPath
+		self.sdkVersion = targetSdkVersion
+		self.ndkVersion = (0, 0, 0)
+		self.sysIncPaths = []
+		self.sysLibPaths = []
+		self.prefixPath = ""
+		self.buildToolsPath = ""
+		self.gccBinPath = ""
+		self.clangExePath = ""
+		self.clangCppExePath = ""
+		self.arExePath = ""
+		self.targetTripleName = ""
+		self.buildArchName = ""
+		self.isBuggyClang = False
+
+		# The Android NDK currently only ships with x64 host support for all platforms.
+		toolchainHostPlatformName = "{}-x86_64".format(platform.system().lower())
+		exeFileExtension = ".exe" if platform.system() == "Windows" else ""
+
+		# Search for a toolchain by architecture.
+		self.targetTripleName, self.buildArchName, archTripleName, gccToolchainName, libcppArchName, sysArchName = {
+			"x86":    ("i686-none-linux-android",      "i686",    "i686-linux-android",     "x86-4.9",                    "x86",         "arch-x86"),
+			"x64":    ("x86_64-none-linux-android",    "x86_64",  "x86_64-linux-android",   "x86_64-4.9",                 "x86_64",      "arch-x86_64"),
+			"arm":    ("armv7-none-linux-androideabi", "armv7-a", "arm-linux-androideabi",  "arm-linux-androideabi-4.9",  "armeabi-v7a", "arch-arm"),
+			"arm64":  ("aarch64-none-linux-android",   "armv8-a", "aarch64-linux-android",  "aarch64-linux-android-4.9",  "arm64-v8a",   "arch-arm64"),
+			"mips":   ("mipsel-none-linux-android",    "mips32",  "mipsel-linux-android",   "mipsel-linux-android-4.9",   "mips",        "arch-mips"),
+			"mips64": ("mips64el-none-linux-android",  "mips64",  "mip64sel-linux-android", "mip64sel-linux-android-4.9", "mips64",      "arch-mips64"),
+		}.get(androidArch, (None, None, None, None, None, None))
+		assert self.targetTripleName is not None, "Architecture not supported for Android: {}".format(androidArch)
+
+		# Verify the target SDK version has been set.
+		assert self.sdkVersion, "No Android target SDK version provided"
+		assert isinstance(self.sdkVersion, int), "Android target SDK version is not an integer: \"{}\"".format(self.sdkVersion)
+
+		# If no SDK root path is specified, try to get it from the environment.
+		possiblePaths = [
+			sdkRootPath,
+			os.environ.get("ANDROID_HOME", None),
+			os.environ.get("ANDROID_SDK_ROOT", None),
+		]
+
+		if platform.system() == "Darwin":
+			# Special case for default install location of the SDK on macOS.
+			possiblePaths.append(os.path.join(os.environ["HOME"], "Library", "Android", "sdk"))
+
+		# Last ditch effort, try the user's home directory as the install location of the SDK.
+		possiblePaths.append(os.path.join(os.path.expanduser("~"), "Android", "sdk"))
+
+		# Loop over all the possible paths and go with the first one that exists.
+		for candidateSdkPath in possiblePaths:
+			if not candidateSdkPath:
+				continue
+
+			log.Info("Checking possible Android SDK path: {}".format(candidateSdkPath))
+			if os.access(candidateSdkPath, os.F_OK):
+				matchingBuildToolsPaths = glob.glob(os.path.join(candidateSdkPath, "build-tools", "{}.*".format(self.sdkVersion)))
+				if not matchingBuildToolsPaths:
+					log.Warn("Found Android SDK path, but it does not support target version {}: {}".format(self.sdkVersion, candidateSdkPath))
+					continue
+
+				self.sdkRootPath = candidateSdkPath
+
+				# Select the last matching path in the list since it should be the latest.
+				self.buildToolsPath = matchingBuildToolsPaths[-1]
+				break
+
+		# Verify the SDK path was set and exists.
+		assert self.sdkRootPath, "No valid Android SDK found for target version: {}".format(self.sdkVersion)
+		assert os.access(self.sdkRootPath, os.F_OK), "Android SDK root path does not exist: {}".format(self.sdkRootPath)
+
+		# If no NDK root path is specified, try to get it from the environment.
+		possibleNdkPaths = [
+			ndkRootPath,
+			os.environ.get("ANDROID_NDK", None),
+			os.environ.get("ANDROID_NDK_ROOT", None),
+		]
+
+		# Check for an NDK embedded within the SDK directory.
+		possibleNdkPaths.extend(reversed(glob.glob(os.path.join(self.sdkRootPath, "ndk", "*"))))
+		possibleNdkPaths.extend(reversed(glob.glob(os.path.join(self.sdkRootPath, "ndk-bundle", "*"))))
+
+		# Loop over all the possible paths and go with the first one that exists and meets our requirements.
+		for candidateNdkPath in possibleNdkPaths:
+			if not candidateNdkPath:
+				continue
+
+			log.Info("Checking possible Android NDK path: {}".format(candidateNdkPath))
+			if os.access(candidateNdkPath, os.F_OK):
+				ndkVersionMajor, ndkVersionMinor, ndkRevision = _getNdkVersion(candidateNdkPath)
+
+				# Skip very old NDKs since we don't have a reliable way of extracting their version information.
+				if ndkVersionMajor == 0:
+					log.Warn("Found Android NDK, but unable to detect NDK version: {}".format(candidateNdkPath))
+					continue
+
+				# Skip any NDK version we've already checked and all that are older than what we currently have.
+				if ndkRevision <= self.ndkVersion[2]:
+					continue
+
+				# When either MIPS architecture is selected, skip NDKs that no longer support it.
+				if ndkRevision >= 17 and androidArch in { "mips", "mips64" }:
+					log.Warn("Found Android NDK, but it does not support any MIPS architectures: {}".format(candidateNdkPath))
+					continue
+
+				realSysLibPaths = None
+				prefixPath = None
+
+				gccToolchainRootPath = os.path.join(candidateNdkPath, "toolchains", gccToolchainName, "prebuilt", toolchainHostPlatformName)
+				gccToolchainBinPath = os.path.join(gccToolchainRootPath, archTripleName, "bin")
+				gccToolchainLibPath = glob.glob(os.path.join(gccToolchainRootPath, "lib", "gcc", archTripleName, "4.9*"))
+
+				if gccToolchainLibPath:
+					gccToolchainLibPath = gccToolchainLibPath[-1]
+
+				llvmToolchainRootPath = os.path.join(candidateNdkPath, "toolchains", "llvm", "prebuilt", toolchainHostPlatformName)
+				llvmToolchainBinPath = os.path.join(llvmToolchainRootPath, "bin")
+				llvmToolchainSysRootPath = os.path.join(llvmToolchainRootPath, "sysroot")
+
+				platformRootPath = os.path.join(candidateNdkPath, "platforms")
+				platformVersionPath = os.path.join(platformRootPath, "android-{}".format(self.sdkVersion), sysArchName)
+				platformIncPath = os.path.join(platformVersionPath, "usr", "include")
+				platformLibPaths = glob.glob(os.path.join(platformVersionPath, "usr", "lib*"))
+
+				toolchainSysLibRootPath = os.path.join(llvmToolchainSysRootPath, "usr", "lib", archTripleName)
+				toolchainPlatformSysLibPaths = [path for path in [os.path.join(toolchainSysLibRootPath, "{}".format(self.sdkVersion))] if os.access(path, os.F_OK)]
+
+				if not toolchainPlatformSysLibPaths:
+					toolchainPlatformSysLibPaths = [path for path in glob.glob(os.path.join(toolchainSysLibRootPath, "*")) if os.path.isdir(path)]
+
+				toolchainSysLibPaths = toolchainPlatformSysLibPaths + [toolchainSysLibRootPath]
+
+				# The real sysroot path will be determined by
+				crtbeginFileName = "crtbegin_so.o"
+
+				for path in platformLibPaths:
+					filePath = os.path.join(path, crtbeginFileName)
+
+					if os.access(filePath, os.F_OK):
+						realSysLibPaths = platformLibPaths
+						prefixPath = path
+						break
+
+				if not realSysLibPaths:
+					for path in toolchainSysLibPaths:
+						filePath = os.path.join(path, crtbeginFileName)
+
+						if os.access(filePath, os.F_OK):
+							realSysLibPaths = toolchainSysLibPaths
+							prefixPath = path
+							break
+
+				baseSysRootPath = os.path.join(candidateNdkPath, "sysroot")
+				baseSysIncPath = os.path.join(baseSysRootPath, "usr", "include")
+				baseSysIncArchPath = os.path.join(baseSysIncPath, archTripleName)
+
+				toolchainSysIncPath = os.path.join(llvmToolchainSysRootPath, "usr", "include")
+				toolchainSysIncArchPath = os.path.join(toolchainSysIncPath, archTripleName)
+
+				sourcesRootPath = os.path.join(candidateNdkPath, "sources")
+				sourcesCxxStlRootPath = os.path.join(sourcesRootPath, "cxx-stl", "llvm-libc++")
+
+				sysIncPaths = [
+					baseSysIncPath,
+					baseSysIncArchPath,
+					platformIncPath,
+					toolchainSysIncPath,
+					toolchainSysIncArchPath,
+					os.path.join(sourcesCxxStlRootPath, "include"),
+					os.path.join(sourcesCxxStlRootPath, "libcxx", "include"),
+				]
+				sysLibPaths = realSysLibPaths
+				sysLibPaths.extend([
+					gccToolchainLibPath,
+					os.path.join(sourcesCxxStlRootPath, "libs", libcppArchName),
+				])
+
+				# Resolve all the system include and library paths to figure out which actually exist.
+				sysIncPaths = [path for path in sysIncPaths if path and os.access(path, os.F_OK)]
+				sysLibPaths = [path for path in sysLibPaths if path and os.access(path, os.F_OK)]
+
+				if not sysIncPaths:
+					log.Warn("Found Android NDK, but could not find any valid sysroot include paths: {}".format(candidateNdkPath))
+					continue
+
+				if not sysLibPaths:
+					log.Warn("Found Android NDK, but could not find any valid sysroot library paths: {}".format(candidateNdkPath))
+					continue
+
+				gccArExePath = os.path.join(gccToolchainBinPath, "ar{}".format(exeFileExtension))
+				llvmArExePath = os.path.join(llvmToolchainBinPath, "llvm-ar{}".format(exeFileExtension))
+				clangExePath = os.path.join(llvmToolchainBinPath, "clang{}".format(exeFileExtension))
+				clangCppExePath = os.path.join(llvmToolchainBinPath, "clang++{}".format(exeFileExtension))
+				arExePath = llvmArExePath if os.access(llvmArExePath, os.F_OK) else gccArExePath
+
+				if not os.access(clangExePath, os.F_OK):
+					log.Warn("Found Android NDK, but clang executable is missing: {}".format(candidateNdkPath))
+					continue
+
+				if not os.access(clangCppExePath, os.F_OK):
+					log.Warn("Found Android NDK, but clang++ executable is missing: {}".format(candidateNdkPath))
+					continue
+
+				if not os.access(arExePath, os.F_OK):
+					log.Warn("Found Android NDK, but archiver executable is missing: {}".format(candidateNdkPath))
+					continue
+
+				self.ndkRootPath = candidateNdkPath
+				self.ndkVersion = (ndkVersionMajor, ndkVersionMinor, ndkRevision)
+				self.sysIncPaths = sysIncPaths
+				self.sysLibPaths = sysLibPaths
+				self.prefixPath = prefixPath
+				self.gccBinPath = gccToolchainBinPath
+				self.clangExePath = clangExePath
+				self.clangCppExePath = clangCppExePath
+				self.arExePath = arExePath
+
+				# Clang in NDK 11 has a bug in its handling of response files, meaning we can't use them with it.
+				self.isBuggyClang = (ndkVersionMajor == 11)
+				break
+
+		# Verify the NDK path was set and exists.
+		assert self.ndkRootPath, "No valid Android NDK found for target version: {}".format(self.sdkVersion)
+		assert os.access(self.ndkRootPath, os.F_OK), "Android NDK root path does not exist: {}".format(self.ndkRootPath)
 
 
 @MetaClass(ABCMeta)
@@ -150,274 +349,12 @@ class AndroidToolBase(Tool):
 	def __init__(self, projectSettings):
 		Tool.__init__(self, projectSettings)
 
-		self._androidNdkRootPath = projectSettings.get("androidNdkRootPath", "")
 		self._androidSdkRootPath = projectSettings.get("androidSdkRootPath", "")
+		self._androidNdkRootPath = projectSettings.get("androidNdkRootPath", "")
+		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", 0)
 		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
-		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", None)
-		self._androidStlLibType = projectSettings.get("androidStlLibType", None)
-		self._androidNativeAppGlue = projectSettings.get("androidNativeAppGlue", False)
-
-		# If no NDK root path is specified, try to get it from the environment.
-		if not self._androidNdkRootPath and "ANDROID_NDK_ROOT" in os.environ:
-			self._androidNdkRootPath = os.environ["ANDROID_NDK_ROOT"]
-
-		# If no SDK root path is specified, try to get it from the environment.
-		if not self._androidSdkRootPath and "ANDROID_HOME" in os.environ:
-			self._androidSdkRootPath = os.environ["ANDROID_HOME"]
-
-		assert self._androidNdkRootPath, "No Android NDK root path provided"
-		assert self._androidSdkRootPath, "No Android SDK root path provided"
-		assert self._androidTargetSdkVersion, "No Android target SDK version provided"
-
-		assert os.access(self._androidNdkRootPath, os.F_OK), "Android NDK root path does not exist: {}".format(self._androidNdkRootPath)
-		assert os.access(self._androidSdkRootPath, os.F_OK), "Android SDK root path does not exist: {}".format(self._androidSdkRootPath)
 
 		self._androidInfo = None
-
-	####################################################################################################################
-	### Private methods
-	####################################################################################################################
-
-	def _getInfo(self, arch):
-		key = (self._androidNdkRootPath, self._androidSdkRootPath, arch)
-
-		if key not in AndroidInfo.Instances:
-			def _getToolchainPrefix():
-				# Search for a toolchain by architecture.
-				toolchainArchPrefix = {
-					"x86": "x86",
-					"x64": "x86_64",
-					"arm": "arm",
-					"arm64": "aarch64",
-					"mips": "mipsel",
-					"mips64": "mips64el",
-				}.get(arch, "")
-				assert toolchainArchPrefix, "Android architecture not supported: {}".format(arch)
-				return toolchainArchPrefix
-
-			def _getStlArchName():
-				stlArchName = {
-					"x86": "x86",
-					"x64": "x86_64",
-					"arm": "armeabi-v7a",
-					"arm64": "arm64-v8a",
-					"mips": "mips",
-					"mips64": "mips64",
-				}.get(arch, "")
-				assert stlArchName, "Android architecture not supported: {}".format(arch)
-				return stlArchName
-
-			def _getIncludeArchName():
-				# Search for a toolchain by architecture.
-				includeArchName = {
-					"x86": "i686-linux-android",
-					"x64": "x86_64-linux-android",
-					"arm": "arm-linux-androideabi",
-					"arm64": "aarch64-linux-android",
-					"mips": "mipsel-linux-android",
-					"mips64": "mips64el-linux-android",
-				}.get(arch, "")
-				assert includeArchName, "Android architecture not supported: {}".format(arch)
-				return includeArchName
-
-			# Certain architectures must use the "lib64" directory instead of "lib".
-			useLib64 = {
-				"x64": True,
-				"mips64": True,
-			}.get(arch, False)
-
-			platformName = platform.system().lower()
-			exeExtension = ".exe" if platform.system() == "Windows" else ""
-			toolchainPrefix = _getToolchainPrefix()
-			rootToolchainPath = os.path.join(self._androidNdkRootPath, "toolchains")
-			archToolchainRootPath = glob.glob(os.path.join(rootToolchainPath, "{}-*".format(toolchainPrefix)))
-			llvmToolchainRootPath = glob.glob(os.path.join(rootToolchainPath, "llvm", "prebuilt", "{}-*".format(platformName)))
-			stlArchName = _getStlArchName()
-			stlRootPath = os.path.join(self._androidNdkRootPath, "sources", "cxx-stl")
-			sysRootPath = os.path.join(self._androidNdkRootPath, "platforms", "android-{}".format(self._androidTargetSdkVersion), self._getPlatformArchName(arch))
-			sysRootLibPath = os.path.join(sysRootPath, "usr", "lib64" if useLib64 else "lib")
-			sysRootBaseIncludePath = os.path.join(self._androidNdkRootPath, "sysroot", "usr", "include")
-			sysRootArchIncludePath = os.path.join(sysRootBaseIncludePath, _getIncludeArchName())
-			androidSourcesRootPath = os.path.join(self._androidNdkRootPath, "sources", "android")
-			androidSupportIncludePath = os.path.join(androidSourcesRootPath, "support", "include")
-			nativeAppGluePath = os.path.join(androidSourcesRootPath, "native_app_glue")
-
-			assert archToolchainRootPath, "No Android toolchain installed for architecture: {}".format(arch)
-			assert llvmToolchainRootPath, "No Android LLVM toolchain installed for platform: {}".format(platformName)
-			assert os.access(sysRootPath, os.F_OK), "No Android sysroot found at path: {}".format(sysRootPath)
-
-			archToolchainRootPath = archToolchainRootPath[0]
-
-			gccVersionStartIndex = archToolchainRootPath.rfind("-")
-			assert gccVersionStartIndex > 0, "Android GCC version not parsable from path: {}".format(archToolchainRootPath)
-
-			# Save the gcc version since we'll need it for getting the libstdc++ paths.
-			gccVersion = archToolchainRootPath[gccVersionStartIndex + 1:]
-
-			archToolchainRootPath = glob.glob(os.path.join(archToolchainRootPath, "prebuilt", "{}-*".format(platformName)))
-			assert archToolchainRootPath, "No Android \"{}\" toolchain installed for platform: {}".format(toolchainPrefix, platformName)
-
-			archToolchainRootPath = archToolchainRootPath[0]
-			llvmToolchainRootPath = llvmToolchainRootPath[0]
-
-			archToolchainIncludePath = glob.glob(os.path.join(archToolchainRootPath, "lib", "gcc", "*", "*", "include"))
-			archToolchainIncludePath = archToolchainIncludePath[0] if archToolchainIncludePath else ""
-
-			archToolchainBinPath = os.path.join(archToolchainRootPath, "bin")
-			llvmToolchainBinPath = os.path.join(llvmToolchainRootPath, "bin")
-
-			# Get the compiler and linker paths.
-			gccPath = glob.glob(os.path.join(archToolchainBinPath, "*-gcc{}".format(exeExtension)))
-			gppPath = glob.glob(os.path.join(archToolchainBinPath, "*-g++{}".format(exeExtension)))
-			asPath = glob.glob(os.path.join(archToolchainBinPath, "*-as{}".format(exeExtension)))
-			ldPath = glob.glob(os.path.join(archToolchainBinPath, "*-ld{}".format(exeExtension)))
-			arPath = glob.glob(os.path.join(archToolchainBinPath, "*-ar{}".format(exeExtension)))
-			clangPath = os.path.join(llvmToolchainBinPath, "clang{}".format(exeExtension))
-			clangppPath = os.path.join(llvmToolchainBinPath, "clang++{}".format(exeExtension))
-
-			# Do not assert on missing gcc or clang. GCC was deprecated and removed from later versions of the NDK
-			# and clang wasn't added until several NDK version in. It will be best if we assert when trying to use
-			# their respective toolchains.
-			assert asPath, "No Android as executable found for architecture: {}".format(arch)
-			assert ldPath, "No Android ld executable found for architecture: {}".format(arch)
-			assert arPath, "No Android ar executable found for architecture: {}".format(arch)
-
-			gccPath = gccPath[0] if gccPath else None
-			gppPath = gppPath[0] if gppPath else None
-			asPath = asPath[0]
-			ldPath = ldPath[0]
-			arPath = arPath[0]
-
-			buildToolsPath = glob.glob(os.path.join(self._androidSdkRootPath, "build-tools", "*"))
-			assert buildToolsPath, "No Android build tools are installed"
-
-			# For now, it doesn't seem like we need a specific version, so just pick the first one.
-			buildToolsPath = buildToolsPath[0]
-
-			# Get the miscellaneous build tool paths.
-			zipAlignPath = os.path.join(buildToolsPath, "zipalign{}".format(exeExtension))
-
-			assert os.access(zipAlignPath, os.F_OK), "ZipAlign not found in Android build tools path: {}".format(buildToolsPath)
-
-			# If an STL flavor has been specified, attempt to get its include & lib paths.
-			if self._androidStlLibType:
-				stlLibName = {
-					AndroidStlLibType.Gnu: "libgnustl",
-					AndroidStlLibType.LibCpp: "libc++",
-					AndroidStlLibType.StlPort: "libstlport",
-				}.get(self._androidStlLibType, None)
-				assert stlLibName, "Invalid Android STL type: {}".format(self._androidStlLibType)
-
-				stlLibDirName = {
-					AndroidStlLibType.Gnu: "gnu-libstdc++",
-					AndroidStlLibType.LibCpp: "llvm-libc++",
-					AndroidStlLibType.StlPort: "stlport",
-				}.get(self._androidStlLibType, None)
-				assert stlLibName, "Invalid Android STL type: {}".format(self._androidStlLibType)
-
-				stlRootPath = os.path.join(stlRootPath, stlLibDirName)
-
-				# libstdc++ exists in a sub-directory indicating its version.
-				if self._androidStlLibType == AndroidStlLibType.Gnu:
-					stlRootPath = os.path.join(stlRootPath, gccVersion)
-
-				assert os.access(stlRootPath, os.F_OK), "Android STL \"{}\" not found at path: {}".format(self._androidStlLibType, stlRootPath)
-
-				stlLibPath = os.path.join(stlRootPath, "libs", stlArchName)
-				stlIncludePaths = [
-					os.path.join(stlRootPath, "include"),
-				]
-
-				# For some reason "gnu-libstdc++" thought it was a good idea to put includes under its library directory.
-				if self._androidStlLibType == AndroidStlLibType.Gnu:
-					stlIncludePaths.append(
-						os.path.join(stlLibPath, "include"),
-					)
-
-			else:
-				# No STL, just use dummy values.
-				stlLibName = None
-				stlLibPath = None
-				stlIncludePaths = []
-
-			AndroidInfo.Instances[key] = \
-				AndroidInfo(
-					archToolchainRootPath,
-					gccPath,
-					gppPath,
-					asPath,
-					ldPath,
-					arPath,
-					clangPath,
-					clangppPath,
-					zipAlignPath,
-					sysRootPath,
-					sysRootLibPath,
-					[
-						sysRootBaseIncludePath,
-						sysRootArchIncludePath,
-						archToolchainIncludePath,
-						androidSupportIncludePath,
-					],
-					nativeAppGluePath,
-					stlLibName,
-					stlLibPath,
-					stlIncludePaths,
-				)
-
-		return AndroidInfo.Instances[key]
-
-	def _getPlatformArchName(self, arch):
-		platformArchName = {
-			"x86": "arch-x86",
-			"x64": "arch-x86_64",
-			"arm": "arch-arm",
-			"arm64": "arch-arm64",
-			"mips": "arch-mips",
-			"mips64": "arch-mips64",
-		}.get(arch, "")
-		assert platformArchName, "Architecture platform name not found for: {}".format(arch)
-		return platformArchName
-
-	def _getBuildArchName(self, arch):
-		# Only ARM needs a build architecture name.
-		name = {
-			"arm": "armv7-a",
-			"arm64": "armv8-a",
-		}.get(arch, "")
-		return name
-
-	def _getTargetTripleName(self, arch):
-		targetTriple = {
-			"x86": "i686-none-linux-android",
-			"x64": "x86_64-none-linux-android",
-			"arm": "armv7-none-linux-androideabi",
-			"arm64": "aarch64-none-linux-android",
-			"mips": "mipsel-none-linux-android",
-			"mips64": "mips64el-none-linux-android",
-		}.get(arch, "")
-		assert targetTriple, "Architecture target triple not defined for: {}".format(arch)
-		return targetTriple
-
-	def _getDefaultLinkerArgs(self):
-		return [
-			"-Wl,--no-undefined",
-			"-Wl,--no-allow-shlib-undefined",
-			"-Wl,--unresolved-symbols=report-all",
-			"-Wl,-z,noexecstack",
-			"-Wl,-z,relro",
-			"-Wl,-z,now",
-		]
-
-	def _getDefaultCompilerArgs(self):
-		return [
-			"-funwind-tables",
-			"-fstack-protector",
-			"-fno-omit-frame-pointer",
-			"-fno-strict-aliasing",
-			"-fno-short-enums",
-			"-Wa,--noexecstack",
-		]
 
 	####################################################################################################################
 	### Methods implemented from base classes
@@ -433,21 +370,33 @@ class AndroidToolBase(Tool):
 		Tool.SetupForProject(self, project)
 
 		if not self._androidInfo:
-			self._androidInfo = self._getInfo(project.architectureName)
+			arch = project.architectureName
+
+			if arch not in AndroidInfo.Instances:
+				AndroidInfo.Instances[arch] = AndroidInfo(
+					arch,
+					self._androidTargetSdkVersion,
+					self._androidSdkRootPath,
+					self._androidNdkRootPath
+				)
+
+			self._androidInfo = AndroidInfo.Instances[arch]
+
+	####################################################################################################################
+	### Internal methods
+	####################################################################################################################
+
+	def _getDefaultAndroidDefines(self):
+		return [
+			"-D__ANDROID_API__={}".format(self._androidTargetSdkVersion),
+			"-DANDROID_NDK",
+			"-DANDROID",
+			"-D__ANDROID__",
+		]
 
 	################################################################################
 	### Static makefile methods
 	################################################################################
-
-	@staticmethod
-	def SetAndroidNdkRootPath(path):
-		"""
-		Sets the path to the Android NDK home.
-
-		:param path: Android NDK home path.
-		:type path: str
-		"""
-		csbuild.currentPlan.SetValue("androidNdkRootPath", os.path.abspath(path) if path else None)
 
 	@staticmethod
 	def SetAndroidSdkRootPath(path):
@@ -460,14 +409,14 @@ class AndroidToolBase(Tool):
 		csbuild.currentPlan.SetValue("androidSdkRootPath", os.path.abspath(path) if path else None)
 
 	@staticmethod
-	def SetAndroidManifestFilePath(path):
+	def SetAndroidNdkRootPath(path):
 		"""
-		Sets the path to the Android manifest file.
+		Sets the path to the Android NDK home.
 
-		:param path: Android manifest file path.
+		:param path: Android NDK home path.
 		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("androidManifestFilePath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("androidNdkRootPath", os.path.abspath(path) if path else None)
 
 	@staticmethod
 	def SetAndroidTargetSdkVersion(version):
@@ -480,21 +429,11 @@ class AndroidToolBase(Tool):
 		csbuild.currentPlan.SetValue("androidTargetSdkVersion", version)
 
 	@staticmethod
-	def SetAndroidStlLibType(lib):
+	def SetAndroidManifestFilePath(path):
 		"""
-		Sets the Android STL lib type.
+		Sets the path to the Android manifest file.
 
-		:param lib: Android STL lib type.
-		:type lib: str
+		:param path: Android manifest file path.
+		:type path: str
 		"""
-		csbuild.currentPlan.SetValue("androidStlLibType", lib)
-
-	@staticmethod
-	def SetAndroidNativeAppGlue(useDefaultAppGlue):
-		"""
-		Sets a boolean to use the default Android native app glue.
-
-		:param useDefaultAppGlue: Use default Android native app glue?
-		:type useDefaultAppGlue: bool
-		"""
-		csbuild.currentPlan.SetValue("androidNativeAppGlue", useDefaultAppGlue)
+		csbuild.currentPlan.SetValue("androidManifestFilePath", os.path.abspath(path))

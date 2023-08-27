@@ -33,8 +33,7 @@ import platform
 from .assemblers import AsmCompileChecker
 from .cpp_compilers import CppCompileChecker
 
-from .assemblers.android_clang_assembler import AndroidClangAssembler
-from .assemblers.android_gcc_assembler import AndroidGccAssembler
+from .assemblers.android_assembler import AndroidAssembler
 from .assemblers.clang_assembler import ClangAssembler
 from .assemblers.gcc_assembler import GccAssembler
 from .assemblers.msvc_assembler import MsvcAssembler
@@ -48,8 +47,7 @@ from .assemblers.xbox_360_assembler import Xbox360Assembler
 from .common.sony_tool_base import Ps3SpuConverter
 from .common.xbox_360_tool_base import Xbox360ImageXexTool
 
-from .cpp_compilers.android_clang_cpp_compiler import AndroidClangCppCompiler
-from .cpp_compilers.android_gcc_cpp_compiler import AndroidGccCppCompiler
+from .cpp_compilers.android_cpp_compiler import AndroidCppCompiler
 from .cpp_compilers.clang_cpp_compiler import ClangCppCompiler
 from .cpp_compilers.gcc_cpp_compiler import GccCppCompiler
 from .cpp_compilers.mac_os_clang_cpp_compiler import MacOsClangCppCompiler
@@ -61,12 +59,10 @@ from .cpp_compilers.ps5_cpp_compiler import Ps5CppCompiler
 from .cpp_compilers.psvita_cpp_compiler import PsVitaCppCompiler
 from .cpp_compilers.xbox_360_cpp_compiler import Xbox360CppCompiler
 
-from .java_archivers.oracle_java_archiver import OracleJavaArchiver
+from .java_archivers.java_archiver import JavaArchiver
+from .java_compilers.java_compiler import JavaCompiler
 
-from .java_compilers.oracle_java_compiler import OracleJavaCompiler
-
-from .linkers.android_clang_linker import AndroidClangLinker
-from .linkers.android_gcc_linker import AndroidGccLinker
+from .linkers.android_linker import AndroidLinker
 from .linkers.clang_linker import ClangLinker
 from .linkers.gcc_linker import GccLinker
 from .linkers.mac_os_clang_linker import MacOsClangLinker
@@ -118,8 +114,6 @@ def InitTools():
 		( "msvc", MsvcCppCompiler, MsvcLinker, MsvcAssembler ),
 		( "msvc-uwp", MsvcUwpCppCompiler, MsvcUwpLinker, MsvcUwpAssembler ),
 		( "mac-clang", MacOsClangCppCompiler, MacOsClangLinker, ClangAssembler ),
-		( "android-gcc", AndroidGccCppCompiler, AndroidGccLinker, AndroidGccAssembler ),
-		( "android-clang", AndroidClangCppCompiler, AndroidClangLinker, AndroidClangAssembler ),
 	]:
 		checkers = _createCheckers({
 			CppCompileChecker(compiler): compiler.inputFiles,
@@ -128,15 +122,15 @@ def InitTools():
 
 		csbuild.RegisterToolchain(name, systemArchitecture, compiler, linker, assembler, checkers=checkers)
 
-	# Register Java toolchains.
-	for name, compiler, archiver in [
-		( "oracle-java", OracleJavaCompiler, OracleJavaArchiver ),
-	]:
-		checkers = _createCheckers({
-			CompileChecker(): compiler.inputFiles,
-		})
+	javaCheckers = _createCheckers({
+		CompileChecker(): compiler.inputFiles,
+	})
 
-		csbuild.RegisterToolchain(name, systemArchitecture, compiler, archiver, checkers=checkers)
+	androidCheckers = _createCheckers({
+		CppCompileChecker(AndroidCppCompiler): AndroidCppCompiler.inputFiles,
+		AsmCompileChecker(AndroidAssembler): AndroidAssembler.inputFiles,
+		CompileChecker(): JavaCompiler.inputFiles,
+	})
 
 	ps3Checkers = _createCheckers({
 		CppCompileChecker(Ps3CppCompiler): Ps3CppCompiler.inputFiles,
@@ -158,7 +152,21 @@ def InitTools():
 		AsmCompileChecker(PsVitaAssembler): PsVitaAssembler.inputFiles,
 	})
 
-	# Register the Sony platform toolchains.
+	# Register Java toolchain.
+	csbuild.RegisterToolchain("java", systemArchitecture, JavaCompiler, JavaArchiver, checkers=javaCheckers)
+
+	# Register the Android toolchain.
+	csbuild.RegisterToolchain(
+		"android",
+		"arm",
+		AndroidCppCompiler,
+		AndroidLinker,
+		AndroidAssembler,
+		JavaCompiler,
+		checkers=androidCheckers
+	)
+
+	# Register the Playstation platform toolchains.
 	csbuild.RegisterToolchain("ps3", "cell", Ps3CppCompiler, Ps3Linker, Ps3Assembler, Ps3SpuConverter, checkers=ps3Checkers)
 	csbuild.RegisterToolchain("ps4", "x64", Ps4CppCompiler, Ps4Linker, Ps4Assembler, checkers=ps4Checkers)
 	csbuild.RegisterToolchain("ps5", "x64", Ps5CppCompiler, Ps5Linker, Ps5Assembler, checkers=ps5Checkers)
@@ -169,13 +177,12 @@ def InitTools():
 		AsmCompileChecker(Xbox360Assembler): Xbox360Assembler.inputFiles,
 	})
 
-	# Register the Xbox platform toolchains.
+	# Register the Xbox platform toolchain.
 	csbuild.RegisterToolchain("xbox360", "xcpu", Xbox360CppCompiler, Xbox360Linker, Xbox360Assembler, Xbox360ImageXexTool, checkers=xbox360Checkers)
 
 	# Register toolchain groups.
 	csbuild.RegisterToolchainGroup("msvc", "msvc", "msvc-uwp")
 	csbuild.RegisterToolchainGroup("gnu", "gcc", "clang")
-	csbuild.RegisterToolchainGroup("android", "android-gcc", "android-clang")
 	csbuild.RegisterToolchainGroup("sony", "ps3", "ps4", "ps5", "psvita")
 
 	# Register default project generators.

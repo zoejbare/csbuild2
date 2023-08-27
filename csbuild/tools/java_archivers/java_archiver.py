@@ -19,8 +19,8 @@
 # SOFTWARE.
 
 """
-.. module:: oracle_java_compiler
-	:synopsis: Oracle-compatible Java compiler tool.
+.. module:: java_archiver
+	:synopsis: Oracle-compatible Java archiver tool.
 
 .. moduleauthor:: Zoe Bare
 """
@@ -29,47 +29,38 @@ from __future__ import unicode_literals, division, print_function
 
 import platform
 import os
+import subprocess
 
-from .java_compiler_base import JavaCompilerBase
+from .java_archiver_base import JavaArchiverBase
 
-def _ignore(_):
-	pass
-
-class OracleJavaCompiler(JavaCompilerBase):
+class JavaArchiver(JavaArchiverBase):
 	"""
-	Oracle-compatible Java compiler implementation.
+	Oracle-compatible Java archiver implementation.
 	"""
-
 	def __init__(self, projectSettings):
-		JavaCompilerBase.__init__(self, projectSettings)
+		JavaArchiverBase.__init__(self, projectSettings)
 
-		self._javaCompilerPath = os.path.join(self._javaBinPath, "javac{}".format(".exe" if platform.system() == "Windows" else ""))
-		assert os.access(self._javaCompilerPath, os.X_OK), "Oracle Java compiler not found at path: {}".format(self._javaCompilerPath)
+		self._javaArchiverPath = os.path.join(self._javaBinPath, "jar{}".format(".exe" if platform.system() == "Windows" else ""))
+
+		try:
+			subprocess.call([self._javaArchiverPath], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+		except:
+			raise IOError("Java archiver not found at path: {}".format(self._javaArchiverPath))
 
 
 	####################################################################################################################
 	### Methods implemented from base classes
 	####################################################################################################################
 
-	def _getOutputFiles(self, project, inputFiles, classRootPath):
-		_ignore(project)
-		_ignore(inputFiles)
-
-		outputFiles = set()
-
-		# Find each .class file in the intermediate directory.
-		for root, _, files in os.walk(classRootPath):
-			for filePath in files:
-				outputFiles.add(os.path.join(root, filePath))
-
-		return tuple(sorted(outputFiles))
+	def _getOutputFiles(self, project):
+		return tuple({ self._getOutputFilePath(project) })
 
 	def _getCommand(self, project, inputFiles, classRootPath):
-		cmd = [self._javaCompilerPath] \
-			+ self._getClassPathArgs() \
-			+ self._getSourcePathArgs() \
-			+ self._getOutputPathArgs(classRootPath) \
-			+ self._getInputFileArgs(inputFiles)
+		cmd = [self._javaArchiverPath] \
+			+ self._getSwitchArgs() \
+			+ self._getOutputArgs(project) \
+			+ self._getEntryPointClassArgs() \
+			+ self._getInputArgs(classRootPath)
 
 		return [arg for arg in cmd if arg]
 
@@ -78,29 +69,30 @@ class OracleJavaCompiler(JavaCompilerBase):
 	### Internal methods
 	####################################################################################################################
 
-	def _getClassPathArgs(self):
-		if self._classPaths:
-			arg = ";".join(self._classPaths)
-			return [
-				"-classpath",
-				arg,
-			]
-		return []
+	def _getOutputFilePath(self, project):
+		return os.path.join(project.outputDir, "{}.jar".format(project.outputName))
 
-	def _getSourcePathArgs(self):
-		if self._srcPaths:
-			arg = ";".join(self._srcPaths)
-			return [
-				"-sourcepath",
-				arg,
-			]
-		return []
+	def _getOutputArgs(self, project):
+		return [self._getOutputFilePath(project)]
 
-	def _getOutputPathArgs(self, classRootPath):
-		return [
-			"-d",
-			classRootPath,
-		]
+	def _getSwitchArgs(self):
+		return ["cf" + "e" if self._entryPointClass else ""]
 
-	def _getInputFileArgs(self, inputFiles):
-		return [f.filename for f in inputFiles]
+	def _getEntryPointClassArgs(self):
+		return [self._entryPointClass] if self._entryPointClass else []
+
+	def _getInputArgs(self, classRootPath):
+		rootItems = os.listdir(classRootPath)
+		args = []
+
+		# Pass in only the items in the class root directory since the Java archiver
+		# will recursively find class files in directories.  This is important so the
+		# layout of the files in the final archive have the correct directory structure.
+		for item in rootItems:
+			args.extend([
+				"-C",
+				classRootPath,
+				item
+			])
+
+		return args
