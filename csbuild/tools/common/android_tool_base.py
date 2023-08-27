@@ -82,15 +82,6 @@ def _getNdkVersion(ndkPath):
 	# No package revision found.
 	return 0, 0, 0
 
-@MetaClass(ABCMeta)
-class AndroidStlLibType(object):
-	"""
-	Enum values for selecting the type of STL library linked into Android projects.
-	"""
-	Gnu = "gnu-libstdc++"
-	LibCpp = "libc++"
-	StlPort = "stlport"
-
 class AndroidInfo(object):
 	"""
 	Collection of paths for a specific version of Android and architecture.
@@ -110,10 +101,10 @@ class AndroidInfo(object):
 	Instances = {}
 
 	def __init__(self, androidArch, targetSdkVersion, sdkRootPath, ndkRootPath):
-		self.sdkRootPath = sdkRootPath
-		self.ndkRootPath = ndkRootPath
 		self.sdkVersion = targetSdkVersion
 		self.ndkVersion = (0, 0, 0)
+		self.sdkRootPath = ""
+		self.ndkRootPath = ""
 		self.sysIncPaths = []
 		self.sysLibPaths = []
 		self.prefixPath = ""
@@ -131,14 +122,14 @@ class AndroidInfo(object):
 		exeFileExtension = ".exe" if platform.system() == "Windows" else ""
 
 		# Search for a toolchain by architecture.
-		self.targetTripleName, self.buildArchName, archTripleName, gccToolchainName, libcppArchName, sysArchName = {
-			"x86":    ("i686-none-linux-android",      "i686",    "i686-linux-android",     "x86-4.9",                    "x86",         "arch-x86"),
-			"x64":    ("x86_64-none-linux-android",    "x86_64",  "x86_64-linux-android",   "x86_64-4.9",                 "x86_64",      "arch-x86_64"),
-			"arm":    ("armv7-none-linux-androideabi", "armv7-a", "arm-linux-androideabi",  "arm-linux-androideabi-4.9",  "armeabi-v7a", "arch-arm"),
-			"arm64":  ("aarch64-none-linux-android",   "armv8-a", "aarch64-linux-android",  "aarch64-linux-android-4.9",  "arm64-v8a",   "arch-arm64"),
-			"mips":   ("mipsel-none-linux-android",    "mips32",  "mipsel-linux-android",   "mipsel-linux-android-4.9",   "mips",        "arch-mips"),
-			"mips64": ("mips64el-none-linux-android",  "mips64",  "mip64sel-linux-android", "mip64sel-linux-android-4.9", "mips64",      "arch-mips64"),
-		}.get(androidArch, (None, None, None, None, None, None))
+		self.targetTripleName, self.buildArchName, archTripleName, gccToolchainName, libcppArchName, sysArchName, platformLibDirName = {
+			"x86":    ("i686-none-linux-android",      "i686",    "i686-linux-android",     "x86-4.9",                    "x86",         "arch-x86",    "lib"),
+			"x64":    ("x86_64-none-linux-android",    "x86_64",  "x86_64-linux-android",   "x86_64-4.9",                 "x86_64",      "arch-x86_64", "lib64"),
+			"arm":    ("armv7-none-linux-androideabi", "armv7-a", "arm-linux-androideabi",  "arm-linux-androideabi-4.9",  "armeabi-v7a", "arch-arm",    "lib"),
+			"arm64":  ("aarch64-none-linux-android",   "armv8-a", "aarch64-linux-android",  "aarch64-linux-android-4.9",  "arm64-v8a",   "arch-arm64",  "lib"),
+			"mips":   ("mipsel-none-linux-android",    "mips32",  "mipsel-linux-android",   "mipsel-linux-android-4.9",   "mips",        "arch-mips",   "lib"),
+			"mips64": ("mips64el-none-linux-android",  "mips64",  "mips64el-linux-android", "mips64el-linux-android-4.9", "mips64",      "arch-mips64", "lib64"),
+		}.get(androidArch, (None, None, None, None, None, None, None))
 		assert self.targetTripleName is not None, "Architecture not supported for Android: {}".format(androidArch)
 
 		# Verify the target SDK version has been set.
@@ -170,6 +161,8 @@ class AndroidInfo(object):
 				if not matchingBuildToolsPaths:
 					log.Warn("Found Android SDK path, but it does not support target version {}: {}".format(self.sdkVersion, candidateSdkPath))
 					continue
+
+				log.Info("Using Android SDK: {}".format(candidateSdkPath))
 
 				self.sdkRootPath = candidateSdkPath
 
@@ -211,12 +204,9 @@ class AndroidInfo(object):
 					continue
 
 				# When either MIPS architecture is selected, skip NDKs that no longer support it.
-				if ndkRevision >= 17 and androidArch in { "mips", "mips64" }:
+				if ndkVersionMajor >= 17 and androidArch in { "mips", "mips64" }:
 					log.Warn("Found Android NDK, but it does not support any MIPS architectures: {}".format(candidateNdkPath))
 					continue
-
-				realSysLibPaths = None
-				prefixPath = None
 
 				gccToolchainRootPath = os.path.join(candidateNdkPath, "toolchains", gccToolchainName, "prebuilt", toolchainHostPlatformName)
 				gccToolchainBinPath = os.path.join(gccToolchainRootPath, archTripleName, "bin")
@@ -232,35 +222,35 @@ class AndroidInfo(object):
 				platformRootPath = os.path.join(candidateNdkPath, "platforms")
 				platformVersionPath = os.path.join(platformRootPath, "android-{}".format(self.sdkVersion), sysArchName)
 				platformIncPath = os.path.join(platformVersionPath, "usr", "include")
-				platformLibPaths = glob.glob(os.path.join(platformVersionPath, "usr", "lib*"))
+				platformLibPath = os.path.join(platformVersionPath, "usr", platformLibDirName)
 
 				toolchainSysLibRootPath = os.path.join(llvmToolchainSysRootPath, "usr", "lib", archTripleName)
-				toolchainPlatformSysLibPaths = [path for path in [os.path.join(toolchainSysLibRootPath, "{}".format(self.sdkVersion))] if os.access(path, os.F_OK)]
+				toolchainPlatformSysLibPath = os.path.join(toolchainSysLibRootPath, "{}".format(self.sdkVersion))
 
-				if not toolchainPlatformSysLibPaths:
-					toolchainPlatformSysLibPaths = [path for path in glob.glob(os.path.join(toolchainSysLibRootPath, "*")) if os.path.isdir(path)]
+				toolchainSysLibPaths = [toolchainPlatformSysLibPath, toolchainSysLibRootPath]
 
-				toolchainSysLibPaths = toolchainPlatformSysLibPaths + [toolchainSysLibRootPath]
+				# The real sysroot path will be determined by the location of the precompiled crt objects.
+				def evaluateSysLibPaths(libPaths):
+					crtbeginFileName = "crtbegin_so.o"
 
-				# The real sysroot path will be determined by
-				crtbeginFileName = "crtbegin_so.o"
-
-				for path in platformLibPaths:
-					filePath = os.path.join(path, crtbeginFileName)
-
-					if os.access(filePath, os.F_OK):
-						realSysLibPaths = platformLibPaths
-						prefixPath = path
-						break
-
-				if not realSysLibPaths:
-					for path in toolchainSysLibPaths:
+					for path in libPaths:
 						filePath = os.path.join(path, crtbeginFileName)
 
 						if os.access(filePath, os.F_OK):
-							realSysLibPaths = toolchainSysLibPaths
-							prefixPath = path
-							break
+							return libPaths, path
+
+					return None, None
+
+				# Check the platform sysroot for the real library path.
+				realSysLibPaths, prefixPath = evaluateSysLibPaths([platformLibPath])
+
+				# If the real library path couldn't be found, check the toolchain sysroot.
+				if not realSysLibPaths:
+					realSysLibPaths, prefixPath = evaluateSysLibPaths(toolchainSysLibPaths)
+
+				if not realSysLibPaths:
+					log.Warn("Found Android NDK, but failed to find the location of its sysroot libraries: {}".format(candidateNdkPath))
+					continue
 
 				baseSysRootPath = os.path.join(candidateNdkPath, "sysroot")
 				baseSysIncPath = os.path.join(baseSysRootPath, "usr", "include")
@@ -317,8 +307,10 @@ class AndroidInfo(object):
 					log.Warn("Found Android NDK, but archiver executable is missing: {}".format(candidateNdkPath))
 					continue
 
-				self.ndkRootPath = candidateNdkPath
+				log.Info("Using Android NDK: {}".format(candidateNdkPath))
+
 				self.ndkVersion = (ndkVersionMajor, ndkVersionMinor, ndkRevision)
+				self.ndkRootPath = candidateNdkPath
 				self.sysIncPaths = sysIncPaths
 				self.sysLibPaths = sysLibPaths
 				self.prefixPath = prefixPath
