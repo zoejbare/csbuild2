@@ -106,13 +106,14 @@ class LinkerBase(HasDebugLevel, HasDebugRuntime, HasStaticRuntime):
 				raise LibraryError(project)
 
 		for dependProject in project.dependencies:
-			outputExt = self._getOutputExtension(dependProject.projectType)
-			if outputExt is not None:
-				self._actualLibraryLocations[dependProject.outputName] = \
-					os.path.join(
-						dependProject.outputDir,
-						"{}{}".format(dependProject.outputName, outputExt)
-					)
+			if dependProject.projectType != csbuild.ProjectType.Stub:
+				outputExt = self._getOutputExtension(dependProject.projectType)
+				if outputExt is not None:
+					self._actualLibraryLocations[dependProject.outputName] = \
+						os.path.join(
+							dependProject.outputDir,
+							"{}{}".format(dependProject.outputName, outputExt)
+						)
 
 	################################################################################
 	### Static makefile methods
