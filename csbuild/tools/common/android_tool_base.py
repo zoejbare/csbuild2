@@ -136,7 +136,7 @@ class AndroidInfo(object):
 		assert isinstance(self.sdkVersion, int), "Android target SDK version is not an integer: \"{}\"".format(self.sdkVersion)
 
 		# If no SDK root path is specified, try to get it from the environment.
-		possiblePaths = [
+		possibleSdkPaths = [
 			sdkRootPath,
 			os.environ.get("ANDROID_HOME", None),
 			os.environ.get("ANDROID_SDK_ROOT", None),
@@ -144,7 +144,7 @@ class AndroidInfo(object):
 
 		if platform.system() == "Darwin":
 			# Special case for default install location of the SDK on macOS.
-			possiblePaths.extend([
+			possibleSdkPaths.extend([
 				os.path.join(os.environ["HOME"], "Library", "Android", "sdk"),
 				os.path.join(os.environ["HOME"], "Library", "Android", "Sdk"),
 				os.path.join(os.environ["HOME"], "Library", "Android", "SDK"),
@@ -153,16 +153,16 @@ class AndroidInfo(object):
 		expandedUserHomePath = os.path.join(os.path.expanduser("~"))
 
 		# Last ditch effort, try the user's home directory as the install location of the SDK.
-		possiblePaths.append(os.path.join(expandedUserHomePath, "Android", "sdk"))
+		possibleSdkPaths.append(os.path.join(expandedUserHomePath, "Android", "sdk"))
 
 		if platform.system() == "Linux":
-			possiblePaths.extend([
+			possibleSdkPaths.extend([
 				os.path.join(expandedUserHomePath, "Android", "Sdk"),
 				os.path.join(expandedUserHomePath, "Android", "SDK"),
 			])
 
 		# Loop over all the possible paths and go with the first one that exists.
-		for candidateSdkPath in possiblePaths:
+		for candidateSdkPath in possibleSdkPaths:
 			if not candidateSdkPath:
 				continue
 
@@ -269,22 +269,16 @@ class AndroidInfo(object):
 				toolchainSysIncPath = os.path.join(llvmToolchainSysRootPath, "usr", "include")
 				toolchainSysIncArchPath = os.path.join(toolchainSysIncPath, archTripleName)
 
-				sourcesRootPath = os.path.join(candidateNdkPath, "sources")
-				sourcesCxxStlRootPath = os.path.join(sourcesRootPath, "cxx-stl", "llvm-libc++")
-
 				sysIncPaths = [
-					baseSysIncPath,
-					baseSysIncArchPath,
-					platformIncPath,
 					toolchainSysIncPath,
 					toolchainSysIncArchPath,
-					os.path.join(sourcesCxxStlRootPath, "include"),
-					os.path.join(sourcesCxxStlRootPath, "libcxx", "include"),
+					platformIncPath,
+					baseSysIncPath,
+					baseSysIncArchPath,
 				]
 				sysLibPaths = realSysLibPaths
 				sysLibPaths.extend([
 					gccToolchainLibPath,
-					os.path.join(sourcesCxxStlRootPath, "libs", libcppArchName),
 				])
 
 				# Resolve all the system include and library paths to figure out which actually exist.
