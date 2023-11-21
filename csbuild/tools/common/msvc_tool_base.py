@@ -100,6 +100,11 @@ class Vcvarsall(object):
 				continue
 
 			keyValue = line.split("=", 1)
+
+			# Skip lines that are not in the valid key/value format.
+			if len(keyValue) < 2:
+				continue
+
 			key = PlatformString(keyValue[0])
 			value = PlatformString(keyValue[1])
 
@@ -240,7 +245,10 @@ class _InstallDataPost2017(_BaseInstallData):
 
 		_, output, _ = commands.Run([x for x in cmd if x], stdout=_noLogOnRun, stderr=_noLogOnRun)
 
-		assert not output.startswith("[ERROR"), output.replace("\r", "").split("\n", 1)[0]
+		# Strip out the \r characters.
+		output = output.replace("\r", "")
+
+		assert not output.startswith("[ERROR"), output.split("\n", 1)[0]
 
 		return Vcvarsall.Create(output)
 
@@ -303,7 +311,10 @@ class _InstallDataPre2017(_BaseInstallData):
 
 		_, output, _ = commands.Run([x for x in cmd if x], stdout=_noLogOnRun, stderr=_noLogOnRun)
 
-		assert not output.startswith("!ERROR!"), output.replace("\r", "").split("\n", 1)[0]
+		# Strip out the \r characters.
+		output = output.replace("\r", "")
+
+		assert not output.startswith("!ERROR!"), output.split("\n", 1)[0]
 
 		return Vcvarsall.Create(output)
 
