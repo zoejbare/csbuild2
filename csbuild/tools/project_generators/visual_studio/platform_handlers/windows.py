@@ -71,11 +71,14 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		:return: Additional NMake options.
 		:rtype: str or None
 		"""
+		ccStandard = project.platformCcLanguageStandard[buildSpec]
 		cxxStandard = project.platformCxxLanguageStandard[buildSpec]
 		args = [
-			"-include $(UM_IncludePath)",
-			"-std:{}".format(cxxStandard) if cxxStandard else None,
-			"-Zc:__cplusplus",
+			"/include $(UM_IncludePath)",
+			"/std:{}".format(ccStandard) if ccStandard else None,
+			"/std:{}".format(cxxStandard) if cxxStandard else None,
+			"/Zc:__STDC__",
+			"/Zc:__cplusplus",
 		]
 		return " ".join([x for x in args if x])
 
