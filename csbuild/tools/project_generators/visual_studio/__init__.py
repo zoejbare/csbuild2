@@ -135,7 +135,7 @@ class VsProjectGenerator(MsvcToolBase, HasDefines, HasIncludeDirectories, HasCcL
 
 	@property
 	def ccLanguageStandard(self):
-		"""Project C++ language standard"""
+		"""Project C language standard"""
 		return self._ccStandard
 
 	@property
