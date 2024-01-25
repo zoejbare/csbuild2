@@ -352,6 +352,7 @@ class VsProject(object):
 		self.platformIntermediateDirPath = {}
 		self.platformIncludePaths = {}
 		self.platformDefines = {}
+		self.platformCcLanguageStandard = {}
 		self.platformCxxLanguageStandard = {}
 
 		self.slnTypeGuid = {
@@ -394,6 +395,7 @@ class VsProject(object):
 				self.platformIntermediateDirPath.update({ buildSpec: "" })
 				self.platformIncludePaths.update({ buildSpec: [] })
 				self.platformDefines.update({ buildSpec: [] })
+				self.platformCcLanguageStandard.update({ buildSpec: None })
 				self.platformCxxLanguageStandard.update({ buildSpec: None })
 
 			# Merge the data from the generator.
@@ -401,6 +403,7 @@ class VsProject(object):
 				self.platformGenerator[buildSpec] = generator
 				self.platformIncludePaths[buildSpec].extend(list(generator.includeDirectories))
 				self.platformDefines[buildSpec].extend(list(generator.defines))
+				self.platformCcLanguageStandard[buildSpec] = generator.ccLanguageStandard
 				self.platformCxxLanguageStandard[buildSpec] = generator.cxxLanguageStandard
 
 				projectData = generator.projectData

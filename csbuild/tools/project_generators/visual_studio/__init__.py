@@ -36,7 +36,7 @@ from csbuild._utils.decorators import TypeChecked
 from csbuild.toolchain import SolutionGenerator
 
 from csbuild.tools.common.msvc_tool_base import MsvcToolBase
-from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories, HasCxxLanguageStandard
+from csbuild.tools.common.tool_traits import HasDefines, HasIncludeDirectories, HasCcLanguageStandard, HasCxxLanguageStandard
 
 
 def _writeProjectFiles(outputDir, solutionName, projects, version):
@@ -71,7 +71,7 @@ def SetEnableFileTypeFolders(enable):
 		internal.ENABLE_FILE_TYPE_FOLDERS = enable
 
 
-class VsProjectGenerator(MsvcToolBase, HasDefines, HasIncludeDirectories, HasCxxLanguageStandard):
+class VsProjectGenerator(MsvcToolBase, HasDefines, HasIncludeDirectories, HasCcLanguageStandard, HasCxxLanguageStandard):
 	"""
 	Visual Studio project generator
 
@@ -85,6 +85,7 @@ class VsProjectGenerator(MsvcToolBase, HasDefines, HasIncludeDirectories, HasCxx
 		MsvcToolBase.__init__(self, projectSettings)
 		HasDefines.__init__(self, projectSettings)
 		HasIncludeDirectories.__init__(self, projectSettings)
+		HasCcLanguageStandard.__init__(self, projectSettings)
 		HasCxxLanguageStandard.__init__(self, projectSettings)
 
 		self._projectData = None
@@ -102,6 +103,7 @@ class VsProjectGenerator(MsvcToolBase, HasDefines, HasIncludeDirectories, HasCxx
 
 		HasDefines.SetupForProject(self, project)
 		HasIncludeDirectories.SetupForProject(self, project)
+		HasCcLanguageStandard.SetupForProject(self, project)
 		HasCxxLanguageStandard.SetupForProject(self, project)
 
 	def RunGroup(self, inputProject, inputFiles):
@@ -130,6 +132,11 @@ class VsProjectGenerator(MsvcToolBase, HasDefines, HasIncludeDirectories, HasCxx
 	def defines(self):
 		"""Project defines"""
 		return self._defines
+
+	@property
+	def ccLanguageStandard(self):
+		"""Project C language standard"""
+		return self._ccStandard
 
 	@property
 	def cxxLanguageStandard(self):
