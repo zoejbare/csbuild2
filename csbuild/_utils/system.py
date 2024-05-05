@@ -28,12 +28,11 @@
 from __future__ import unicode_literals, division, print_function
 
 import functools
-import imp
 import os
 import platform
 import traceback
 
-from . import shared_globals
+from . import shared_globals, module_importer
 from .. import commands, perf_timer, log
 
 if platform.system() == "Windows":
@@ -79,8 +78,8 @@ def CleanUp():
 	except:
 		traceback.print_exc()
 	finally:
-		if not imp.lock_held():
-			imp.acquire_lock()
+		if not module_importer.lock_held():
+			module_importer.acquire_lock()
 
 	# TODO: Kill running subprocesses
 	# TODO: Exit events for plugins and toolchains
