@@ -52,7 +52,7 @@ else:
 		:param dirname: Directory name
 		:type dirname: str
 		"""
-		dirfd = os.open(dirname, os.O_DIRECTORY) # pylint: disable=no-member
+		dirfd = os.open(dirname, os.O_DIRECTORY)
 		os.fsync(dirfd)
 		os.close(dirfd)
 

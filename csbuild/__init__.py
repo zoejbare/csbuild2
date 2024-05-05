@@ -49,7 +49,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		_typeType = type
 		_classType = type
 	else:
-		from collections import Callable
+		from collections import Callable # pylint: disable=deprecated-class
 		import types
 		# pylint: disable=invalid-name
 		_typeType = types.TypeType

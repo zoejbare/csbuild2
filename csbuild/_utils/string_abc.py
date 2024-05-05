@@ -38,5 +38,5 @@ class String(object):
 
 #pylint's not very intelligent about the @MetaClass decorator...
 
-String.register(StrType)  # pylint: disable=no-member
-String.register(BytesType)  # pylint: disable=no-member
+String.register(StrType)
+String.register(BytesType)

@@ -58,7 +58,7 @@ class VsBaseWindowsPlatformHandler(VsBasePlatformHandler):
 		}.get(projectOutputType, None)
 
 	@staticmethod
-	def GetIntellisenseAdditionalOptions(project, buildSpec): # pylint: disable=redundant-returns-doc
+	def GetIntellisenseAdditionalOptions(project, buildSpec):
 		"""
 		Get any additional NMake options to configure intellisense.
 

@@ -40,7 +40,7 @@ from . import perf_timer
 _logQueue = queue.Queue()
 _stopEvent = object()
 _callbackQueue = None
-_logThread = threading.currentThread()
+_logThread = threading.current_thread()
 _barPresent = False
 _lastPerc = 0.0
 _sep = "<"
@@ -327,7 +327,7 @@ def StartLogThread():
 def StopLogThread():
 	"""Stop the log thread if it's running. If not, this is a nop."""
 	global _logThread
-	if threading.currentThread() != _logThread:
+	if threading.current_thread() != _logThread:
 		_callbackQueue.Put(_stopEvent)
 		_logThread.join()
 		_logThread = threading.current_thread()
@@ -337,7 +337,7 @@ def _logMsg(color, level, msg, quietThreshold):
 	if shared_globals.verbosity < quietThreshold:
 		if isinstance(msg, BytesType):
 			msg = msg.decode("UTF-8")
-		if threading.currentThread() == _logThread:
+		if threading.current_thread() == _logThread:
 			_writeLog(color, level, msg)
 		else:
 			assert _callbackQueue is not None, "Threaded logging requires a callback queue (shared with ThreadPool)"
@@ -349,7 +349,7 @@ def _logMsgToStderr(color, level, msg, quietThreshold):
 	if shared_globals.verbosity < quietThreshold:
 		if isinstance(msg, BytesType):
 			msg = msg.decode("UTF-8")
-		if threading.currentThread() == _logThread:
+		if threading.current_thread() == _logThread:
 			_writeLog(color, level, msg, sys.stderr)
 		else:
 			assert _callbackQueue is not None, "Threaded logging requires a callback queue (shared with ThreadPool)"

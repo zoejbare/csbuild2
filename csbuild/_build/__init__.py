@@ -755,7 +755,6 @@ def Run():
 
 			for col in projtable:
 				for subindex, item in enumerate(col):
-					item = col[subindex]
 					epilog += "  "
 					epilog += item
 					for _ in range(maxlens[subindex] - len(item)):
@@ -1205,6 +1204,8 @@ def Run():
 			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name.replace("-", "_"), shape, color)
 			class _shared:
 				topLevelDependencies = set(buildProj.dependencies)
+
+			# pylint: disable=cell-var-from-loop
 			def _recurseAndRemove(deps):
 				for dep in deps:
 					for nextDep in dep.dependencies:

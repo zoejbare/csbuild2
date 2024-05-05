@@ -38,7 +38,7 @@ if sys.version_info[0] > 3 or (sys.version_info[0] == 3 and sys.version_info[1] 
 	release_lock = _imp_replacement.release_lock
 
 else:
-	import imp
+	import imp # pylint: disable=deprecated-module,import-error
 
 	load_source = imp.load_source
 	load_module = imp.load_module

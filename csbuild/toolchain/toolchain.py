@@ -149,7 +149,7 @@ class Toolchain(object):
 					return ordered_set.OrderedSet()
 
 				@contextlib.contextmanager
-				def Use(cls): # pylint: disable=missing-yield-doc,missing-yield-type-doc
+				def Use(cls):
 					"""
 					Simple context manager to simplify scope management for the class tracker
 					:param cls: The class to manage, or 'self' to access self variables
@@ -859,10 +859,8 @@ class Toolchain(object):
 											break
 									assert val is not sentinel, "this shouldn't happen"
 									if isinstance(val, property):
-										# pylint: disable=no-member
 										return val.__get__(self)
 									if isinstance(val, (staticmethod, classmethod)):
-										# pylint: disable=no-member
 										return val.__get__(cls)
 									if isinstance(val, (types.FunctionType, types.MethodType)):
 										assert runInit, "Cannot call non-static methods of class {} from this context!".format(cls.__name__)
@@ -978,7 +976,6 @@ class Toolchain(object):
 	################################################################################
 	################################################################################
 
-	# pylint: disable=redundant-returns-doc
 	@contextlib.contextmanager
 	@TypeChecked(tool=(_classType, _typeType))
 	def Use(self, tool):

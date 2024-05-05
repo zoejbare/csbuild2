@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+# pylint: skip-file
 """
 .. module:: _imp_replacement
 	:synopsis: Copy of `imp.py` from Python 3.11 (with the DEPRECATED warnings/comments removed)
