@@ -46,7 +46,7 @@ from ..toolchain import toolchain
 if sys.version_info[0] >= 3:
 	from collections.abc import Callable
 else:
-	from collections import Callable
+	from collections import Callable # pylint: disable=deprecated-class
 
 allPlans = {}
 class _defaultType(object):

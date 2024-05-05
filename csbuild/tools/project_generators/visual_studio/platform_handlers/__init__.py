@@ -77,7 +77,7 @@ class VsBasePlatformHandler(object):
 		self._addXmlNode = ET.SubElement
 
 	@staticmethod
-	def GetVisualStudioPlatformName(): # pylint: disable=redundant-returns-doc
+	def GetVisualStudioPlatformName():
 		"""
 		Get the name that is recognizeable by Visual Studio for the current platform.
 
@@ -87,7 +87,7 @@ class VsBasePlatformHandler(object):
 		pass
 
 	@staticmethod
-	def GetOutputExtensionIfDebuggable(projectOutputType): # pylint: disable=redundant-returns-doc
+	def GetOutputExtensionIfDebuggable(projectOutputType):
 		"""
 		Get the file extension of the input project output type for the current platform.
 		Only applies to debuggable projects.  Any other project types should return `None`.
@@ -138,7 +138,7 @@ class VsBasePlatformHandler(object):
 		return []
 
 	@staticmethod
-	def GetIntellisenseAdditionalOptions(project, buildSpec): # pylint: disable=redundant-returns-doc
+	def GetIntellisenseAdditionalOptions(project, buildSpec):
 		"""
 		Get any additional NMake options to configure intellisense.
 

@@ -39,12 +39,12 @@ from ._utils.decorators import TypeChecked
 if sys.version_info[0] >= 3:
 	from collections.abc import Callable
 else:
-	from collections import Callable
+	from collections import Callable # pylint: disable=deprecated-class
 
 if sys.version_info >= (3,3,0):
 	from shlex import quote
 else:
-	from pipes import quote
+	from pipes import quote # pylint: disable=deprecated-module
 
 queueOfLogQueues = queue.Queue()
 stopEvent = object()

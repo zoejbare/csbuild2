@@ -133,8 +133,6 @@ def _makeXmlCommentNode(parentXmlNode, text):
 	return comment
 
 def _generateUuid(name):
-	global UUID_TRACKER
-
 	if not name:
 		return "{{{}}}".format(str(uuid.UUID(int=0)))
 
@@ -295,9 +293,6 @@ class VsProjectItem(object):
 	Container for items owned by Visual Studio projects.
 	"""
 	def __init__(self, name, dirPath, itemType, parentSegments):
-		global CPP_SOURCE_FILE_EXTENSIONS
-		global CPP_HEADER_FILE_EXTENSIONS
-
 		self.name = name if name else ""
 		self.dirPath = dirPath if dirPath else ""
 		self.guid = _generateUuid(os.path.join(self.dirPath, self.name))
@@ -352,6 +347,7 @@ class VsProject(object):
 		self.platformIntermediateDirPath = {}
 		self.platformIncludePaths = {}
 		self.platformDefines = {}
+		self.platformCcLanguageStandard = {}
 		self.platformCxxLanguageStandard = {}
 
 		self.slnTypeGuid = {
@@ -381,8 +377,6 @@ class VsProject(object):
 		:param generator: Generator containing the data that needs to be merged into the project.
 		:type generator: csbuild.tools.project_generators.visual_studio.VsProjectGenerator or None
 		"""
-		global ENABLE_FILE_TYPE_FOLDERS
-
 		if self.projType == VsProjectType.Standard:
 
 			# Register support for the input build spec.
@@ -394,6 +388,7 @@ class VsProject(object):
 				self.platformIntermediateDirPath.update({ buildSpec: "" })
 				self.platformIncludePaths.update({ buildSpec: [] })
 				self.platformDefines.update({ buildSpec: [] })
+				self.platformCcLanguageStandard.update({ buildSpec: None })
 				self.platformCxxLanguageStandard.update({ buildSpec: None })
 
 			# Merge the data from the generator.
@@ -401,6 +396,7 @@ class VsProject(object):
 				self.platformGenerator[buildSpec] = generator
 				self.platformIncludePaths[buildSpec].extend(list(generator.includeDirectories))
 				self.platformDefines[buildSpec].extend(list(generator.defines))
+				self.platformCcLanguageStandard[buildSpec] = generator.ccLanguageStandard
 				self.platformCxxLanguageStandard[buildSpec] = generator.cxxLanguageStandard
 
 				projectData = generator.projectData
@@ -597,7 +593,6 @@ def _evaluatePlatforms(generators, vsInstallInfo):
 
 
 def _createRegenerateBatchFile(outputRootPath):
-	global MAKEFILE_PATH
 	global REGEN_FILE_PATH
 
 	outputFilePath = os.path.join(outputRootPath, "regenerate_solution.bat")
@@ -609,7 +604,7 @@ def _createRegenerateBatchFile(outputRootPath):
 
 	# Write the batch file data.
 	with os.fdopen(tmpFd, "w") as f:
-		writeLineToFile = lambda text: f.write("{}\n".format(text))
+		writeLineToFile = lambda text: f.write("{}\n".format(text)) # pylint: disable=unnecessary-lambda-assignment
 
 		writeLineToFile("@echo off")
 		writeLineToFile("SETLOCAL")
@@ -627,8 +622,6 @@ def _createRegenerateBatchFile(outputRootPath):
 
 
 def _buildProjectHierarchy(generators):
-	global BUILD_SPECS
-
 	rootProject = VsProject(None, "", VsProjectType.Root)
 	buildAllProject = VsProject("(BUILD_ALL)", "", VsProjectType.Standard)
 	regenProject = VsProject("(REGENERATE_SOLUTION)", "", VsProjectType.Standard)
@@ -720,9 +713,6 @@ def _buildFlatProjectItemList(rootItems):
 
 
 def _writeSolutionFile(rootProject, outputRootPath, solutionName, vsInstallInfo):
-	global PLATFORM_HANDLERS
-	global BUILD_SPECS
-
 	class SolutionWriter(object): # pylint: disable=missing-docstring
 		def __init__(self, fileHandle):
 			self.fileHandle = fileHandle
@@ -1157,11 +1147,6 @@ def _writeUserVcxProj(outputRootPath, project, preserve):
 
 
 def _writeProjectFiles(rootProject, outputRootPath, preserveUserFiles):
-	global PLATFORM_HANDLERS
-	global BUILD_SPECS
-	global MAKEFILE_PATH
-	global REGEN_FILE_PATH
-
 	flatProjectList = _buildFlatProjectList(rootProject)
 	globalPlatformHandlers = {}
 
@@ -1183,8 +1168,6 @@ def _writeProjectFiles(rootProject, outputRootPath, preserveUserFiles):
 
 
 def UpdatePlatformHandlers(handlers): # pylint: disable=missing-docstring
-	global PLATFORM_HANDLERS
-
 	fixedHandlers = {}
 
 	# Validate the handlers before adding the mappings to the global dictionary.
@@ -1232,8 +1215,6 @@ def WriteProjectFiles(outputRootPath, solutionName, generators, vsVersion):
 	:param vsVersion: Version of Visual Studio to create projects for.
 	:type vsVersion: str
 	"""
-	global FILE_FORMAT_VERSION_INFO
-
 	vsInstallInfo = FILE_FORMAT_VERSION_INFO.get(vsVersion, None)
 	if not vsInstallInfo:
 		log.Error("Unknown version of Visual Studio: {}".format(vsVersion))

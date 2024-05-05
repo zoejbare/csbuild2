@@ -78,7 +78,16 @@ class VsPsVitaPlatformHandler(VsBasePlatformHandler):
 		:return: Additional NMake options.
 		:rtype: str or None
 		"""
-		return "$(PSVitaIntelliSense)"
+		ccStandard = project.platformCcLanguageStandard[buildSpec]
+		cxxStandard = project.platformCxxLanguageStandard[buildSpec]
+		args = [
+			"$(PSVitaIntelliSense)",
+			"/std:{}".format(ccStandard) if ccStandard else None,
+			"/std:{}".format(cxxStandard) if cxxStandard else None,
+			"/Zc:__STDC__",
+			"/Zc:__cplusplus",
+		]
+		return " ".join([x for x in args if x])
 
 	def WriteGlobalImportTargets(self, parentXmlNode, project):
 		"""

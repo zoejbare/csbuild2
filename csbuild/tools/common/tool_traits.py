@@ -262,6 +262,8 @@ class HasCcLanguageStandard(Tool):
 		:param standard: C language standard.
 		:type standard: str
 		"""
+		standard = standard.strip().lower()
+		assert standard.startswith("c") and not standard.startswith("c+"), "Invalid C standard: {}".format(standard)
 		csbuild.currentPlan.SetValue("ccLanguageStandard", standard)
 
 
@@ -284,6 +286,8 @@ class HasCxxLanguageStandard(Tool):
 		:param standard: C++ language standard.
 		:type standard: str
 		"""
+		standard = standard.strip().lower()
+		assert standard.startswith("c++"), "Invalid C++ standard: {}".format(standard)
 		csbuild.currentPlan.SetValue("cxxLanguageStandard", standard)
 
 

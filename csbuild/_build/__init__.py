@@ -32,7 +32,6 @@ import csbuild
 import argparse
 import os
 import sys
-import imp
 import math
 import multiprocessing
 import time
@@ -42,7 +41,7 @@ import collections
 from . import recompile
 from . import project_plan, project, input_file
 from .. import log, commands, tools, perf_timer
-from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak, PlatformString, settings_manager
+from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak, PlatformString, settings_manager, module_importer
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 
@@ -54,6 +53,7 @@ else:
 	# pylint: disable=invalid-name
 	_typeType = types.TypeType
 	_classType = types.ClassType
+
 
 class _dummy(object):
 	def __setattr__(self, key, value):
@@ -755,7 +755,6 @@ def Run():
 
 			for col in projtable:
 				for subindex, item in enumerate(col):
-					item = col[subindex]
 					epilog += "  "
 					epilog += item
 					for _ in range(maxlens[subindex] - len(item)):
@@ -1106,7 +1105,7 @@ def Run():
 			"""
 			self.lock.acquire()
 			sys.meta_path.pop(0)
-			self.loader = imp.find_module(fullname.rpartition(".")[2], path)
+			self.loader = module_importer.find_module(fullname.rpartition(".")[2], path)
 			sys.meta_path.insert(0, self)
 			if self.loader is not None:
 				return self
@@ -1122,7 +1121,7 @@ def Run():
 			:rtype: module
 			"""
 			try:
-				return imp.load_module(name, *self.loader)
+				return module_importer.load_module(name, *self.loader)
 			finally:
 				self.lock.release()
 
@@ -1130,8 +1129,8 @@ def Run():
 
 	failures = 0
 
-	if imp.lock_held():
-		imp.release_lock()
+	if module_importer.lock_held():
+		module_importer.release_lock()
 	log.StartLogThread()
 
 	with perf_timer.PerfTimer("Project plan execution"):
@@ -1205,6 +1204,8 @@ def Run():
 			builder += '\t{0} [shape="{1}" color="{2}" style="filled" fillcolor="{2}30"];\n'.format(buildProj.name.replace("-", "_"), shape, color)
 			class _shared:
 				topLevelDependencies = set(buildProj.dependencies)
+
+			# pylint: disable=cell-var-from-loop
 			def _recurseAndRemove(deps):
 				for dep in deps:
 					for nextDep in dep.dependencies:
