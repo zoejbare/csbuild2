@@ -110,7 +110,7 @@ class AndroidCppCompiler(AndroidToolBase, CppCompilerBase):
 			"-Wno-unused-command-line-argument",
 			"-Wa,--noexecstack",
 		]
-		if project.projectType == csbuild.ProjectType.SharedLibrary or project.projectType == csbuild.ProjectType.Application:
+		if project.projectType in { csbuild.ProjectType.SharedLibrary, project.projectType == csbuild.ProjectType.Application }:
 			args.append("-fPIC")
 		return args
 

@@ -38,6 +38,9 @@ from ... import log
 from ..._utils.decorators import MetaClass
 from ...toolchain import Tool
 
+def _ignore(_):
+	pass
+
 def _getNdkVersion(ndkPath):
 	packagePropsFilePath = os.path.join(ndkPath, "source.properties")
 	if not os.access(packagePropsFilePath, os.F_OK):
@@ -61,8 +64,7 @@ def _getNdkVersion(ndkPath):
 					startIndex = line.index(token)
 
 					# Use the earliest comment token found in the line.
-					if startIndex < lineEndIndex:
-						lineEndIndex = startIndex
+					lineEndIndex = min(lineEndIndex, startIndex)
 
 			# Strip out any comments found in the line.
 			line = line[0:lineEndIndex]
@@ -130,6 +132,8 @@ class AndroidInfo(object):
 			"mips64": ("mips64el-none-linux-android",  "mips64",  "mips64el-linux-android", "mips64el-linux-android-4.9", "mips64",      "arch-mips64", "lib64"),
 		}.get(androidArch, (None, None, None, None, None, None, None))
 		assert self.targetTripleName is not None, "Architecture not supported for Android: {}".format(androidArch)
+
+		_ignore(libcppArchName)
 
 		# Verify the target SDK version has been set.
 		assert self.sdkVersion, "No Android target SDK version provided"
@@ -240,7 +244,7 @@ class AndroidInfo(object):
 				toolchainSysLibPaths = [toolchainPlatformSysLibPath, toolchainSysLibRootPath]
 
 				# The real sysroot path will be determined by the location of the precompiled crt objects.
-				def evaluateSysLibPaths(libPaths):
+				def evaluateSysLibPaths(libPaths): # pylint: disable=invalid-name
 					crtbeginFileName = "crtbegin_so.o"
 
 					for path in libPaths:

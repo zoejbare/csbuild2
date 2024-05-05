@@ -441,6 +441,7 @@ disable=
 	raw-checker-failed,
 	redefined-argument-from-local,
 	super-with-arguments,
+	superfluous-parens,
 	suppressed-message,
 	too-few-public-methods,
 	too-many-arguments,
