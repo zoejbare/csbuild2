@@ -148,6 +148,22 @@ class Ps3CppCompiler(Ps3BaseTool, CppCompilerBase):
 		return ["-O{}".format(arg.get(self._optLevel, "0"))]
 
 	def _getLanguageStandardArgs(self, isSourceCpp):
-		# No argument for the C language standard.
-		arg = "-Xstd={}".format(self._cxxStandard) if self._cxxStandard and isSourceCpp else None
+		if self._ps3BuildInfo.toolsetType == Ps3ToolsetType.PpuSnc:
+			argName = "Xstd"
+			standard = self._cxxStandard if isSourceCpp else self._ccStandard
+
+			if isSourceCpp:
+				# The SNC compiler only supports the c++03 and c++11 standard, but they have non-standard names.
+				assert self._cxxStandard in { "c++03", "c++11" }, "Unsupported C++ standard: {}".format(self._cxxStandard)
+				standard = "cpp{}".format(self._cxxStandard[3:])
+
+		else:
+			if isSourceCpp:
+				# The GCC compilers do not support setting the c++ standard
+				return []
+
+			argName = "std"
+			standard = self._ccStandard
+
+		arg = "-{}={}".format(argName, standard) if standard else None
 		return [arg]
