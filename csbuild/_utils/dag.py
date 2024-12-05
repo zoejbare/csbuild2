@@ -31,6 +31,7 @@ import sys
 
 from collections import OrderedDict
 from .._testing import testcase
+from ..dependency import Dependency
 
 class DAG(object):
 	"""
@@ -54,9 +55,10 @@ class DAG(object):
 		:param value: The value to add
 		:type value: any
 		:param dependencies: List of keys that must precede this one in the graph
-		:type dependencies: list(any)
+		:type dependencies: list[any]
 		"""
 		assert self._keyFunc(value) not in self._graph, "Duplicate item in dependency graph: {}".format(self._keyFunc(value))
+		dependencies = [dep.name if isinstance(dep, Dependency) else dep for dep in dependencies]
 		for dependency in dependencies:
 			if dependency not in self._graph:
 				self._deferred.add((value, tuple(dependencies)))

@@ -41,6 +41,7 @@ from .._utils import ordered_set, MultiBreak
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
 from .._testing import testcase
+from ..dependency import Dependency
 from ..toolchain import toolchain
 
 if sys.version_info[0] >= 3:
@@ -69,22 +70,29 @@ class ProjectPlan(object):
 	A plan to create one or more finalized projects.
 
 	:param name: The project's name. Must be unique.
-	:type name: str, bytes
+	:type name: str or bytes
+
 	:param workingDirectory: The location on disk containing the project's files, which should be examined to collect source files.
 		If autoDiscoverSourceFiles is False, this parameter is ignored.
-	:type workingDirectory: str, bytes
+	:type workingDirectory: str or bytes
+
 	:param depends: List of names of other prjects this one depends on.
-	:type depends: list(str, bytes)
+	:type depends: list[str or bytes]
+
 	:param priority: Priority in the build queue, used to cause this project to get built first in its dependency ordering. Higher number means higher priority.
 	:type priority: int
+
 	:param ignoreDependencyOrdering: Treat priority as a global value and use priority to raise this project above, or lower it below, the dependency order
 	:type ignoreDependencyOrdering: bool
+
 	:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
 	:type autoDiscoverSourceFiles: bool
+
 	:param autoResolveRpaths: If True, automatically add RPATH arguments for linked shared libraries.
 	:type autoResolveRpaths: bool
+
 	:param scriptDir: Directory of the script where this project is defined
-	:type scriptDir: str, bytes
+	:type scriptDir: str or bytes
 	"""
 	@TypeChecked(name=String, workingDirectory=String, depends=list, priority=int, ignoreDependencyOrdering=bool, autoDiscoverSourceFiles=bool, autoResolveRpaths=bool, scriptDir=String)
 	def __init__(self, name, workingDirectory, depends, priority, ignoreDependencyOrdering, autoDiscoverSourceFiles, autoResolveRpaths, scriptDir):
@@ -138,7 +146,7 @@ class ProjectPlan(object):
 		"""
 		Get the project name
 		:return: project name
-		:rtype: str, bytes
+		:rtype: str or bytes
 		"""
 		return self._name
 
@@ -147,7 +155,7 @@ class ProjectPlan(object):
 		"""
 		Get the project dependency list
 		:return: project dependency list
-		:rtype: list
+		:rtype: list[str or Dependency]
 		"""
 		return self._depends
 
@@ -242,13 +250,17 @@ class ProjectPlan(object):
 			default = self._getFinalValueFromOverride(overrideDict.get("platform", {}).get(platform.system()), name, toolchainName, architectureName, targetName, default)
 		return default
 
-	def _flattenDepends(self, flattenedDepends, dependObj):
+	def _flattenDepends(self, flattenedDepends, dependObj, toolchainName, architectureName, targetName):
 		# pylint: disable=protected-access
 		for depend in dependObj._depends:
+			if isinstance(depend, Dependency):
+				if not depend.ShouldIncludeInBuild(toolchainName, architectureName, targetName):
+					continue
+				depend = depend.name
 			assert depend in allPlans, "Project {} references unknown dependency {}".format(dependObj._name, depend)
 			if depend == self._name:
 				continue
-			self._flattenDepends(flattenedDepends, allPlans[depend])
+			self._flattenDepends(flattenedDepends, allPlans[depend], toolchainName, architectureName, targetName)
 			flattenedDepends.add(depend)
 
 	@TypeChecked(toolchainName=(String, _defaultType), architectureName=(String, _defaultType), targetName=(String, _defaultType))
@@ -257,11 +269,14 @@ class ProjectPlan(object):
 		Execute the project plan for a given toolchain and architecture to create a concrete project.
 
 		:param toolchainName: The toolchain to execute the plan for
-		:type toolchainName: str, bytes
+		:type toolchainName: str or bytes
+
 		:param architectureName: The architecture to execute the plan for
-		:type architectureName: str, bytes
+		:type architectureName: str or bytes
+
 		:param targetName: The target to execute the plan for
-		:type targetName: str, bytes
+		:type targetName: str or bytes
+
 		:return: A concrete project
 		:rtype: project.Project
 		"""
@@ -325,7 +340,7 @@ class ProjectPlan(object):
 				settings[key] = copy.deepcopy(value)
 
 			flattenedDepends = ordered_set.OrderedSet()
-			self._flattenDepends(flattenedDepends, self)
+			self._flattenDepends(flattenedDepends, self, toolchainName, architectureName, targetName)
 
 			libraries = ordered_set.OrderedSet()
 			if "libraries" in settings:
@@ -343,7 +358,7 @@ class ProjectPlan(object):
 
 			for depend in flattenedDepends:
 				# pylint: disable=protected-access
-				dependObj = allPlans[depend] # type: ProjectPlan
+				dependObj = allPlans[depend.name if isinstance(depend, Dependency) else depend] # type: ProjectPlan
 
 				if projectType == ProjectType.Application:
 					settings["libraries"] = ordered_set.OrderedSet(settings.get("libraries")) | ordered_set.OrderedSet(
@@ -446,7 +461,8 @@ class ProjectPlan(object):
 		Set a value in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:param value: The value
 		:type value: Any
 		"""
@@ -461,7 +477,7 @@ class ProjectPlan(object):
 		Set a value in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
 		"""
 		if toolchain.currentToolId is not None:
 			key = "{}!{}".format(toolchain.currentToolId[0], key)
@@ -474,7 +490,8 @@ class ProjectPlan(object):
 		Extend a list in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:param value: The value
 		:type value: Any
 		"""
@@ -489,7 +506,8 @@ class ProjectPlan(object):
 		Append to a list in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:param value: The value
 		:type value: Any
 		"""
@@ -504,7 +522,8 @@ class ProjectPlan(object):
 		Update a dict in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:param value: The key/value pair to add to the named dict
 		:type value: dict
 		"""
@@ -519,7 +538,8 @@ class ProjectPlan(object):
 		Combine two sets in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:param value: The value
 		:type value: Any
 		"""
@@ -534,7 +554,8 @@ class ProjectPlan(object):
 		Add to a set in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:param value: The value
 		:type value: Any
 		"""
@@ -549,7 +570,8 @@ class ProjectPlan(object):
 		Check to see if an override is present in the project settings
 
 		:param key: The setting key
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:return: Whether or not the value is present
 		:rtype: bool
 		"""
@@ -565,8 +587,10 @@ class ProjectPlan(object):
 	def GetTempToolchainsInCurrentContexts(self, *toolchainNames):
 		"""
 		Get a list of all values in the currently active contexts.
+
 		:param toolchainNames: The toolchains to look for
-		:type toolchainNames: str, bytes
+		:type toolchainNames: str or bytes
+
 		:return: list of temporary toolchains in currently active contexts
 		:rtype: list
 		"""
@@ -590,7 +614,8 @@ class ProjectPlan(object):
 		Perform a complex action on values in the settings dictionary.
 
 		:param key: The value to act on
-		:type key: str, bytes
+		:type key: str or bytes
+
 		:param action: The action to take
 		:type action: A callable accepting a single parameter representing the current value and returning the new value.
 			If the key has not been set for this scope, the current value passed in will be None.

@@ -36,6 +36,7 @@ import glob
 import traceback
 
 from . import perf_timer
+from .dependency import Dependency
 from ._utils import PlatformUnicode, StrType
 
 with perf_timer.PerfTimer("csbuild module init"):
@@ -225,8 +226,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		:param buildProject: Project being built
 		:type buildProject: project.Project
+
 		:param inputFile: The file(s) being built
 		:type inputFile: input_file.InputFile or ordered_set.OrderedSet
+
 		:param info: Extra details about the failure
 		:type info: str
 		"""
@@ -328,7 +331,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Set the project output name and type
 
 		:param name: Project name
-		:type name: str, bytes
+		:type name: str or bytes
+
 		:param projectType: Type of project
 		:type projectType: ProjectType
 		"""
@@ -341,11 +345,14 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Register a new toolchain to be used by the project for building
 
 		:param name: The name of the toolchain, which will be used to reference it
-		:type name: str, bytes
+		:type name: str or bytes
+
 		:param defaultArchitecture: The default architecture to be used for this toolchain
-		:type defaultArchitecture: str, bytes
+		:type defaultArchitecture: str or bytes
+
 		:param tools: List of tools to be used to make the toolchain.
 		:type tools: class
+
 		:param kwargs: Specify parameter `checkers` to include a dictionary of extension to csbuild.toolchain.CompileChecker instances
 			These checkers will be used to determine whether or not to recompile files
 		:type kwargs: any
@@ -389,9 +396,11 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Register a new toolchain to be used by the project for building
 
 		:param name: The name of the toolchain, which will be used to reference it
-		:type name: str, bytes
+		:type name: str or bytes
+
 		:param projectTools: List of tools to be used to make individual project files
 		:type projectTools: list[class]
+
 		:param solutionTool: tool to generate the final solution file
 		:type solutionTool: class
 		"""
@@ -411,6 +420,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		:param name: Name of the group
 		:type name: str
+
 		:param toolchains: Toolchain to alias
 		:type toolchains: str
 		"""
@@ -420,8 +430,9 @@ with perf_timer.PerfTimer("csbuild module init"):
 	def SetDefaultToolchain(toolchainName):
 		"""
 		Set the default toolchain to be used.
+
 		:param toolchainName: Name of the toolchain
-		:type toolchainName: str, bytes
+		:type toolchainName: str or bytes
 		"""
 		csbuild.currentPlan.defaultToolchain = toolchainName
 
@@ -429,8 +440,9 @@ with perf_timer.PerfTimer("csbuild module init"):
 	def SetDefaultArchitecture(architectureName):
 		"""
 		Set the default architecture to be used.
+
 		:param architectureName: Name of the architecture
-		:type architectureName: str, bytes
+		:type architectureName: str or bytes
 		"""
 		csbuild.currentPlan.defaultArchitecture = architectureName
 
@@ -438,14 +450,16 @@ with perf_timer.PerfTimer("csbuild module init"):
 	def SetDefaultTarget(targetName):
 		"""
 		Set the default target to be used.
+
 		:param targetName: Name of the target
-		:type targetName: str, bytes
+		:type targetName: str or bytes
 		"""
 		csbuild.currentPlan.defaultTarget = targetName
 
 	def SetSupportedArchitectures(*args):
 		"""
 		Set the supported architectures for the enclosing scope
+
 		:param args: Architectures to support
 		:type args: str
 		"""
@@ -458,6 +472,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	def SetSupportedToolchains(*args):
 		"""
 		Set the supported toolchains for the enclosing scope
+
 		:param args: Toolchains to support
 		:type args: str
 		"""
@@ -470,6 +485,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	def SetSupportedTargets(*args):
 		"""
 		Set the supported targets for the enclosing scope
+
 		:param args: Targets to support
 		:type args: str
 		"""
@@ -482,6 +498,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 	def SetSupportedPlatforms(*args):
 		"""
 		Set the supported platforms for the enclosing scope
+
 		:param args: Platforms to support
 		:type args: str
 		"""
@@ -505,6 +522,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 		:param key: name of the variable to set
 		:type key: str
+
 		:param value: value to set to that variable
 		:type value: any
 		"""
@@ -605,7 +623,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Apply values to a specific toolchain
 
 		:param toolchainNames: Toolchain identifier
-		:type toolchainNames: str, bytes
+		:type toolchainNames: str or bytes
 		"""
 		def __init__(self, *toolchainNames):
 			class _toolchainMethodResolver(object):
@@ -618,8 +636,10 @@ with perf_timer.PerfTimer("csbuild module init"):
 	def ToolchainGroup(*names):
 		"""
 		Apply values to toolchains in a toolchain group
+
 		:param names: Toolchain group names
-		:type names: str
+		:type names: str or bytes
+
 		:return: A context manager for the toolchains in the group
 		:rtype: Toolchain
 		"""
@@ -633,7 +653,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Apply values to a specific architecture
 
 		:param architectureNames: Architecture identifier
-		:type architectureNames: str, bytes
+		:type architectureNames: str or bytes
 		"""
 		def __init__(self, *architectureNames):
 			ContextManager.__init__(self, (("architecture", architectureNames),))
@@ -643,7 +663,7 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Apply values to a specific platform
 
 		:param platformNames: Platform identifier
-		:type platformNames: str, bytes
+		:type platformNames: str or bytes
 		"""
 		def __init__(self, *platformNames):
 			ContextManager.__init__(self, (("platform", platformNames),))
@@ -653,7 +673,8 @@ with perf_timer.PerfTimer("csbuild module init"):
 		Apply values to a specific target
 
 		:param targetNames: target identifiers
-		:type targetNames: str, bytes
+		:type targetNames: str or bytes
+
 		:param kwargs: if addToCurrentScope is set to False as a keyword argument, only projects inside the scope of this
 					   target will be made aware of this target's existence; other projects will be excluded
 		"""
@@ -716,18 +737,24 @@ with perf_timer.PerfTimer("csbuild module init"):
 		If it does exist, these settings will apply to the existing project.
 
 		:param name: The project's name.
-		:type name: str, bytes
+		:type name: str or bytes
+
 		:param workingDirectory: The location on disk containing the project's files, which should be examined to collect source files.
 			If autoDiscoverSourceFiles is False, this parameter is ignored.
-		:type workingDirectory: str, bytes
+		:type workingDirectory: str or bytes
+
 		:param depends: List of names of other prjects this one depends on.
-		:type depends: list(str, bytes)
+		:type depends: list[str or bytes or Dependency]
+
 		:param priority: Priority in the build queue, used to cause this project to get built first in its dependency ordering. Higher number means higher priority.
 		:type priority: bool
+
 		:param ignoreDependencyOrdering: Treat priority as a global value and use priority to raise this project above, or lower it below, the dependency order
 		:type ignoreDependencyOrdering: bool
+
 		:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
 		:type autoDiscoverSourceFiles: bool
+
 		:param autoResolveRpaths: If True, automatically add RPATH arguments to linked shared libraries. Only applies to native, UNIX-based shared libraries and executables.
 		:type autoResolveRpaths: bool
 		"""
@@ -771,10 +798,13 @@ with perf_timer.PerfTimer("csbuild module init"):
 
 			:param excType: type of exception thrown in the context (ignored)
 			:type excType: type
+
 			:param excValue: value of thrown exception (ignored)
 			:type excValue: any
+
 			:param backtrace: traceback attached to the thrown exception (ignored)
 			:type backtrace: traceback
+
 			:return: Always false
 			:rtype: bool
 			"""
