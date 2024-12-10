@@ -41,6 +41,7 @@ import collections
 from . import recompile
 from . import project_plan, project, input_file
 from .. import log, commands, tools, perf_timer
+from ..dependency import Dependency
 from .._utils import system, shared_globals, thread_pool, terminfo, ordered_set, FormatTime, queue, dag, MultiBreak, PlatformString, settings_manager, module_importer
 from .._utils.decorators import TypeChecked
 from .._utils.string_abc import String
@@ -1070,8 +1071,9 @@ def Run():
 			if plan.name in projectFilter:
 				if plan.name not in added:
 					added.add(plan.name)
-					projectFilter.update(plan.depends)
-					filteredProjects.Add(plan, plan.depends)
+					depends = [dep.name if isinstance(dep, Dependency) else dep for dep in plan.depends]
+					projectFilter.update(depends)
+					filteredProjects.Add(plan, depends)
 		shared_globals.sortedProjects = filteredProjects
 		nonexistent = projectFilter - added
 		if nonexistent:
