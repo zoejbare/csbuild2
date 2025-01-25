@@ -121,7 +121,7 @@ class GccCppCompiler(CppCompilerBase):
 	def _getOptimizationArgs(self):
 		arg = {
 			OptimizationLevel.Size: "s",
-			OptimizationLevel.Speed: "fast",
+			OptimizationLevel.Speed: "2",
 			OptimizationLevel.Max: "3",
 		}
 		return ["-O{}".format(arg.get(self._optLevel, "0"))]
