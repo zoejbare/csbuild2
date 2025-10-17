@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Jaedyn K. Draper
+# Copyright (C) 2025 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,8 @@
 .. module:: _imp_replacement
 	:synopsis: Copy of `imp.py` from Python 3.11 (with the DEPRECATED warnings/comments removed)
 	    which we need for compatibility reasons since that module was removed in Python 3.12.
+
+.. moduleauthor:: Zoe Bare
 """
 
 # (Probably) need to stay in _imp
