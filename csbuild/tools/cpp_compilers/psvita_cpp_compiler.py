@@ -141,6 +141,12 @@ class PsVitaCppCompiler(PsVitaBaseTool, CppCompilerBase):
 		return ["-O{}".format(arg.get(self._optLevel, "0"))]
 
 	def _getLanguageStandardArgs(self, isSourceCpp):
-		# No argument for the C language standard.
-		arg = "-Xstd={}".format(self._cxxStandard) if self._cxxStandard and isSourceCpp else None
+		standard = self._cxxStandard if isSourceCpp else self._ccStandard
+
+		if isSourceCpp:
+			# The SNC compiler only supports the c++03 and c++11 standard, but they have non-standard names.
+			assert self._cxxStandard in { "c++03", "c++11" }, "Unsupported C++ standard: {}".format(self._cxxStandard)
+			standard = "cpp{}".format(self._cxxStandard[3:])
+
+		arg = "-Xstd={}".format(standard) if standard else None
 		return [arg]

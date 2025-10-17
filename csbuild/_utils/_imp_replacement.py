@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Jaedyn K. Draper
+# Copyright (C) 2025 Jaedyn K. Draper
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,8 @@
 .. module:: _imp_replacement
 	:synopsis: Copy of `imp.py` from Python 3.11 (with the DEPRECATED warnings/comments removed)
 	    which we need for compatibility reasons since that module was removed in Python 3.12.
+
+.. moduleauthor:: Zoe Bare
 """
 
 # (Probably) need to stay in _imp
@@ -35,8 +37,15 @@ except ImportError:
     # Platform doesn't support dynamic loading.
     create_dynamic = None
 
-from importlib._bootstrap import _ERR_MSG, _exec, _load, _builtin_from_name
+from importlib._bootstrap import _exec, _load, _builtin_from_name
 from importlib._bootstrap_external import SourcelessFileLoader
+
+try:
+    # _ERR_MSG was removed from importlib in Python 3.14.0
+    from importlib._bootstrap import _ERR_MSG
+except:
+    from importlib._bootstrap import _ERR_MSG_PREFIX
+    _ERR_MSG = _ERR_MSG_PREFIX + "{!r}"
 
 from importlib import machinery
 from importlib import util
