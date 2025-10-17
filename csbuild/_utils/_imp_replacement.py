@@ -35,8 +35,15 @@ except ImportError:
     # Platform doesn't support dynamic loading.
     create_dynamic = None
 
-from importlib._bootstrap import _ERR_MSG, _exec, _load, _builtin_from_name
+from importlib._bootstrap import _exec, _load, _builtin_from_name
 from importlib._bootstrap_external import SourcelessFileLoader
+
+try:
+    # _ERR_MSG was removed from importlib in Python 3.14.0
+    from importlib._bootstrap import _ERR_MSG
+except:
+    from importlib._bootstrap import _ERR_MSG_PREFIX
+    _ERR_MSG = _ERR_MSG_PREFIX + "{!r}"
 
 from importlib import machinery
 from importlib import util
