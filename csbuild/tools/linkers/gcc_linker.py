@@ -35,7 +35,8 @@ import csbuild
 
 from .linker_base import LinkerBase
 from ... import commands, log
-from ..._utils import ordered_set, response_file, shared_globals
+from ..._utils import response_file, shared_globals
+from ..._utils.ordered_set import OrderedSet
 
 def _ignore(_):
 	pass
@@ -99,7 +100,7 @@ class GccLinker(LinkerBase):
 	def _findLibraries(self, project, libs):
 		ret = {}
 
-		shortLibs = ordered_set.OrderedSet(libs)
+		shortLibs = OrderedSet(libs)
 		longLibs = []
 
 		for lib in libs:
@@ -249,7 +250,8 @@ class GccLinker(LinkerBase):
 
 	def _getLibraryPathArgs(self, project):
 		_ignore(project)
-		args = ["-L{}".format(os.path.dirname(libFile)) for libFile in self._actualLibraryLocations.values()]
+		libPaths = OrderedSet([os.path.dirname(libFile) for libFile in self._actualLibraryLocations.values()])
+		args = ["-L{}".format(dirPath) for dirPath in libPaths]
 		return args
 
 	def _rpathStartsWithVariable(self, rpath):
