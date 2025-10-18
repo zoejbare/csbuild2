@@ -36,6 +36,7 @@ from ..common import FindLibraries
 from ..common.android_tool_base import AndroidToolBase
 from ... import log
 from ..._utils import response_file, shared_globals
+from ..._utils.ordered_set import OrderedSet
 
 class AndroidLinker(AndroidToolBase, LinkerBase):
 	"""
@@ -150,16 +151,13 @@ class AndroidLinker(AndroidToolBase, LinkerBase):
 		return [f.filename for f in inputFiles]
 
 	def _getLibraryPathArgs(self):
-		libDirPaths = { "-L{}".format(os.path.dirname(d)) for d in self._actualLibraryLocations.values() }
-		args = list(libDirPaths)
-		args.extend(["-L{}".format(d) for d in self._androidInfo.sysLibPaths])
+		libDirPaths = [ os.path.dirname(d) for d in self._actualLibraryLocations.values() ]
+		libDirPaths = OrderedSet(libDirPaths + self._androidInfo.sysLibPaths)
+		args = ["-L{}".format(d) for d in libDirPaths]
 		return args
 
 	def _getLibraryArgs(self):
-		args = ["-lc", "-lm", "-llog", "-landroid"]
-
-		libSuffix = "static" if self._staticRuntime else "shared"
-		args.append("-l{}".format("c++_{}".format(libSuffix)))
+		args = ["-lc", "-lm", "-landroid"]
 
 		# Add only the basename for each library.
 		for lib in self._actualLibraryLocations.values():

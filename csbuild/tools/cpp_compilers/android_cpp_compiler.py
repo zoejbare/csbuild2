@@ -34,6 +34,7 @@ from .cpp_compiler_base import CppCompilerBase
 from ..common.android_tool_base import AndroidToolBase
 from ..common.tool_traits import HasDebugLevel, HasOptimizationLevel
 from ... import log
+from ..._build.input_file import  InputFile
 from ..._utils import response_file, shared_globals
 
 DebugLevel = HasDebugLevel.DebugLevel
@@ -63,6 +64,14 @@ class AndroidCppCompiler(AndroidToolBase, CppCompilerBase):
 		"""
 		AndroidToolBase.SetupForProject(self, project)
 		CppCompilerBase.SetupForProject(self, project)
+
+		# Add the NDK native app glue source.
+		if self._enableAndroidNativeAppGlue:
+			sourcePath = os.path.join(self._androidInfo.nativeAppGluePath, "android_native_app_glue.c")
+			assert os.access(sourcePath, os.F_OK), "Android native app glue source file not found at path: {}".format(sourcePath)
+
+			# Add it directly to the project's list of input files.
+			project.inputFiles[".c"].add(InputFile(sourcePath))
 
 	def _getOutputFiles(self, project, inputFile):
 		intDirPath = project.GetIntermediateDirectory(inputFile)
@@ -110,7 +119,7 @@ class AndroidCppCompiler(AndroidToolBase, CppCompilerBase):
 			"-Wno-unused-command-line-argument",
 			"-Wa,--noexecstack",
 		]
-		if project.projectType in { csbuild.ProjectType.SharedLibrary, project.projectType == csbuild.ProjectType.Application }:
+		if project.projectType in { csbuild.ProjectType.SharedLibrary, csbuild.ProjectType.Application }:
 			args.append("-fPIC")
 		return args
 
@@ -131,7 +140,10 @@ class AndroidCppCompiler(AndroidToolBase, CppCompilerBase):
 		return args
 
 	def _getIncludeDirectoryArgs(self):
-		args = ["-I{}".format(d) for d in self._includeDirectories]
+		args = []
+		if self._enableAndroidNativeAppGlue:
+			args.append("-I{}".format(self._androidInfo.nativeAppGluePath))
+		args.extend(["-I{}".format(d) for d in self._includeDirectories])
 		args.extend(["-I{}".format(d) for d in self._androidInfo.sysIncPaths])
 		return args
 

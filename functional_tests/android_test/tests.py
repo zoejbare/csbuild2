@@ -44,7 +44,7 @@ class AndroidTest(FunctionalTest):
 
 	def testClangX86CompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=x86", "--toolchain=android-clang"]
+		testArgs = ["--project=hello_world", "--arch=x86", "--toolchain=android"]
 		self.cleanArgs = testArgs
 		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
 
@@ -52,7 +52,7 @@ class AndroidTest(FunctionalTest):
 
 	def testClangX64CompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=x64", "--toolchain=android-clang"]
+		testArgs = ["--project=hello_world", "--arch=x64", "--toolchain=android"]
 		self.cleanArgs = testArgs
 		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
 
@@ -60,7 +60,7 @@ class AndroidTest(FunctionalTest):
 
 	def testClangArmCompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=arm", "--toolchain=android-clang"]
+		testArgs = ["--project=hello_world", "--arch=arm", "--toolchain=android"]
 		self.cleanArgs = testArgs
 		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
 
@@ -68,7 +68,7 @@ class AndroidTest(FunctionalTest):
 
 	def testClangArm64CompileSucceeds(self):
 		"""Test that the project succesfully compiles"""
-		testArgs = ["--project=hello_world", "--arch=arm64", "--toolchain=android-clang"]
+		testArgs = ["--project=hello_world", "--arch=arm64", "--toolchain=android"]
 		self.cleanArgs = testArgs
 		self.assertMakeSucceeds("-v", "--show-commands", *testArgs)
 

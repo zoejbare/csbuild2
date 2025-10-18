@@ -51,6 +51,8 @@ def _getNdkVersion(ndkPath):
 		fileLines = f.readlines()
 
 	commentTokens = { "#", ";", "//" }
+	foundBaseRevisionString = False
+	versionString = None
 
 	# Check each line for the package revision which contains the version info.
 	for line in fileLines:
@@ -73,16 +75,29 @@ def _getNdkVersion(ndkPath):
 			lineKey = lineElements[0].strip() if len(lineElements) > 0 else None
 			lineValue = lineElements[1].strip() if len(lineElements) > 1 else None
 
-			if lineKey == "Pkg.Revision" and lineValue:
-				versions = lineValue.split(".")
-				majorVersion = int(versions[0]) if len(versions) > 0 else 0
-				minorVersion = int(versions[1]) if len(versions) > 1 else 0
-				revision = int(versions[2]) if len(versions) > 2 else 0
+			if lineValue:
+				if lineKey == "Pkg.BaseRevision":
+					# Prefer the base revision since it's listed without the beta version.
+					versionString = lineValue
+					foundBaseRevisionString = True
 
-				return majorVersion, minorVersion, revision
+				elif lineKey == "Pkg.Revision" and not foundBaseRevisionString:
+					# Use the standard package revision value as a backup only if the base revision is not present.
+					versionString = lineValue
 
-	# No package revision found.
-	return 0, 0, 0
+	if not versionString:
+		# No package revision found.
+		return 0, 0, 0
+
+	versions = versionString.split(".")
+	revisionString = versions[2].split("-") if len(versions) > 2 else ["0"]
+
+	majorVersion = int(versions[0]) if len(versions) > 0 else 0
+	minorVersion = int(versions[1]) if len(versions) > 1 else 0
+	revision = int(revisionString[0])
+
+	return majorVersion, minorVersion, revision
+
 
 class AndroidInfo(object):
 	"""
@@ -107,6 +122,9 @@ class AndroidInfo(object):
 		self.ndkVersion = (0, 0, 0)
 		self.sdkRootPath = ""
 		self.ndkRootPath = ""
+		self.cpuFeaturesPath = ""
+		self.nativeAppGluePath = ""
+		self.ndkHelperPath = ""
 		self.sysIncPaths = []
 		self.sysLibPaths = []
 		self.prefixPath = ""
@@ -335,6 +353,11 @@ class AndroidInfo(object):
 		assert self.ndkRootPath, "No valid Android NDK found for target version: {}".format(self.sdkVersion)
 		assert os.access(self.ndkRootPath, os.F_OK), "Android NDK root path does not exist: {}".format(self.ndkRootPath)
 
+		androidSourcesRootPath = os.path.join(self.ndkRootPath, "sources", "android")
+		self.cpuFeaturesPath = os.path.join(androidSourcesRootPath, "cpufeatures")
+		self.nativeAppGluePath = os.path.join(androidSourcesRootPath, "native_app_glue")
+		self.ndkHelperPath = os.path.join(androidSourcesRootPath, "ndk_helper")
+
 
 @MetaClass(ABCMeta)
 class AndroidToolBase(Tool):
@@ -351,8 +374,9 @@ class AndroidToolBase(Tool):
 
 		self._androidSdkRootPath = projectSettings.get("androidSdkRootPath", "")
 		self._androidNdkRootPath = projectSettings.get("androidNdkRootPath", "")
+		self._androidMinimumSdkVersion = projectSettings.get("androidMinimumSdkVersion", 0)
 		self._androidTargetSdkVersion = projectSettings.get("androidTargetSdkVersion", 0)
-		self._androidManifestFilePath = projectSettings.get("androidManifestFilePath", "")
+		self._enableAndroidNativeAppGlue = projectSettings.get("enableAndroidNativeAppGlue", False)
 
 		self._androidInfo = None
 
@@ -377,7 +401,7 @@ class AndroidToolBase(Tool):
 					arch,
 					self._androidTargetSdkVersion,
 					self._androidSdkRootPath,
-					self._androidNdkRootPath
+					self._androidNdkRootPath,
 				)
 
 			self._androidInfo = AndroidInfo.Instances[arch]
@@ -388,6 +412,7 @@ class AndroidToolBase(Tool):
 
 	def _getDefaultAndroidDefines(self):
 		return [
+			"-D__ANDROID_MIN_SDK_VERSION__={}".format(self._androidMinimumSdkVersion),
 			"-D__ANDROID_API__={}".format(self._androidTargetSdkVersion),
 			"-DANDROID_NDK",
 			"-DANDROID",
@@ -419,6 +444,16 @@ class AndroidToolBase(Tool):
 		csbuild.currentPlan.SetValue("androidNdkRootPath", os.path.abspath(path) if path else None)
 
 	@staticmethod
+	def SetAndroidMinimumSdkVersion(version):
+		"""
+		Sets the Android minimum SDK version.
+
+		:param version: Android minimum SDK version.
+		:type version: int
+		"""
+		csbuild.currentPlan.SetValue("androidMinimumSdkVersion", version)
+
+	@staticmethod
 	def SetAndroidTargetSdkVersion(version):
 		"""
 		Sets the Android target SDK version.
@@ -429,11 +464,11 @@ class AndroidToolBase(Tool):
 		csbuild.currentPlan.SetValue("androidTargetSdkVersion", version)
 
 	@staticmethod
-	def SetAndroidManifestFilePath(path):
+	def SetAndroidNativeAppGlueEnabled(enableNativeAppGlue):
 		"""
-		Sets the path to the Android manifest file.
+		Sets a boolean for including the Android NDK native app glue source in a project.
 
-		:param path: Android manifest file path.
-		:type path: str
+		:param enableNativeAppGlue: Enable building with the Android NDK native app glue source?
+		:type enableNativeAppGlue: bool
 		"""
-		csbuild.currentPlan.SetValue("androidManifestFilePath", os.path.abspath(path))
+		csbuild.currentPlan.SetValue("enableAndroidNativeAppGlue", enableNativeAppGlue)
