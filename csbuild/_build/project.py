@@ -59,29 +59,40 @@ class Project(object):
 
 	:param name: The project's name. Must be unique.
 	:type name: str
+
 	:param workingDirectory: The location on disk containing the project's files, which should be examined to collect source files.
 		If autoDiscoverSourceFiles is False, this parameter is ignored.
-	:type workingDirectory: String
+	:type workingDirectory: str or bytes
+
 	:param depends: List of names of other prjects this one depends on.
-	:type depends: list(String)
+	:type depends: ordered_set.OrderedSet[str or bytes]
+
 	:param priority: Priority in the build queue, used to cause this project to get built first in its dependency ordering. Higher number means higher priority.
 	:type priority: int
+
 	:param ignoreDependencyOrdering: Treat priority as a global value and use priority to raise this project above, or lower it below, the dependency order
 	:type ignoreDependencyOrdering: bool
+
 	:param autoDiscoverSourceFiles: If False, do not automatically search the working directory for files, but instead only build files that are manually added.
 	:type autoDiscoverSourceFiles: bool
+
 	:param autoResolveRpaths: Automatically add RPATH arguments for linked shared libraries.
 	:type autoResolveRpaths: bool
+
 	:param projectSettings: Finalized settings from the project plan
 	:type projectSettings: dict
+
 	:param toolchainName: Toolchain name
-	:type toolchainName: str, bytes
+	:type toolchainName: str or bytes
+
 	:param archName: Architecture name
-	:type archName: str, bytes
+	:type archName: str or bytes
+
 	:param targetName: Target name
-	:type targetName: str, bytes
+	:type targetName: str or bytes
+
 	:param scriptDir: Directory of the script where this project is defined
-	:type scriptDir: str, bytes
+	:type scriptDir: str or bytes
 	"""
 
 	_lock = threading.Lock()
@@ -232,7 +243,8 @@ class Project(object):
 		str type.
 
 		:param toConvert: The macroized string to convert
-		:type toConvert: str, bytes
+		:type toConvert: str or bytes
+
 		:return: The converted string
 		:rtype: str
 		"""
@@ -267,15 +279,26 @@ class Project(object):
 		Called after shared_globals.projectMap is filled out, this will populate the dependencies map.
 		"""
 		for name in self.dependencyNames:
-			self.dependencies.append(shared_globals.projectMap[self.toolchainName][self.architectureName][self.targetName][name])
+			project = shared_globals.projectMap \
+				.get(self.toolchainName, {}) \
+				.get(self.architectureName, {}) \
+				.get(self.targetName, {}) \
+				.get(name, None)
+
+			if project:
+				self.dependencies.append(project)
+			else:
+				log.Error("Dependency does not exist for configuration ({}/{}/{}) for project \"{}\": {}", self.toolchainName, self.architectureName, self.targetName, self.name, name)
 
 	@TypeChecked(inputs=(input_file.InputFile, list, ordered_set.OrderedSet, type(None)), artifact=String)
 	def AddArtifact(self, inputs, artifact):
 		"""
 		Add an artifact - i.e., a file created by the build
+
 		:param inputs: Inputs being used to generate this artifact
 		:type inputs: input_file.InputFile or list[input_file.InputFile] or ordered_set.OrderedSet[input_file.InputFile]
-		:param artifact: absolute path to the file
+
+		:param artifact: Absolute path to the file
 		:type artifact: str
 		"""
 		if shared_globals.runMode == shared_globals.RunMode.GenerateSolution:
@@ -298,6 +321,7 @@ class Project(object):
 
 		:param inputs: The input or inputs being used for this compile unit.
 		:type inputs: input_file.InputFile or list[input_file.InputFile] or ordered_set.OrderedSet[input_file.InputFile]
+
 		:return: The list of outputs from the last run
 		:rtype: ordered_set.OrderedSet[str]
 		"""
@@ -316,7 +340,8 @@ class Project(object):
 		Get the unique, intermediate directory path for an input file.  The directory will be created if it does not exist.
 
 		:param inputFile: The input file to use for constructing the directory.
-		:type inputFile: :class:`csbuild.input_file.InputFile`
+		:type inputFile: input_file.InputFile
+
 		:return: Unique intermediate directory path.
 		:rtype: str
 		"""

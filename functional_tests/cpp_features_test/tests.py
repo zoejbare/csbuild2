@@ -152,7 +152,7 @@ class CppFeaturesTest(FunctionalTest):
 			self.assertIsNot(re.compile(R"/UIMPLICIT_DEFINE\s", re.M).search(out), None)
 		elif platform.system() == "Linux":
 			self.assertIsNot(re.compile(R"-g\s", re.M).search(out), None)
-			self.assertIsNot(re.compile(R"-Ofast\s", re.M).search(out), None)
+			self.assertIsNot(re.compile(R"-O2\s", re.M).search(out), None)
 
 		self.assertTrue(os.access(self.outputFile, os.F_OK))
 		out = subprocess.check_output([self.outputFile])

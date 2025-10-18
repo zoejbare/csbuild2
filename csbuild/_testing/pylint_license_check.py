@@ -32,11 +32,10 @@ import re
 import sys
 
 if sys.version_info.major >= 3:
-	from pylint.interfaces import IRawChecker
-	from pylint.checkers import BaseChecker
+	from pylint.checkers import BaseChecker, BaseRawFileChecker
 
 else:
-	class IRawChecker(object):
+	class BaseRawFileChecker(object):
 		# pylint: disable=missing-class-docstring
 		pass
 
@@ -75,7 +74,7 @@ class HeaderCheck(BaseChecker):
 
 	# pylint: disable=invalid-name
 
-	__implements__ = IRawChecker
+	__implements__ = BaseRawFileChecker
 
 	name = 'csbuild_license_check'
 	msgs = {

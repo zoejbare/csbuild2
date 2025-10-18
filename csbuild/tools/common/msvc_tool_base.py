@@ -154,7 +154,7 @@ class _BaseInstallData(object):
 
 	@staticmethod
 	@abstractmethod
-	def FindInstallations(): # pylint: disable=redundant-returns-doc
+	def FindInstallations():
 		"""
 		Static function to find all available installations of Visual Studio.
 
@@ -164,7 +164,7 @@ class _BaseInstallData(object):
 
 
 	@abstractmethod
-	def GetEnvironment(self, archInfo): # pylint: disable=redundant-returns-doc
+	def GetEnvironment(self, archInfo):
 		"""
 		Retrieve the Vcvarsall instance for the current install data using the supplied architecture info.
 

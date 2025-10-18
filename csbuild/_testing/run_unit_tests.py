@@ -30,10 +30,9 @@ import sys
 import unittest
 import fnmatch
 import os
-import imp
 
 from .. import log
-from .._utils import shared_globals, terminfo
+from .._utils import shared_globals, terminfo, module_importer
 from .._testing import testcase
 
 
@@ -58,7 +57,7 @@ def RunTests(include, exclude):
 			modulepath = os.path.join("functional_tests", testdir, "tests.py")
 			if os.access(modulepath, os.F_OK):
 				log.Test("Loading {}", modulepath)
-				tests.addTest(unittest.defaultTestLoader.loadTestsFromModule(imp.load_source("{}_TESTS".format(testdir), modulepath)))
+				tests.addTest(unittest.defaultTestLoader.loadTestsFromModule(module_importer.load_source("{}_TESTS".format(testdir), modulepath)))
 	testRunner = testcase.TestRunner(xmlfile="result.xml", stream=sys.stdout, verbosity=0)
 
 	# Handle filtering:

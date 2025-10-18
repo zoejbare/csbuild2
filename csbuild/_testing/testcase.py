@@ -236,7 +236,7 @@ class TestResult(unittest.TextTestResult):
 		"""
 		super(TestResult, self).stopTest(test)
 		# Python 3.5 changed from ModuleImportFailure to _FailedTest...
-		if test.__class__.__name__ != "_FailedTest" and test.__class__.__name__ != "ModuleImportFailure":
+		if test.__class__.__name__ not in { "_FailedTest", "ModuleImportFailure" }:
 			self.testList[test] = time.time() - self.timer
 
 	def addError(self, test, err):

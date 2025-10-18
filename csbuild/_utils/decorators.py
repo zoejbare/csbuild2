@@ -457,7 +457,7 @@ class TestTypeCheck(testcase.TestCase):
 	def setUp(self):
 		Overload.funcs = {}
 
-	# pylint: disable=unused-argument,unused-variable,no-self-use,invalid-name
+	# pylint: disable=unused-argument,unused-variable,invalid-name
 	def testSimpleTypeCheck(self):
 		"""Simple test that type checks work for built-in types"""
 		@TypeChecked(var1=int, var2=StrType)
@@ -523,7 +523,7 @@ class TestTypeCheck(testcase.TestCase):
 class TestOverload(testcase.TestCase):
 	"""Test for the Overload decorator"""
 
-	# pylint: disable=unused-argument,unused-variable,no-self-use,invalid-name,function-redefined
+	# pylint: disable=unused-argument,unused-variable,invalid-name,function-redefined
 	def testSimpleOverloads(self):
 		"""Test that overloads work in the general case and non-matching argument sets throw exceptions"""
 

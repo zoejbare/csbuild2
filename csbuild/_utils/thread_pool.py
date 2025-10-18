@@ -42,7 +42,7 @@ from .reraise import Reraise
 if sys.version_info[0] >= 3:
 	from collections.abc import Callable
 else:
-	from collections import Callable
+	from collections import Callable # pylint: disable=deprecated-class
 	# pylint: disable=import-error
 
 class ThreadedTaskException(Exception):
