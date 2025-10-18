@@ -37,6 +37,7 @@ from ..common.sony_tool_base import PsVitaBaseTool
 
 from ... import log
 from ..._utils import response_file, shared_globals
+from ..._utils.ordered_set import OrderedSet
 
 class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 	"""
@@ -170,7 +171,8 @@ class PsVitaLinker(PsVitaBaseTool, LinkerBase):
 		return [f.filename for f in inputFiles]
 
 	def _getLibraryPathArgs(self):
-		args = ["-L{}".format(os.path.dirname(lib)) for lib in self._actualLibraryLocations.values()]
+		libPaths = OrderedSet([os.path.dirname(libFile) for libFile in self._actualLibraryLocations.values()])
+		args = ["-L{}".format(dirPath) for dirPath in libPaths]
 		return args
 
 	def _getLibraryArgs(self):
