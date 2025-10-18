@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 """
-.. module:: oracle_java_archiver
+.. module:: java_archiver
 	:synopsis: Oracle-compatible Java archiver tool.
 
 .. moduleauthor:: Zoe Bare
@@ -33,7 +33,7 @@ import subprocess
 
 from .java_archiver_base import JavaArchiverBase
 
-class OracleJavaArchiver(JavaArchiverBase):
+class JavaArchiver(JavaArchiverBase):
 	"""
 	Oracle-compatible Java archiver implementation.
 	"""
@@ -45,7 +45,7 @@ class OracleJavaArchiver(JavaArchiverBase):
 		try:
 			subprocess.call([self._javaArchiverPath], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
 		except:
-			raise IOError("Oracle Java archiver not found at path: {}".format(self._javaArchiverPath))
+			raise FileNotFoundError("Java archiver not found at path: {}".format(self._javaArchiverPath))
 
 
 	####################################################################################################################

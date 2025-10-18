@@ -28,17 +28,13 @@
 from __future__ import unicode_literals, division, print_function
 
 import csbuild
-import os
-
-from csbuild.tools.common.android_tool_base import AndroidStlLibType
 
 csbuild.SetOutputDirectory("out")
 
 with csbuild.Project("hello_world", "hello_world"):
-	csbuild.SetAndroidTargetSdkVersion(26)
-	csbuild.SetAndroidManifestFilePath(os.path.join("hello_world", "AndroidManifest.xml"))
-	csbuild.SetAndroidStlLibType(AndroidStlLibType.LibCpp)
-	csbuild.SetAndroidNativeAppGlue(True)
-	csbuild.SetSupportedToolchains("android-gcc", "android-clang")
-	csbuild.AddLibraries("EGL", "GLESv2")
+	csbuild.SetAndroidMinimumSdkVersion(31)
+	csbuild.SetAndroidTargetSdkVersion(35)
+	csbuild.SetSupportedToolchains("android")
+	csbuild.AddLibraries("log", "c++_shared", "EGL", "GLESv2")
+	csbuild.SetAndroidNativeAppGlueEnabled(True)
 	csbuild.SetOutput("hello_world", csbuild.ProjectType.Application)
