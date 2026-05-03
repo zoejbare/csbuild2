@@ -113,7 +113,7 @@ class MsvcCppCompiler(MsvcToolBase, CppCompilerBase):
 
 	def _getCustomArgs(self, project, isCpp):
 		_ignore(project)
-		return self._globalFlags + self._cxxFlags if isCpp else self._cFlags
+		return self._globalFlags + (self._cxxFlags if isCpp else self._cFlags)
 
 	def _getDebugArgs(self):
 		arg = {

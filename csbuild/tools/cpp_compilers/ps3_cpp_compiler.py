@@ -102,7 +102,7 @@ class Ps3CppCompiler(Ps3BaseTool, CppCompilerBase):
 		return os.path.join(self._ps3SystemBinPath, self._compilerExeName[1] if isCpp else self._compilerExeName[0])
 
 	def _getCustomArgs(self, isCpp):
-		return self._globalFlags + self._cxxFlags if isCpp else self._cFlags
+		return self._globalFlags + (self._cxxFlags if isCpp else self._cFlags)
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", inputFile.filename]

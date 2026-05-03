@@ -96,7 +96,7 @@ class PsVitaCppCompiler(PsVitaBaseTool, CppCompilerBase):
 		return os.path.join(binPath, exeName)
 
 	def _getCustomArgs(self, isCpp):
-		return self._globalFlags + self._cxxFlags if isCpp else self._cFlags
+		return self._globalFlags + (self._cxxFlags if isCpp else self._cFlags)
 
 	def _getInputFileArgs(self, inputFile):
 		return ["-c", inputFile.filename]
